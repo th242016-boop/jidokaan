@@ -1,5 +1,18 @@
+[variables]
+NITRO_PRESET = "node-server"
+NIXPACKS_NODE_VERSION = "22.14.0"
+NPM_CONFIG_PRODUCTION = "false"
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+
+
 [phases.setup]
 nixPkgs = ["nodejs_22"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
 
 [start]
 cmd = "npm run db:migrate && npm start"
