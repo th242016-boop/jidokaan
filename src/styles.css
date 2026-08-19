@@ -1,0 +1,213 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  /* Atmosphere aligned to hero product shot: deep charcoal + cool spotlight */
+  --color-bg: #05070c;
+  --color-surface: #0e0e12;
+  --color-surface-muted: #16161c;
+  --color-fg: #f2f2f4;
+  --color-muted: #9a9aa3;
+  --color-subtle: #6b6b75;
+  --color-border: #23232b;
+  --color-border-strong: #353540;
+  --color-primary: #f2f2f4;
+  --color-primary-fg: #07070a;
+  --color-primary-hover: #e4e4e8;
+  --color-accent: #dc2626;
+  --color-accent-soft: #2a1010;
+  --color-success: #34d399;
+  --color-danger: #f87171;
+  --color-ring: #e8e8ec;
+
+  --font-sans: "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+  --font-display: "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 1.75rem;
+  --radius-full: 9999px;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.45), 0 12px 40px rgb(0 0 0 / 0.45);
+  --shadow-lift: 0 4px 20px rgb(0 0 0 / 0.5), 0 28px 56px rgb(0 0 0 / 0.4);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  select option {
+    color: #111111;
+    background-color: #ffffff;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    /* Deep stage + soft top spotlight like product plate */
+    background-color: var(--color-bg);
+    background-image:
+      radial-gradient(
+        ellipse 90% 55% at 50% -5%,
+        rgba(95, 100, 120, 0.28) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse 70% 50% at 50% 100%,
+        rgba(20, 22, 30, 0.55) 0%,
+        transparent 50%
+      ),
+      radial-gradient(circle at 50% 40%, rgba(28, 30, 40, 0.35), transparent 62%);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 35%, transparent);
+  }
+}
+
+/* Admin is a light desk — storefront tokens are dark-on-black */
+.admin-ui {
+  --color-bg: #e8eaee;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f2f4;
+  --color-fg: #111111;
+  --color-muted: #222222;
+  --color-subtle: #3f3f46;
+  --color-border: #c5c7cc;
+  --color-border-strong: #8b8d94;
+  --color-primary: #111111;
+  --color-primary-fg: #ffffff;
+  --color-primary-hover: #2a2a2a;
+  --color-ring: #111111;
+  color: #111111;
+  background: #e8eaee;
+}
+
+.admin-ui input,
+.admin-ui textarea,
+.admin-ui select {
+  color: #111111;
+  background-color: #ffffff;
+}
+
+.admin-ui input::placeholder,
+.admin-ui textarea::placeholder {
+  color: #52525b;
+}
+
+@layer utilities {
+  .container-page {
+    width: 100%;
+    max-width: 72rem;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-page {
+      padding-inline: 2rem;
+    }
+  }
+
+  .flag-scroller {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .flag-scroller::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .focus-ring {
+    outline: none;
+  }
+
+  .focus-ring:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-ring);
+  }
+
+  /* Shared atmospheric panel (story cards, surfaces) */
+  .atmosphere-panel {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(22, 22, 28, 0.92) 0%,
+        rgba(12, 12, 16, 0.96) 100%
+      );
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+}
+
+@keyframes float-shoe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-28px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  @keyframes float-shoe {
+    0%,
+    100% {
+      transform: none;
+    }
+  }
+}
