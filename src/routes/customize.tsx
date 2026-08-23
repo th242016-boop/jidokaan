@@ -7,6 +7,7 @@ import { LayerSimulator } from "@/components/customizer/layer-simulator";
 import { Button } from "@/components/ui/button";
 import {
   currencyForCountry,
+  colorLabel,
   formatProductPrice,
   t,
 } from "@/lib/i18n";
@@ -19,7 +20,6 @@ import {
 } from "@/lib/simulator-config";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { RepairNotice } from "@/components/store/repair-notice";
 
 export const Route = createFileRoute("/customize")({
   component: CustomizePage,
@@ -105,6 +105,7 @@ function CustomizePage() {
           showGuide={showGuide}
           onGuideChange={setShowGuide}
           onPreviewClick={() => setZoomed(true)}
+          guideLabel={dict.custom.guideToggle}
           className="absolute inset-0"
         />
         <p className="pointer-events-none absolute bottom-2 left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/50 px-2.5 py-1 text-[9px] font-semibold text-white/90 md:bottom-4 md:text-[11px]">
@@ -118,11 +119,11 @@ function CustomizePage() {
             JIDOKAAN
           </h1>
           <p className="mt-0.5 mb-0 text-[11px] font-medium text-[#999]">
-            Custom Studio
+            {dict.custom.studioLabel}
           </p>
           <p className="mt-1.5 mb-0 flex items-center text-[11px] font-semibold tracking-[0.5px] text-[#d0021b]">
             <span className="mr-1.5 text-sm">ⓘ</span>
-            Click GUIDE ON/OFF to check the parts.
+            {dict.custom.guideClick}
           </p>
         </div>
 
@@ -152,7 +153,7 @@ function CustomizePage() {
                         <button
                           key={`${part.id}-${opt.name}`}
                           type="button"
-                          title={opt.name}
+                          title={colorLabel(locale, opt.name)}
                           onClick={() =>
                             setPartColor(part.id, opt.color, opt.name)
                           }
@@ -177,7 +178,7 @@ function CustomizePage() {
                             className="absolute inset-0 flex items-center justify-center p-0.5 text-center text-[8px] font-bold leading-[1.1] break-words md:text-[10px]"
                             style={{ color: opt.isBright ? "#000" : "#fff" }}
                           >
-                            {opt.name}
+                            {colorLabel(locale, opt.name)}
                           </span>
                         </button>
                       );
@@ -190,7 +191,7 @@ function CustomizePage() {
             <div className="border-t border-[#eee] pt-6">
               <div className="mb-2.5 flex flex-wrap items-center gap-2">
                 <span className="border-l-4 border-black pl-2.5 text-sm font-bold">
-                  SIZE
+                  {dict.custom.sizeLabel}
                 </span>
                 <div className="flex gap-1.5">
                   {(["men", "women"] as const).map((g) => (
@@ -240,7 +241,6 @@ function CustomizePage() {
               <p className="text-[12px] leading-relaxed text-neutral-600 md:text-[13px]">
                 {dict.custom.sizeGuideBody}
               </p>
-              <RepairNotice className="mt-4 border-[#ddd]" />
             </div>
           </div>
         </div>

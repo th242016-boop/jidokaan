@@ -20,10 +20,16 @@ export const Route = createFileRoute("/api/orders")({
     handlers: {
       GET: async ({ request }) => {
         try {
-          const token = new URL(request.url).searchParams.get("token") ?? "";
+          const url = new URL(request.url);
+          const header = request.headers.get("authorization") ?? "";
+          const bearer = header.toLowerCase().startsWith("bearer ")
+            ? header.slice(7).trim()
+            : "";
+          const token = url.searchParams.get("token") ?? bearer;
           return json({ orders: await listOrders(token) });
-        } catch {
-          return json({ error: "AUTH" }, 401);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "fail";
+          return json({ error: message }, message === "AUTH" ? 401 : 500);
         }
       },
       POST: async ({ request }) => {

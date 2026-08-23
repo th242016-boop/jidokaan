@@ -19,6 +19,7 @@ export function LayerSimulator({
   onGuideChange,
   hideChrome,
   onPreviewClick,
+  guideLabel,
 }: {
   colors: PartColors;
   colorNames?: PartColorNames;
@@ -27,6 +28,7 @@ export function LayerSimulator({
   onGuideChange?: (v: boolean) => void;
   hideChrome?: boolean;
   onPreviewClick?: () => void;
+  guideLabel?: string;
 }) {
   const [internalGuide, setInternalGuide] = useState(false);
   const showGuide = controlledGuide ?? internalGuide;
@@ -49,7 +51,7 @@ export function LayerSimulator({
           onClick={() => setGuide(!showGuide)}
           className="absolute top-3 right-3 z-20 rounded-[30px] border border-white/30 bg-black/60 px-3 py-1.5 text-[10px] font-bold tracking-[0.5px] text-white shadow-[0_4px_10px_rgba(0,0,0,0.15)] backdrop-blur-[4px] transition active:scale-95 md:top-5 md:right-5 md:px-4 md:py-2 md:text-[11px]"
         >
-          GUIDE ON/OFF
+          {guideLabel ?? "GUIDE ON/OFF"}
         </button>
       )}
 
