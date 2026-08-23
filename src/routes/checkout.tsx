@@ -3,7 +3,11 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ProductVisual } from "@/components/store/product-visual";
+import {
+  CartItemVisual,
+  customSpecLine,
+  hasCustomSpec,
+} from "@/components/store/cart-item-visual";
 import { SiteShell } from "@/components/store/site-shell";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import {
@@ -183,6 +187,8 @@ function CheckoutPage() {
           size: item.size,
           priceKrw: product.priceKrw + (item.extraKrw ?? 0),
           priceUsd: Math.round((product.priceUsd + (item.extraUsd ?? 0)) / 100),
+          partNames: item.partNames,
+          partColors: item.partColors,
         };
       })
       .filter(Boolean);
@@ -458,26 +464,28 @@ function CheckoutPage() {
             <h2 className="mb-4 text-base font-semibold">
               {dict.checkout.summary}
             </h2>
+            {cart.some(hasCustomSpec) ? (
+              <div className="mb-5 overflow-hidden rounded-2xl border border-border bg-[#111]">
+                <div className="aspect-square w-full">
+                  <CartItemVisual
+                    item={cart.find(hasCustomSpec) ?? cart[0]}
+                    className="h-full w-full"
+                  />
+                </div>
+              </div>
+            ) : null}
             <div className="space-y-3">
               {cart.map((item) => {
                 const product = getProduct(item.productId);
                 if (!product) return null;
-                const swatches = item.partColors
-                  ? Object.values(item.partColors).slice(0, 8)
-                  : [];
+                const spec = customSpecLine(item);
                 return (
                   <div
                     key={`${item.productId}-${item.size ?? ""}-${item.color ?? ""}`}
                     className="flex gap-3"
                   >
-                    <div className="size-16 shrink-0 overflow-hidden rounded-xl">
-                      <ProductVisual
-                        product={product}
-                        className="size-full rounded-xl"
-                        upperColor={item.partColors?.a ?? item.color}
-                        stripeColor={item.partColors?.e}
-                        soleColor={item.partColors?.k}
-                      />
+                    <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-[#111]">
+                      <CartItemVisual item={item} className="size-full" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
@@ -487,16 +495,10 @@ function CheckoutPage() {
                         {dict.cart.qty} {item.qty}
                         {item.size ? ` · ${item.size}mm` : ""}
                       </p>
-                      {swatches.length > 0 ? (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {swatches.map((c, idx) => (
-                            <span
-                              key={idx}
-                              className="size-3 rounded-full border border-border"
-                              style={{ background: c }}
-                            />
-                          ))}
-                        </div>
+                      {spec ? (
+                        <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-subtle">
+                          {spec}
+                        </p>
                       ) : null}
                     </div>
                     <p className="price-num shrink-0 text-sm font-medium">
