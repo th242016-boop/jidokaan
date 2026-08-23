@@ -123,38 +123,20 @@ export function SiteFooter() {
       <div className="border-t border-white/[0.05]">
         <div className="container-page flex flex-col items-center justify-between gap-3 py-5 sm:flex-row">
           <p className="text-xs text-subtle">
-            © {year} {dict.brandEn}. All rights reserved.
+            © {year} {dict.brandEn}. {dict.footer.rights}
           </p>
           <div className="flex items-center gap-4">
-            <Link
-              to="/cart"
-              className="text-[11px] text-subtle/70 hover:text-muted"
-            >
-              {dict.cart.title}
-            </Link>
-            <Link
-              to="/privacy"
-              className="text-[11px] text-subtle/70 hover:text-muted"
-            >
-              {dict.footer.privacy}
-            </Link>
-            <Link
-              to="/terms"
-              className="text-[11px] text-subtle/70 hover:text-muted"
-            >
-              {dict.footer.terms}
-            </Link>
             <Link
               to="/faq"
               className="text-[11px] text-subtle/70 hover:text-muted"
             >
-              FAQ
+              {dict.footer.faq}
             </Link>
             <Link
               to="/contact"
               className="text-[11px] text-subtle/70 hover:text-muted"
             >
-              문의
+              {dict.footer.contact}
             </Link>
             <Link
               to="/admin"
