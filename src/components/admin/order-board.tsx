@@ -23,8 +23,13 @@ export function OrderBoard({ token }: { token: string }) {
 
   async function load() {
     const res = await fetch(`/api/orders?token=${encodeURIComponent(token)}`);
-    const data = (await res.json()) as { orders?: StoreOrder[] };
-    setOrders(data.orders ?? []);
+    const data = (await res.json()) as { orders?: StoreOrder[]; error?: string };
+    if (!res.ok) {
+      setMsg(data.error === "AUTH" ? "다시 로그인해 주세요." : "주문 목록을 불러오지 못했습니다.");
+      setOrders([]);
+      return;
+    }
+    setOrders(Array.isArray(data.orders) ? data.orders : []);
   }
 
   useEffect(() => {
