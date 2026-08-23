@@ -64,6 +64,11 @@ function parseJson<T>(raw: string | null | undefined, fallback: T): T {
   }
 }
 
+/**
+ * Upserts the grok.me PRODUCTS catalog even when catalog_products is not empty,
+ * then deletes SKUs that are not on grok.me (legacy drone-black/white, ring-red/mint,
+ * lace-pack, care-kit, jidokaan-patch, and any other non-PRODUCTS rows).
+ */
 export async function seedIfEmpty() {
   const sql = await db();
   await sql.query(`
@@ -80,16 +85,29 @@ export async function seedIfEmpty() {
       value text not null
     )
   `);
-  const count = await sql<{ n: number }>`select count(*)::int as n from catalog_products`;
-  if ((count[0]?.n ?? 0) === 0) {
-    for (let i = 0; i < PRODUCTS.length; i++) {
-      const p = normalizeProduct(PRODUCTS[i]);
-      await sql.query(
-        "insert into catalog_products (id, data, sort) values ($1, $2::jsonb, $3) on conflict (id) do nothing",
-        [p.id, JSON.stringify(p), i],
-      );
-    }
+  const keepIds = PRODUCTS.map((p) => p.id);
+  for (let i = 0; i < PRODUCTS.length; i++) {
+    const p = normalizeProduct(PRODUCTS[i]);
+    await sql.query(
+      `insert into catalog_products (id, data, sort, updated_at)
+       values ($1, $2::jsonb, $3, now())
+       on conflict (id) do update set data = excluded.data, sort = excluded.sort, updated_at = now()`,
+      [p.id, JSON.stringify(p), i],
+    );
   }
+  const legacyOffGrokMe = [
+    "drone-black",
+    "drone-white",
+    "ring-red",
+    "ring-mint",
+    "lace-pack",
+    "care-kit",
+    "jidokaan-patch",
+  ];
+  await sql.query(
+    "delete from catalog_products where id <> all($1::text[]) or id = any($2::text[])",
+    [keepIds, legacyOffGrokMe],
+  );
   const pin = await sql<{ value: string }>`
     select value from site_settings where key = ${"admin_pin"}
   `;
