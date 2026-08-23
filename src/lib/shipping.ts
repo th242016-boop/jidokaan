@@ -152,23 +152,26 @@ export function quoteShipping(opts: {
 export function shipCopy(locale: string) {
   const ko = locale === "ko";
   return {
-    standard: ko ? "일반 (EMS·택배)" : "Standard (tracked)",
-    express: ko ? "특급 (DHL급)" : "Express (DHL-speed)",
+    standard: ko ? "택배 (추적)" : "Tracked courier",
+    express: ko ? "특급" : "Express",
     days: ko ? "배송" : "transit",
-    makeDays: ko ? "제작 약 10일 +" : "Handmade ~10 days +",
+    makeDays: ko ? "제작 평균 20~30일 +" : "Handmade typically 20–30 days +",
     dutyTitle: ko ? "관세·부가세" : "Duties & tax",
     dutyBody: ko
-      ? "해외 배송은 DAP입니다. 배송비는 결제 시 확정되고, 도착국 관세·부가세가 있으면 수령 시 그 나라에서 따로 냅니다. 미국·대부분 국가는 소액이면 없는 경우가 많습니다."
-      : "International orders ship DAP. Shipping is paid at checkout. If your country charges import duty/VAT, it is collected on delivery — not added here. Many destinations waive this on a single pair.",
+      ? "해외 배송은 Winning Boxing·TITLE Boxing과 같이 DAP입니다. 배송비는 결제 시 나오고, 도착국 관세·부가세가 있으면 수령인이 따로 냅니다. PO Box·택배 대행지는 받을 수 없습니다."
+      : "Like Winning Boxing and TITLE Boxing, we ship DAP. Shipping is paid at checkout. Import duty/VAT, if charged, is paid by the recipient — not added here. PO Boxes and freight-forwarding addresses are not accepted.",
     freeIntl: ko
-      ? "커스텀 1켤레(₩288,000 / $230)부터 전 세계 일반 배송 무료"
-      : "Free worldwide standard shipping from one custom pair ($230 / ₩288,000)",
-    freeKr: ko ? "국내 ₩50,000 이상 택배 무료" : "Free Korean courier over ₩50,000",
+      ? "커스텀 1켤레(₩288,000 / $230)부터 전 세계 배송비 무료"
+      : "Free worldwide shipping from one custom pair ($230 / ₩288,000)",
+    freeKr: ko ? "국내는 택배로 발송합니다." : "Korea: domestic courier.",
     extra: ko
-      ? "추가 켤레는 일반 배송비의 40%만 더해집니다."
+      ? "추가 켤레는 배송비의 40%만 더해집니다."
       : "Each extra pair adds 40% of the first-pair rate.",
     production: ko
-      ? "수제 제작 약 10일 후 성수에서 출고합니다."
-      : "Hand-built ~10 days, then ships from Seongsu, Seoul.",
+      ? "주문 후 제작 상품으로 평균적으로 20~30일 정도 소요됩니다."
+      : "Made-to-order items typically take about 20–30 days after you order.",
+    autoShip: ko
+      ? "배송 방법은 고르지 않습니다. 한국은 국내 택배, 해외는 DHL 또는 EMS 추적 택배로 보냅니다."
+      : "No shipping-method choice. Korea: domestic courier. International: tracked DHL or EMS.",
   };
 }

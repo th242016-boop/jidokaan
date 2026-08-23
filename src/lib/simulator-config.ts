@@ -354,6 +354,38 @@ export function defaultPartNames(): PartColorNames {
   return out;
 }
 
+/** L follows D if D is not WHITE/BLACK, else I — grok.me store. */
+export function lineFromParts(
+  dName: string | undefined,
+  _dColor: string | undefined,
+  iName: string,
+  iColor: string,
+  aName: string,
+  aColor: string,
+) {
+  const n = (dName || "WHITE").toUpperCase();
+  if (n === "WHITE" || n === "BLACK") return { name: iName, color: iColor };
+  return { name: aName, color: aColor };
+}
+
+export function formatCartSize(
+  item: { size?: string; sizeFit?: "men" | "women" },
+  locale: string,
+) {
+  if (!item.size) return "";
+  const fit =
+    item.sizeFit === "women"
+      ? locale === "ko"
+        ? "여성"
+        : "Women"
+      : item.sizeFit === "men"
+        ? locale === "ko"
+          ? "남성"
+          : "Men"
+        : "";
+  return fit ? `${item.size} (${fit})` : `${item.size}mm`;
+}
+
 export const SIM_ASSET = (file: string) => `/simulator/${file}`;
 export const PHOTO_ASSET = (file: string) => `/simulator/photo/${file}?v=c1`;
 export const PHOTO_BASE = "/simulator/photo/base.jpg?v=c3";
