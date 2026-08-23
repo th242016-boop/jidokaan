@@ -56,17 +56,46 @@ export const Route = createFileRoute("/admin")({
 
 const TOKEN_KEY = "jidokaan-admin-token";
 
+const TOKEN_MAX_AGE = 12 * 60 * 60;
+
+function cookieToken(): string {
+  if (typeof document === "undefined") return "";
+  const parts = document.cookie.split(";").map((c) => c.trim());
+  const hit = parts.find((c) => c.startsWith(`${TOKEN_KEY}=`));
+  return hit ? decodeURIComponent(hit.slice(TOKEN_KEY.length + 1)) : "";
+}
+
 function readToken() {
   try {
-    return sessionStorage.getItem(TOKEN_KEY) ?? "";
+    return (
+      localStorage.getItem(TOKEN_KEY) ??
+      sessionStorage.getItem(TOKEN_KEY) ??
+      cookieToken()
+    );
   } catch {
-    return "";
+    return cookieToken();
   }
 }
 
 function writeToken(token: string) {
   try {
-    sessionStorage.setItem(TOKEN_KEY, token);
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+      sessionStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    if (typeof document === "undefined") return;
+    if (token) {
+      document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; Path=/; Max-Age=${TOKEN_MAX_AGE}; SameSite=Lax`;
+    } else {
+      document.cookie = `${TOKEN_KEY}=; Path=/; Max-Age=0; SameSite=Lax`;
+    }
   } catch {
     /* ignore */
   }
@@ -195,7 +224,7 @@ function AdminPage() {
           <p className="text-sm text-[#333]">
             {catalog.hasPin
               ? "비밀번호를 입력하면 상품과 회사 정보를 직접 수정할 수 있습니다."
-              : "처음입니다. 관리자 비밀번호를 8자 이상으로 만들어 주세요. 이 비밀번호는 사장님만 아세요."}
+              : "처음입니다. 관리자 비밀번호를 8자 이상으로 만들어 주세요. 숫자·영문·특수문자를 쓸 수 있습니다. 이 비밀번호는 사장님만 아세요."}
           </p>
           {catalog.hasPin ? (
             <div className="space-y-1.5">
@@ -203,6 +232,8 @@ function AdminPage() {
               <Input
                 id="pin"
                 type="password"
+                inputMode="text"
+                autoComplete="current-password"
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
                 required
@@ -214,6 +245,8 @@ function AdminPage() {
               <Input
                 id="nextPin"
                 type="password"
+                inputMode="text"
+                autoComplete="new-password"
                 value={nextPin}
                 onChange={(e) => setNextPin(e.target.value)}
                 required
