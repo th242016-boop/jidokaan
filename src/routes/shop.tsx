@@ -6,7 +6,7 @@ import { SiteShell } from "@/components/store/site-shell";
 import { t } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
-import { majorsOf, sortForDisplay } from "@/lib/shop-taxonomy";
+import { majorsOf } from "@/lib/shop-taxonomy";
 import { SeoTags } from "@/components/seo-tags";
 
 const searchSchema = z.object({
@@ -43,7 +43,7 @@ function ShopPage() {
       case "rating":
         return list.sort((a, b) => b.rating - a.rating);
       default:
-        return sortForDisplay(list);
+        return list;
     }
   }, [sort, catalog.products, major]);
 

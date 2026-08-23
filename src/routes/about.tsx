@@ -22,10 +22,10 @@ function AboutPage() {
             className="mb-6"
             imgClassName="h-12 w-auto max-w-[220px]"
           />
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h1 className="whitespace-pre-line text-3xl font-semibold tracking-tight sm:text-4xl">
             {dict.about.title}
           </h1>
-          <p className="mt-5 text-lg leading-relaxed text-muted">
+          <p className="mt-5 whitespace-pre-line text-lg leading-relaxed text-muted">
             {dict.about.body}
           </p>
           <div className="mt-10 rounded-3xl border border-border bg-surface p-6 sm:p-8">

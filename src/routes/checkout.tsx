@@ -20,6 +20,7 @@ import {
   t,
 } from "@/lib/i18n";
 import { getProduct } from "@/lib/products";
+import { formatCartSize } from "@/lib/simulator-config";
 import { quoteShipping, shipCopy, type ShipMethod } from "@/lib/shipping";
 import { useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
@@ -481,7 +482,7 @@ function CheckoutPage() {
                 const spec = customSpecLine(item);
                 return (
                   <div
-                    key={`${item.productId}-${item.size ?? ""}-${item.color ?? ""}`}
+                    key={`${item.productId}-${item.size ?? ""}-${item.sizeFit ?? ""}-${item.color ?? ""}`}
                     className="flex gap-3"
                   >
                     <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-[#111]">
@@ -493,7 +494,7 @@ function CheckoutPage() {
                       </p>
                       <p className="text-xs text-muted">
                         {dict.cart.qty} {item.qty}
-                        {item.size ? ` · ${item.size}mm` : ""}
+                        {item.size ? ` · ${formatCartSize(item, locale)}` : ""}
                       </p>
                       {spec ? (
                         <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-subtle">
