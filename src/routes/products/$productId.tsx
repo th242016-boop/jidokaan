@@ -20,6 +20,7 @@ import { useCatalog } from "@/lib/use-catalog";
 import { SeoTags } from "@/components/seo-tags";
 import { trackStoreEvent } from "@/components/analytics-tracker";
 import type { StoreReview } from "@/lib/order-types";
+import { RepairNotice } from "@/components/store/repair-notice";
 
 export const Route = createFileRoute("/products/$productId")({
   component: ProductPage,
@@ -106,6 +107,10 @@ function ProductDetail({
   const optionOk = !optionOn || Boolean(sku && sku.stock > 0);
 
   function handleAdd() {
+    if (!product.inStock) {
+      toast.error(dict.shop.outOfStock);
+      return;
+    }
     if (optionOn && !optionOk) {
       toast.error(locale === "ko" ? "품절이거나 없는 옵션입니다." : "Option unavailable");
       return;
@@ -205,11 +210,17 @@ function ProductDetail({
               ) : null}
             </div>
 
+            <p className="mt-3 text-sm font-medium">
+              {product.inStock ? dict.shop.inStock : dict.shop.outOfStock}
+            </p>
+
             {product.customizable ? (
               <p className="mt-4 rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-muted">
                 {dict.product.customHint}
               </p>
             ) : null}
+
+            <RepairNotice className="mt-4" />
 
             <div className="mt-8 space-y-6">
               {optionOn ? (
@@ -329,7 +340,7 @@ function ProductDetail({
                   size="lg"
                   className="flex-1"
                   onClick={handleAdd}
-                  disabled={!optionOk && !product.customizable}
+                  disabled={!product.inStock || (!optionOk && !product.customizable)}
                 >
                   {justAdded ? (
                     <>
@@ -340,15 +351,21 @@ function ProductDetail({
                   )}
                 </Button>
               )}
-              <Button
-                size="lg"
-                variant="secondary"
-                className="flex-1"
-                asChild
-                onClick={handleAdd}
-              >
-                <Link to="/checkout">{dict.product.buyNow}</Link>
-              </Button>
+              {product.inStock ? (
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="flex-1"
+                  asChild
+                  onClick={handleAdd}
+                >
+                  <Link to="/checkout">{dict.product.buyNow}</Link>
+                </Button>
+              ) : (
+                <Button size="lg" variant="secondary" className="flex-1" disabled>
+                  {dict.shop.outOfStock}
+                </Button>
+              )}
             </div>
 
             <div className="mt-6 space-y-3">
