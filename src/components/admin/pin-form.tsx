@@ -44,13 +44,15 @@ export function PinForm({
     >
       <h2 className="text-sm font-semibold">관리자 비밀번호 변경</h2>
       <p className="text-sm text-[#333]">
-        로그인 후에만 바꿀 수 있습니다. 바꾼 비밀번호는 암호화되어 저장됩니다.
+        로그인 후에만 바꿀 수 있습니다. 숫자·영문·특수문자 모두 가능합니다. 바꾼 비밀번호는 암호화되어 저장됩니다.
       </p>
       <div className="space-y-1.5">
         <Label htmlFor="cur-pin">현재 비밀번호</Label>
         <Input
           id="cur-pin"
           type="password"
+          inputMode="text"
+          autoComplete="current-password"
           value={current}
           onChange={(e) => setCurrent(e.target.value)}
           required
@@ -61,6 +63,8 @@ export function PinForm({
         <Input
           id="new-pin"
           type="password"
+          inputMode="text"
+          autoComplete="new-password"
           value={next}
           onChange={(e) => setNext(e.target.value)}
           required
@@ -72,6 +76,8 @@ export function PinForm({
         <Input
           id="new-pin2"
           type="password"
+          inputMode="text"
+          autoComplete="new-password"
           value={again}
           onChange={(e) => setAgain(e.target.value)}
           required
@@ -79,7 +85,7 @@ export function PinForm({
         />
       </div>
       {err ? <p className="text-sm text-danger">{err}</p> : null}
-      {ok ? <p className="text-sm text-green-700">비밀번호를 바꿨습니다. 다음 로그인부터 새 번호를 쓰세요.</p> : null}
+      {ok ? <p className="text-sm text-green-700">비밀번호를 바꿨습니다. 다음 로그인부터 새 비밀번호를 쓰세요.</p> : null}
       <Button type="submit" disabled={busy}>
         {busy ? "저장 중…" : "비밀번호 변경"}
       </Button>

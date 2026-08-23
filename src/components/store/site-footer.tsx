@@ -127,6 +127,24 @@ export function SiteFooter() {
           </p>
           <div className="flex items-center gap-4">
             <Link
+              to="/cart"
+              className="text-[11px] text-subtle/70 hover:text-muted"
+            >
+              {dict.cart.title}
+            </Link>
+            <Link
+              to="/privacy"
+              className="text-[11px] text-subtle/70 hover:text-muted"
+            >
+              {dict.footer.privacy}
+            </Link>
+            <Link
+              to="/terms"
+              className="text-[11px] text-subtle/70 hover:text-muted"
+            >
+              {dict.footer.terms}
+            </Link>
+            <Link
               to="/faq"
               className="text-[11px] text-subtle/70 hover:text-muted"
             >

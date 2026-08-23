@@ -19,6 +19,7 @@ import {
 } from "@/lib/simulator-config";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { RepairNotice } from "@/components/store/repair-notice";
 
 export const Route = createFileRoute("/customize")({
   component: CustomizePage,
@@ -239,6 +240,7 @@ function CustomizePage() {
               <p className="text-[12px] leading-relaxed text-neutral-600 md:text-[13px]">
                 {dict.custom.sizeGuideBody}
               </p>
+              <RepairNotice className="mt-4 border-[#ddd]" />
             </div>
           </div>
         </div>
