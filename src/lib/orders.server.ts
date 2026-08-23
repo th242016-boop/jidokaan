@@ -39,7 +39,18 @@ export async function ensureOrderTables() {
 }
 
 function asJson<T>(data: unknown): T {
-  return (typeof data === "string" ? JSON.parse(data) : data) as T;
+  if (data == null) return {} as T;
+  if (typeof data === "string") return JSON.parse(data) as T;
+  if (typeof Buffer !== "undefined" && Buffer.isBuffer(data)) {
+    return JSON.parse(data.toString("utf8")) as T;
+  }
+  return data as T;
+}
+
+/** HOOK PLACEHOLDER — wire email/Kakao later. Do not call vendor APIs here. */
+export async function sendOrderNotifications(order: StoreOrder) {
+  void order;
+  // no-op: guest order is already persisted. Add Resend/Kakao later without secrets in repo.
 }
 
 export async function countOrdersByEmail(email: string) {
@@ -116,6 +127,11 @@ export async function placeOrder(
     "insert into store_orders (id, data, status) values ($1, $2::jsonb, $3)",
     [order.id, JSON.stringify(order), order.status],
   );
+  try {
+    await sendOrderNotifications(order);
+  } catch {
+    /* notify must never fail the order */
+  }
   return order;
 }
 
@@ -126,7 +142,10 @@ export async function listOrders(token: string): Promise<StoreOrder[]> {
   const rows = await sql.query<{ data: unknown }>(
     "select data from store_orders order by created_at desc limit 200",
   );
-  return rows.map((r) => asJson<StoreOrder>(r.data)).filter((o) => o?.id);
+  const list = Array.isArray(rows) ? rows : [];
+  return list
+    .map((r) => asJson<StoreOrder>(r?.data))
+    .filter((o) => Boolean(o?.id));
 }
 
 export async function updateOrder(
