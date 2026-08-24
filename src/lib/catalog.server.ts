@@ -92,7 +92,7 @@ export async function seedIfEmpty() {
       `insert into catalog_products (id, data, sort, updated_at)
        values ($1, $2::jsonb, $3, now())
        on conflict (id) do update set data = excluded.data, sort = excluded.sort, updated_at = now()`,
-      [p.id, JSON.stringify(p), i],
+      [p.id, JSON.stringify(p), p.sortOrder ?? i + 1],
     );
   }
   const legacyOffGrokMe = [
