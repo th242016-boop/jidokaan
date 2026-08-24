@@ -513,11 +513,11 @@ const EN: Dictionary = {
     continue: "Back to shop",
   },
   about: {
-    title: "JIDOKAAN — custom handmade boxing shoes",
-    body: "Korea’s first custom handmade boxing shoe brand. Built one pair at a time in Seongsu, shipped to fighters worldwide.",
+    title: "Boxing shoes born from 15 years of handmade footwear",
+    body: "It started with a pair I made to wear myself. Friends responded so strongly that it became a brand. Next we grow into a specialist that custom-builds shoes for more sports — not only boxing.",
     mission: "Our promise",
     missionBody:
-      "Comfort is a given. Keep the quality, keep the price honest — and let every fighter wear their own colors.",
+      "Handmade at JIDOKAAN may not be the flawless shine of a luxury bag. What we do promise — more confidently than any other brand — is a one-of-one design that is yours, and a fit you will not forget once you put them on.",
     address: "36, Seongsui-ro 18-gil, Seongdong-gu, Seoul",
     hours: "10:00 – 18:00 (lunch 12–13)",
     studio: "Studio",
@@ -783,11 +783,11 @@ export const DICT: Record<Locale, Dictionary> = {
       continue: "샵으로 돌아가기",
     },
     about: {
-      title: "지도칸 — 수제 커스텀 복싱화",
-      body: "JIDOKAAN은 국내 최초로 커스텀 제작이 가능한 수제 복싱화를 만듭니다. 성수 공방에서 한 켤레씩 제작하며, 전 세계 복서에게 보냅니다.",
+      title: "15년 수제화 경력에서 시작된 복싱화",
+      body: "처음에는 내가 신을 복싱화를 직접 만들며 시작했습니다. 주변의 폭발적인 반응으로 지금까지 이어졌고, 앞으로는 복싱을 넘어 더 많은 스포츠의 커스텀 신발을 만드는 전문화된 기업으로 성장하려 합니다.",
       mission: "우리의 약속",
       missionBody:
-        "착용감은 덤. 품질은 그대로, 가격은 아래로. 원하는 컬러로 나만의 복싱화를 신을 수 있어야 한다는 믿음으로 만들었습니다.",
+        "지도칸이 말하는 '수제'는 명품 가방 같은 무결점의 화려함이 아닐지도 모릅니다. 하지만 세상에 단 하나뿐인 당신만의 맞춤 디자인, 그리고 한 번 신으면 잊을 수 없는 압도적인 착용감만큼은 그 어떤 브랜드보다 자신 있게 약속합니다.",
       address: "서울특별시 성동구 성수이로18길 36",
       hours: "오전 10시 – 오후 6시 (점심 12–1시)",
       studio: "공방",
