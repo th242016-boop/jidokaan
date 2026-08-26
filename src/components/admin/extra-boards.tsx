@@ -466,10 +466,16 @@ export function CouponBoard({
 
 export function CustomerBoard({ token }: { token: string }) {
   const [orders, setOrders] = useState<StoreOrder[]>([]);
+  const [members, setMembers] = useState<
+    { id: string; name: string; email: string; createdAt: string; providers: string[] }[]
+  >([]);
   useEffect(() => {
     void fetch(`/api/orders?token=${encodeURIComponent(token)}`)
       .then((r) => r.json())
       .then((d) => setOrders(d.orders ?? []));
+    void fetch(`/api/members?token=${encodeURIComponent(token)}`)
+      .then((r) => r.json())
+      .then((d) => setMembers(d.members ?? []));
   }, [token]);
   const people = new Map<string, { name: string; email: string; n: number; sum: number }>();
   for (const o of orders) {
@@ -484,34 +490,77 @@ export function CustomerBoard({ token }: { token: string }) {
   }
   const rows = [...people.values()].sort((a, b) => b.n - a.n);
   return (
-    <div className="overflow-x-auto rounded border border-[#d5d7dc] bg-white">
-      <table className="w-full min-w-[520px] text-left text-sm">
-        <thead className="bg-[#f6f7f8] text-xs">
-          <tr>
-            <th className="px-3 py-2">고객</th>
-            <th className="px-3 py-2">이메일</th>
-            <th className="px-3 py-2">주문수</th>
-            <th className="px-3 py-2">누적금액</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.email || r.name} className="border-t border-[#eee]">
-              <td className="px-3 py-2">{r.name}</td>
-              <td className="px-3 py-2">{r.email}</td>
-              <td className="px-3 py-2">{r.n}</td>
-              <td className="px-3 py-2">₩{r.sum.toLocaleString()}</td>
-            </tr>
-          ))}
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={4} className="px-4 py-10 text-center text-[#555]">
-                주문이 생기면 고객이 여기 모입니다.
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
+    <div className="space-y-8">
+      <section>
+        <h2 className="mb-2 text-sm font-semibold">회원가입 명단</h2>
+        <p className="mb-3 text-xs text-[#555]">
+          구글·카카오·이메일로 가입한 사람이 여기에 쌓입니다. 주문 여부와 상관없습니다.
+        </p>
+        <div className="overflow-x-auto rounded border border-[#d5d7dc] bg-white">
+          <table className="w-full min-w-[560px] text-left text-sm">
+            <thead className="bg-[#f6f7f8] text-xs">
+              <tr>
+                <th className="px-3 py-2">가입일</th>
+                <th className="px-3 py-2">이름</th>
+                <th className="px-3 py-2">이메일</th>
+                <th className="px-3 py-2">가입방법</th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((m) => (
+                <tr key={m.id} className="border-t border-[#eee]">
+                  <td className="px-3 py-2 text-[#555]">
+                    {m.createdAt ? m.createdAt.slice(0, 10) : "—"}
+                  </td>
+                  <td className="px-3 py-2">{m.name || "—"}</td>
+                  <td className="px-3 py-2">{m.email || "—"}</td>
+                  <td className="px-3 py-2">{m.providers.join(", ") || "—"}</td>
+                </tr>
+              ))}
+              {members.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-10 text-center text-[#555]">
+                    아직 가입한 회원이 없습니다.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-semibold">주문 고객</h2>
+        <div className="overflow-x-auto rounded border border-[#d5d7dc] bg-white">
+          <table className="w-full min-w-[520px] text-left text-sm">
+            <thead className="bg-[#f6f7f8] text-xs">
+              <tr>
+                <th className="px-3 py-2">고객</th>
+                <th className="px-3 py-2">이메일</th>
+                <th className="px-3 py-2">주문수</th>
+                <th className="px-3 py-2">누적금액</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.email || r.name} className="border-t border-[#eee]">
+                  <td className="px-3 py-2">{r.name}</td>
+                  <td className="px-3 py-2">{r.email}</td>
+                  <td className="px-3 py-2">{r.n}</td>
+                  <td className="px-3 py-2">₩{r.sum.toLocaleString()}</td>
+                </tr>
+              ))}
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-10 text-center text-[#555]">
+                    주문이 생기면 고객이 여기 모입니다.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

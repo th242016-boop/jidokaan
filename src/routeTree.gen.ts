@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CartRouteImport } from './routes/cart'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CustomizeRouteImport } from './routes/customize'
@@ -20,13 +21,16 @@ import { Route as HandoffRouteImport } from './routes/handoff'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OrderSuccessRouteImport } from './routes/order-success'
 import { Route as OrdersRouteImport } from './routes/orders'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ShippingRouteImport } from './routes/shipping'
 import { Route as ShopRouteImport } from './routes/shop'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiAnalyticsRouteImport } from './routes/api/analytics'
 import { Route as ApiCatalogRouteImport } from './routes/api/catalog'
 import { Route as ApiInboxRouteImport } from './routes/api/inbox'
 import { Route as ApiLoginProvidersRouteImport } from './routes/api/login-providers'
 import { Route as ApiMediaRouteImport } from './routes/api/media'
+import { Route as ApiMembersRouteImport } from './routes/api/members'
 import { Route as ApiOrdersRouteImport } from './routes/api/orders'
 import { Route as ApiReviewsRouteImport } from './routes/api/reviews'
 import { Route as ProductsProductIdRouteImport } from './routes/products/$productId'
@@ -47,6 +51,11 @@ const AboutRoute = AboutRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CartRoute = CartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutRoute = CheckoutRouteImport.update({
@@ -89,6 +98,11 @@ const OrdersRoute = OrdersRouteImport.update({
   path: '/orders',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShippingRoute = ShippingRouteImport.update({
   id: '/shipping',
   path: '/shipping',
@@ -97,6 +111,11 @@ const ShippingRoute = ShippingRouteImport.update({
 const ShopRoute = ShopRouteImport.update({
   id: '/shop',
   path: '/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAnalyticsRoute = ApiAnalyticsRouteImport.update({
@@ -122,6 +141,11 @@ const ApiLoginProvidersRoute = ApiLoginProvidersRouteImport.update({
 const ApiMediaRoute = ApiMediaRouteImport.update({
   id: '/api/media',
   path: '/api/media',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMembersRoute = ApiMembersRouteImport.update({
+  id: '/api/members',
+  path: '/api/members',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOrdersRoute = ApiOrdersRouteImport.update({
@@ -159,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
+  '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/customize': typeof CustomizeRoute
@@ -167,13 +192,16 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/order-success': typeof OrderSuccessRoute
   '/orders': typeof OrdersRoute
+  '/privacy': typeof PrivacyRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
+  '/terms': typeof TermsRoute
   '/api/analytics': typeof ApiAnalyticsRoute
   '/api/catalog': typeof ApiCatalogRoute
   '/api/inbox': typeof ApiInboxRoute
   '/api/login-providers': typeof ApiLoginProvidersRoute
   '/api/media': typeof ApiMediaRoute
+  '/api/members': typeof ApiMembersRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/reviews': typeof ApiReviewsRoute
   '/products/$productId': typeof ProductsProductIdRoute
@@ -185,6 +213,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
+  '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/customize': typeof CustomizeRoute
@@ -193,13 +222,16 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/order-success': typeof OrderSuccessRoute
   '/orders': typeof OrdersRoute
+  '/privacy': typeof PrivacyRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
+  '/terms': typeof TermsRoute
   '/api/analytics': typeof ApiAnalyticsRoute
   '/api/catalog': typeof ApiCatalogRoute
   '/api/inbox': typeof ApiInboxRoute
   '/api/login-providers': typeof ApiLoginProvidersRoute
   '/api/media': typeof ApiMediaRoute
+  '/api/members': typeof ApiMembersRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/reviews': typeof ApiReviewsRoute
   '/products/$productId': typeof ProductsProductIdRoute
@@ -212,6 +244,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
+  '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/customize': typeof CustomizeRoute
@@ -220,13 +253,16 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/order-success': typeof OrderSuccessRoute
   '/orders': typeof OrdersRoute
+  '/privacy': typeof PrivacyRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
+  '/terms': typeof TermsRoute
   '/api/analytics': typeof ApiAnalyticsRoute
   '/api/catalog': typeof ApiCatalogRoute
   '/api/inbox': typeof ApiInboxRoute
   '/api/login-providers': typeof ApiLoginProvidersRoute
   '/api/media': typeof ApiMediaRoute
+  '/api/members': typeof ApiMembersRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/reviews': typeof ApiReviewsRoute
   '/products/$productId': typeof ProductsProductIdRoute
@@ -240,6 +276,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/admin'
+    | '/cart'
     | '/checkout'
     | '/contact'
     | '/customize'
@@ -248,13 +285,16 @@ export interface FileRouteTypes {
     | '/login'
     | '/order-success'
     | '/orders'
+    | '/privacy'
     | '/shipping'
     | '/shop'
+    | '/terms'
     | '/api/analytics'
     | '/api/catalog'
     | '/api/inbox'
     | '/api/login-providers'
     | '/api/media'
+    | '/api/members'
     | '/api/orders'
     | '/api/reviews'
     | '/products/$productId'
@@ -266,6 +306,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/admin'
+    | '/cart'
     | '/checkout'
     | '/contact'
     | '/customize'
@@ -274,13 +315,16 @@ export interface FileRouteTypes {
     | '/login'
     | '/order-success'
     | '/orders'
+    | '/privacy'
     | '/shipping'
     | '/shop'
+    | '/terms'
     | '/api/analytics'
     | '/api/catalog'
     | '/api/inbox'
     | '/api/login-providers'
     | '/api/media'
+    | '/api/members'
     | '/api/orders'
     | '/api/reviews'
     | '/products/$productId'
@@ -292,6 +336,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/admin'
+    | '/cart'
     | '/checkout'
     | '/contact'
     | '/customize'
@@ -300,13 +345,16 @@ export interface FileRouteTypes {
     | '/login'
     | '/order-success'
     | '/orders'
+    | '/privacy'
     | '/shipping'
     | '/shop'
+    | '/terms'
     | '/api/analytics'
     | '/api/catalog'
     | '/api/inbox'
     | '/api/login-providers'
     | '/api/media'
+    | '/api/members'
     | '/api/orders'
     | '/api/reviews'
     | '/products/$productId'
@@ -319,6 +367,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
+  CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
   CustomizeRoute: typeof CustomizeRoute
@@ -327,13 +376,16 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OrderSuccessRoute: typeof OrderSuccessRoute
   OrdersRoute: typeof OrdersRoute
+  PrivacyRoute: typeof PrivacyRoute
   ShippingRoute: typeof ShippingRoute
   ShopRoute: typeof ShopRoute
+  TermsRoute: typeof TermsRoute
   ApiAnalyticsRoute: typeof ApiAnalyticsRoute
   ApiCatalogRoute: typeof ApiCatalogRoute
   ApiInboxRoute: typeof ApiInboxRoute
   ApiLoginProvidersRoute: typeof ApiLoginProvidersRoute
   ApiMediaRoute: typeof ApiMediaRoute
+  ApiMembersRoute: typeof ApiMembersRoute
   ApiOrdersRoute: typeof ApiOrdersRoute
   ApiReviewsRoute: typeof ApiReviewsRoute
   ProductsProductIdRoute: typeof ProductsProductIdRoute
@@ -363,6 +415,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cart': {
+      id: '/cart'
+      path: '/cart'
+      fullPath: '/cart'
+      preLoaderRoute: typeof CartRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout': {
@@ -421,6 +480,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrdersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shipping': {
       id: '/shipping'
       path: '/shipping'
@@ -433,6 +499,13 @@ declare module '@tanstack/react-router' {
       path: '/shop'
       fullPath: '/shop'
       preLoaderRoute: typeof ShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/analytics': {
@@ -468,6 +541,13 @@ declare module '@tanstack/react-router' {
       path: '/api/media'
       fullPath: '/api/media'
       preLoaderRoute: typeof ApiMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/members': {
+      id: '/api/members'
+      path: '/api/members'
+      fullPath: '/api/members'
+      preLoaderRoute: typeof ApiMembersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/orders': {
@@ -519,6 +599,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
+  CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
   CustomizeRoute: CustomizeRoute,
@@ -527,13 +608,16 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OrderSuccessRoute: OrderSuccessRoute,
   OrdersRoute: OrdersRoute,
+  PrivacyRoute: PrivacyRoute,
   ShippingRoute: ShippingRoute,
   ShopRoute: ShopRoute,
+  TermsRoute: TermsRoute,
   ApiAnalyticsRoute: ApiAnalyticsRoute,
   ApiCatalogRoute: ApiCatalogRoute,
   ApiInboxRoute: ApiInboxRoute,
   ApiLoginProvidersRoute: ApiLoginProvidersRoute,
   ApiMediaRoute: ApiMediaRoute,
+  ApiMembersRoute: ApiMembersRoute,
   ApiOrdersRoute: ApiOrdersRoute,
   ApiReviewsRoute: ApiReviewsRoute,
   ProductsProductIdRoute: ProductsProductIdRoute,

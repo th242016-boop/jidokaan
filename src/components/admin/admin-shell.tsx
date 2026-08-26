@@ -84,7 +84,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { id: "sales", label: "판매분석" },
       { id: "analytics", label: "유입·키워드" },
-      { id: "customers", label: "고객목록" },
+      { id: "customers", label: "회원목록" },
     ],
   },
   {
