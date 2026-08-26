@@ -1,7 +1,12 @@
 import { createReadStream, existsSync, statSync } from "node:fs";
 import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { legacyUploadDir, uploadDir, type UploadFolder } from "./upload-dir.server";
+import {
+  legacyUploadDir,
+  tmpUploadDir,
+  uploadDir,
+  type UploadFolder,
+} from "./upload-dir.server";
 
 const MIME: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -30,7 +35,7 @@ export function resolveUploadPath(
   filename: string,
 ): string | null {
   if (!SAFE.test(filename)) return null;
-  for (const root of [uploadDir(folder), legacyUploadDir(folder)]) {
+  for (const root of [tmpUploadDir(folder), uploadDir(folder), legacyUploadDir(folder)]) {
     const full = path.resolve(root, filename);
     if (!full.startsWith(root + path.sep)) continue;
     if (existsSync(full)) return full;
@@ -78,7 +83,6 @@ export async function uploadFileResponse(pathname: string): Promise<Response | n
   }
 }
 
-/** Vite/Node middleware: serve runtime uploads even when the folder is watch-ignored. */
 export function pipeUploadFile(
   req: IncomingMessage,
   res: ServerResponse,

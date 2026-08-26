@@ -64,16 +64,15 @@ async function checkpoint() {
 export async function saveMediaFile(id: string, mime: string, bytes: Buffer) {
   await ensureMediaTable();
   const sql = await getSql();
-  const hex = bytes.toString("hex");
   const b64 = bytes.toString("base64");
   const kind = mime || "application/octet-stream";
   const attempts: Array<() => Promise<unknown>> = [
     () =>
       sql.query(
-        `insert into media_files (id, mime, bytes, b64)
-         values ($1, $2, decode($3, 'hex'), $4)
-         on conflict (id) do update set mime = excluded.mime, bytes = excluded.bytes, b64 = excluded.b64`,
-        [id, kind, hex, b64],
+        `insert into media_files (id, mime, bytes)
+         values ($1, $2, $3)
+         on conflict (id) do update set mime = excluded.mime, bytes = excluded.bytes`,
+        [id, kind, bytes],
       ),
     () =>
       sql.query(
@@ -81,13 +80,6 @@ export async function saveMediaFile(id: string, mime: string, bytes: Buffer) {
          values ($1, $2, $3)
          on conflict (id) do update set mime = excluded.mime, b64 = excluded.b64`,
         [id, kind, b64],
-      ),
-    () =>
-      sql.query(
-        `insert into media_files (id, mime, bytes)
-         values ($1, $2, $3)
-         on conflict (id) do update set mime = excluded.mime, bytes = excluded.bytes`,
-        [id, kind, new Uint8Array(bytes)],
       ),
   ];
   let last: unknown;

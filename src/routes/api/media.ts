@@ -1,20 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { assertSession, AUTH_HEADERS } from "@/lib/admin-auth.server";
 import { saveMediaFile } from "@/lib/media.server";
-import { ensureUploadDir, legacyUploadDir } from "@/lib/upload-dir.server";
+import { uploadRoots } from "@/lib/upload-dir.server";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: AUTH_HEADERS });
-}
-
-async function logUpload(msg: string) {
-  try {
-    await appendFile("/tmp/media-post.log", `${new Date().toISOString()} ${msg}\n`);
-  } catch {
-    /* ignore */
-  }
 }
 
 const IMAGE_EXT = new Set([
@@ -74,6 +66,20 @@ function fileExt(file: UploadBlob): string {
   return MIME_EXT[(file.type || "").toLowerCase()] ?? "";
 }
 
+async function writeDisk(folder: "upload" | "video", name: string, buf: Buffer) {
+  let ok = false;
+  for (const dir of uploadRoots(folder)) {
+    try {
+      await mkdir(dir, { recursive: true });
+      await writeFile(path.join(dir, name), buf);
+      ok = true;
+    } catch {
+      /* try next root */
+    }
+  }
+  return ok;
+}
+
 export const Route = createFileRoute("/api/media")({
   server: {
     handlers: {
@@ -107,35 +113,16 @@ export const Route = createFileRoute("/api/media")({
           const folder = isImage ? "upload" : "video";
           const buf = Buffer.from(await file.arrayBuffer());
           const mime = file.type || (isImage ? "image/jpeg" : "video/mp4");
-          let stored = false;
 
-          try {
-            const dir = await ensureUploadDir(folder);
-            await writeFile(path.join(dir, name), buf);
-            stored = true;
-          } catch (err) {
-            await logUpload(`disk-data ${String(err)}`);
+          const diskOk = await writeDisk(folder, name, buf);
+          if (diskOk) {
+            void saveMediaFile(name, mime, buf).catch(() => undefined);
+            return json({ url: `/products/${folder}/${name}`, bytes: buf.length });
           }
-          try {
-            const legacy = legacyUploadDir(folder);
-            await mkdir(legacy, { recursive: true });
-            await writeFile(path.join(legacy, name), buf);
-            stored = true;
-          } catch (err) {
-            await logUpload(`disk-legacy ${String(err)}`);
-          }
-          try {
-            await saveMediaFile(name, mime, buf);
-            stored = true;
-          } catch (err) {
-            await logUpload(`db ${String(err)}`);
-          }
-
-          if (!stored) return json({ error: "store_failed" }, 500);
+          await saveMediaFile(name, mime, buf);
           return json({ url: `/products/${folder}/${name}`, bytes: buf.length });
         } catch (err) {
           const message = err instanceof Error ? err.message : "upload_failed";
-          await logUpload(`handler ${message}`);
           const status = message === "AUTH" ? 401 : 500;
           return json({ error: message }, status);
         }
