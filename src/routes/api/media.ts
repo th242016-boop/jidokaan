@@ -44,10 +44,26 @@ const MIME_EXT: Record<string, string> = {
   "video/quicktime": ".mov",
 };
 
-function fileExt(file: File): string {
+type UploadBlob = {
+  name?: string;
+  type?: string;
+  size: number;
+  arrayBuffer: () => Promise<ArrayBuffer>;
+};
+
+function isUpload(v: unknown): v is UploadBlob {
+  return (
+    !!v &&
+    typeof v === "object" &&
+    typeof (v as UploadBlob).size === "number" &&
+    typeof (v as UploadBlob).arrayBuffer === "function"
+  );
+}
+
+function fileExt(file: UploadBlob): string {
   const fromName = path.extname(file.name || "").toLowerCase();
   if (IMAGE_EXT.has(fromName) || VIDEO_EXT.has(fromName)) return fromName;
-  return MIME_EXT[file.type.toLowerCase()] ?? "";
+  return MIME_EXT[(file.type || "").toLowerCase()] ?? "";
 }
 
 export const Route = createFileRoute("/api/media")({
@@ -63,7 +79,7 @@ export const Route = createFileRoute("/api/media")({
           const token = String(form.get("token") ?? "");
           await assertSession(token);
           const file = form.get("file");
-          if (!(file instanceof File) || file.size < 1) {
+          if (!isUpload(file) || file.size < 1) {
             return json({ error: "no_file" }, 400);
           }
           if (file.size > 80 * 1024 * 1024) {
@@ -81,17 +97,23 @@ export const Route = createFileRoute("/api/media")({
               .slice(0, 40) || "file";
           const name = `${stamp}-${rand}-${base}${ext}`;
           const folder = isImage ? "upload" : "video";
-          const dir = await ensureUploadDir(folder);
           const buf = Buffer.from(await file.arrayBuffer());
-          const mime =
-            file.type ||
-            (isImage ? "image/jpeg" : "video/mp4");
-          await saveMediaFile(name, mime, buf);
+          const mime = file.type || (isImage ? "image/jpeg" : "video/mp4");
+          let stored = false;
           try {
-            await writeFile(path.join(dir, name), buf);
+            await saveMediaFile(name, mime, buf);
+            stored = true;
           } catch {
-            /* disk is only a cache — Postgres is the source of truth */
+            /* disk fallback below */
           }
+          try {
+            const dir = await ensureUploadDir(folder);
+            await writeFile(path.join(dir, name), buf);
+            stored = true;
+          } catch {
+            /* optional cache */
+          }
+          if (!stored) return json({ error: "store_failed" }, 500);
           return json({ url: `/products/${folder}/${name}`, bytes: buf.length });
         } catch (err) {
           const message = err instanceof Error ? err.message : "upload_failed";

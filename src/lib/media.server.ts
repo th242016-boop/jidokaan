@@ -6,10 +6,17 @@ export async function ensureMediaTable() {
     create table if not exists media_files (
       id text primary key,
       mime text not null default 'application/octet-stream',
-      bytes bytea not null,
+      bytes bytea,
+      b64 text,
       created_at timestamptz not null default now()
     )
   `);
+  await sql.query(`alter table media_files add column if not exists b64 text`);
+  try {
+    await sql.query(`alter table media_files alter column bytes drop not null`);
+  } catch {
+    /* already nullable or no permission — insert still sends bytes */
+  }
 }
 
 function asBuffer(value: unknown): Buffer | null {
@@ -17,35 +24,80 @@ function asBuffer(value: unknown): Buffer | null {
   if (Buffer.isBuffer(value)) return value;
   if (value instanceof Uint8Array) return Buffer.from(value);
   if (typeof value === "string") {
-    if (value.startsWith("\\x") || value.startsWith("\\\\x")) {
-      return Buffer.from(value.replace(/^\\+x/i, ""), "hex");
+    const s = value.replace(/^\\+x/i, "");
+    if (/^[0-9a-fA-F]+$/.test(s) && s.length % 2 === 0) {
+      try {
+        return Buffer.from(s, "hex");
+      } catch {
+        /* fall through */
+      }
     }
-    return Buffer.from(value, "base64");
+    try {
+      return Buffer.from(value, "base64");
+    } catch {
+      return null;
+    }
   }
   return null;
+}
+
+async function checkpoint() {
+  try {
+    const { dbSource, getPglite } = await import("./db");
+    if (dbSource === "pglite") {
+      const pg = await getPglite();
+      await pg.exec("CHECKPOINT");
+    }
+  } catch {
+    /* neon */
+  }
 }
 
 export async function saveMediaFile(id: string, mime: string, bytes: Buffer) {
   await ensureMediaTable();
   const sql = await getSql();
-  await sql.query(
-    `insert into media_files (id, mime, bytes)
-     values ($1, $2, $3)
-     on conflict (id) do update set mime = excluded.mime, bytes = excluded.bytes`,
-    [id, mime || "application/octet-stream", bytes],
-  );
+  const hex = bytes.toString("hex");
+  const b64 = bytes.toString("base64");
+  const kind = mime || "application/octet-stream";
+  try {
+    await sql.query(
+      `insert into media_files (id, mime, bytes, b64)
+       values ($1, $2, decode($3, 'hex'), $4)
+       on conflict (id) do update set mime = excluded.mime, bytes = excluded.bytes, b64 = excluded.b64`,
+      [id, kind, hex, b64],
+    );
+  } catch {
+    await sql.query(
+      `insert into media_files (id, mime, b64)
+       values ($1, $2, $3)
+       on conflict (id) do update set mime = excluded.mime, b64 = excluded.b64`,
+      [id, kind, b64],
+    );
+  }
+  await checkpoint();
 }
 
 export async function readMediaFile(id: string) {
   await ensureMediaTable();
   const sql = await getSql();
-  const rows = await sql.query<{ mime: string; bytes: unknown }>(
-    "select mime, bytes from media_files where id = $1",
-    [id],
-  );
-  const row = rows[0];
+  let row: { mime: string; bytes: unknown; b64?: string } | undefined;
+  try {
+    const rows = await sql.query<{ mime: string; bytes: unknown; b64?: string }>(
+      "select mime, bytes, b64 from media_files where id = $1",
+      [id],
+    );
+    row = rows[0];
+  } catch {
+    const rows = await sql.query<{ mime: string; bytes: unknown }>(
+      "select mime, bytes from media_files where id = $1",
+      [id],
+    );
+    row = rows[0];
+  }
   if (!row) return null;
-  const bytes = asBuffer(row.bytes);
+  const fromBytes = asBuffer(row.bytes);
+  const fromB64 = row.b64 ? Buffer.from(row.b64, "base64") : null;
+  const bytes = fromBytes?.length ? fromBytes : fromB64;
   if (!bytes?.length) return null;
   return { mime: row.mime || "application/octet-stream", bytes };
 }

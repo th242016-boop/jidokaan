@@ -716,9 +716,14 @@ function uploadFailMessage(err: unknown, video = false) {
       : "이 사진 형식은 올릴 수 없습니다. JPG 또는 PNG로 올려 주세요.";
   }
   if (raw === "no_file") return "파일이 선택되지 않았습니다.";
+  if (raw === "store_failed") {
+    return video
+      ? "영상 저장에 실패했습니다. 잠시 후 다시 올려 주세요."
+      : "사진 저장에 실패했습니다. 잠시 후 다시 올려 주세요.";
+  }
   return video
     ? "영상 업로드에 실패했습니다. MP4로 다시 시도해 주세요."
-    : "사진 업로드에 실패했습니다. 관리자에 다시 로그인 후 올려 주세요.";
+    : "사진 저장에 실패했습니다. 잠시 후 다시 올려 주세요.";
 }
 
 function uploadOriginal(file: File, token?: string): Promise<string> {
