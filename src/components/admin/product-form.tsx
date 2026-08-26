@@ -270,7 +270,8 @@ export function ProductForm({
         <Row label="대표 이미지" required>
           <p className="mb-2 text-xs text-[#333]">
             상품 목록과 상세 맨 앞에 나갑니다. 클릭하거나 사진을 끌어다 놓으세요.
-            줄이거나 JPEG로 바꾸지 않고, 올리신 파일 그대로 저장됩니다.
+            줄이거나 JPEG로 바꾸지 않고, 올리신 파일 그대로 데이터베이스에 저장됩니다.
+            사이트를 다시 올려도 사진이 지워지지 않습니다.
           </p>
           <ImageDrop
             label="대표 사진 올리기"

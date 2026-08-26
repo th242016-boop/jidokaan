@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { assertSession, AUTH_HEADERS } from "@/lib/admin-auth.server";
+import { saveMediaFile } from "@/lib/media.server";
 import { ensureUploadDir } from "@/lib/upload-dir.server";
 
 function json(data: unknown, status = 200) {
@@ -82,7 +83,15 @@ export const Route = createFileRoute("/api/media")({
           const folder = isImage ? "upload" : "video";
           const dir = await ensureUploadDir(folder);
           const buf = Buffer.from(await file.arrayBuffer());
-          await writeFile(path.join(dir, name), buf);
+          const mime =
+            file.type ||
+            (isImage ? "image/jpeg" : "video/mp4");
+          await saveMediaFile(name, mime, buf);
+          try {
+            await writeFile(path.join(dir, name), buf);
+          } catch {
+            /* disk is only a cache — Postgres is the source of truth */
+          }
           return json({ url: `/products/${folder}/${name}`, bytes: buf.length });
         } catch (err) {
           const message = err instanceof Error ? err.message : "upload_failed";

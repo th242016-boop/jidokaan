@@ -51,16 +51,31 @@ export async function uploadFileResponse(pathname: string): Promise<Response | n
   const parsed = parseUploadUrl(pathname);
   if (!parsed) return null;
   const full = resolveUploadPath(parsed.folder, parsed.filename);
-  if (!full) return new Response("not found", { status: 404 });
-  const ext = path.extname(full).toLowerCase();
-  const buf = await import("node:fs/promises").then((fs) => fs.readFile(full));
-  return new Response(buf, {
-    headers: {
-      "content-type": MIME[ext] ?? "application/octet-stream",
-      "cache-control": "public, max-age=31536000, immutable",
-      "content-length": String(buf.length),
-    },
-  });
+  if (full) {
+    const ext = path.extname(full).toLowerCase();
+    const buf = await import("node:fs/promises").then((fs) => fs.readFile(full));
+    return new Response(buf, {
+      headers: {
+        "content-type": MIME[ext] ?? "application/octet-stream",
+        "cache-control": "public, max-age=31536000, immutable",
+        "content-length": String(buf.length),
+      },
+    });
+  }
+  try {
+    const { readMediaFile } = await import("./media.server");
+    const row = await readMediaFile(parsed.filename);
+    if (!row) return new Response("not found", { status: 404 });
+    return new Response(row.bytes, {
+      headers: {
+        "content-type": row.mime || "application/octet-stream",
+        "cache-control": "public, max-age=31536000, immutable",
+        "content-length": String(row.bytes.length),
+      },
+    });
+  } catch {
+    return new Response("not found", { status: 404 });
+  }
 }
 
 /** Vite/Node middleware: serve runtime uploads even when the folder is watch-ignored. */
@@ -72,11 +87,7 @@ export function pipeUploadFile(
   const parsed = parseUploadUrl(pathname);
   if (!parsed) return false;
   const full = resolveUploadPath(parsed.folder, parsed.filename);
-  if (!full) {
-    res.statusCode = 404;
-    res.end("not found");
-    return true;
-  }
+  if (!full) return false;
   const ext = path.extname(full).toLowerCase();
   const stat = statSync(full);
   res.statusCode = 200;
