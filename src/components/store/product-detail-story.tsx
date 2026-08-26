@@ -45,11 +45,13 @@ export function ProductDetailStory({
             <span className="mt-2 text-lg font-bold leading-snug sm:text-xl">
               상세한 제품 후기는 네이버 스토어에서 확인
             </span>
-            <span className="mt-3 max-w-md text-sm leading-relaxed text-white/90">
-              클릭하면 네이버 상품 페이지로 이동합니다.
+            <span className="mt-3 max-w-lg text-sm leading-relaxed text-white/90">
+              {product.customizable
+                ? "국내 구매자분들은 이곳에서 시뮬레이션 해보신 후 네이버에서 주문해주시면 더욱 편리합니다"
+                : "국내 구매자분들은 네이버에서 주문해주시면 더욱 편리합니다"}
             </span>
             <span className="mt-4 max-w-md text-sm leading-relaxed text-white/90">
-              원하시면 그곳에서 주문하셔도 됩니다
+              클릭하면 네이버 상품 페이지로 이동합니다.
             </span>
           </a>
         ) : null}

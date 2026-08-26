@@ -743,7 +743,7 @@ export const DICT: Record<Locale, Dictionary> = {
       specialOrder: "스페셜오더",
       specialSoon: "시뮬레이터 준비중 입니다",
       naverReviews: "상세한 제품 후기는 네이버 스토어에서 확인",
-      naverReviewsHint: "클릭하면 네이버 상품 페이지로 이동합니다. 원하시면 거기서 주문하셔도 됩니다.",
+      naverReviewsHint: "국내 구매자분들은 이곳에서 시뮬레이션 해보신 후 네이버에서 주문해주시면 더욱 편리합니다",
       upper: "갑피",
       stripe: "스트라이프",
       sole: "솔",
