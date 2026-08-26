@@ -16,6 +16,7 @@ import {
 import type { Coupon } from "@/lib/order-types";
 import type { BlackCustomer, FaqItem } from "@/lib/store-extras";
 import type { PaySettings } from "@/lib/pay-settings";
+import { proxyToLive, shouldProxyToLive } from "@/lib/live-proxy.server";
 import {
   bulkProducts,
   deleteProduct,
@@ -40,7 +41,8 @@ function json(data: unknown, status = 200) {
 export const Route = createFileRoute("/api/catalog")({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }) => {
+        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/catalog");
         try {
           const data = await readCatalog();
           return json(data);
@@ -50,6 +52,7 @@ export const Route = createFileRoute("/api/catalog")({
         }
       },
       POST: async ({ request }) => {
+        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/catalog");
         try {
           const body = (await request.json()) as {
             action?: string;

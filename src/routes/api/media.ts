@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { assertSession, AUTH_HEADERS } from "@/lib/admin-auth.server";
 import { saveMediaFile } from "@/lib/media.server";
+import { proxyToLive, shouldProxyToLive } from "@/lib/live-proxy.server";
 import { uploadRoots } from "@/lib/upload-dir.server";
 
 function json(data: unknown, status = 200) {
@@ -84,6 +85,7 @@ export const Route = createFileRoute("/api/media")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/media");
         try {
           const type = request.headers.get("content-type") || "";
           if (!type.includes("multipart/form-data")) {

@@ -12,6 +12,7 @@ import {
   type OrderStatus,
   type StoreOrder,
 } from "@/lib/orders.server";
+import { proxyToLive, shouldProxyToLive } from "@/lib/live-proxy.server";
 import { readCatalog } from "@/lib/catalog.server";
 import { couponRejectReason, findCoupon } from "@/lib/coupon";
 import type { ClaimKind } from "@/lib/order-types";
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/api/orders")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/orders");
         try {
           const url = new URL(request.url);
           const id = url.searchParams.get("id") ?? "";
@@ -40,6 +42,7 @@ export const Route = createFileRoute("/api/orders")({
         }
       },
       POST: async ({ request }) => {
+        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/orders");
         try {
           const body = (await request.json()) as {
             action?: string;
