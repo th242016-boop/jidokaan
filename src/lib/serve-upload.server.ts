@@ -1,16 +1,22 @@
 import { createReadStream, existsSync, statSync } from "node:fs";
 import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { legacyUploadDir, uploadDir, type UploadFolder } from "./upload-dir.server";
 
 const MIME: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
+  ".jfif": "image/jpeg",
   ".png": "image/png",
   ".webp": "image/webp",
   ".gif": "image/gif",
   ".avif": "image/avif",
   ".svg": "image/svg+xml",
   ".bmp": "image/bmp",
+  ".heic": "image/heic",
+  ".heif": "image/heif",
+  ".tif": "image/tiff",
+  ".tiff": "image/tiff",
   ".mp4": "video/mp4",
   ".webm": "video/webm",
   ".mov": "video/quicktime",
@@ -20,24 +26,25 @@ const MIME: Record<string, string> = {
 const SAFE = /^[a-zA-Z0-9._-]+$/;
 
 export function resolveUploadPath(
-  folder: "upload" | "video",
+  folder: UploadFolder,
   filename: string,
 ): string | null {
   if (!SAFE.test(filename)) return null;
-  const root = path.resolve(process.cwd(), "public", "products");
-  const full = path.resolve(root, folder, filename);
-  if (!full.startsWith(root + path.sep)) return null;
-  if (!existsSync(full)) return null;
-  return full;
+  for (const root of [uploadDir(folder), legacyUploadDir(folder)]) {
+    const full = path.resolve(root, filename);
+    if (!full.startsWith(root + path.sep)) continue;
+    if (existsSync(full)) return full;
+  }
+  return null;
 }
 
 export function parseUploadUrl(pathname: string): {
-  folder: "upload" | "video";
+  folder: UploadFolder;
   filename: string;
 } | null {
   const m = pathname.match(/^\/products\/(upload|video)\/([^/]+)$/);
   if (!m) return null;
-  return { folder: m[1] as "upload" | "video", filename: decodeURIComponent(m[2] ?? "") };
+  return { folder: m[1] as UploadFolder, filename: decodeURIComponent(m[2] ?? "") };
 }
 
 export async function uploadFileResponse(pathname: string): Promise<Response | null> {
@@ -51,6 +58,7 @@ export async function uploadFileResponse(pathname: string): Promise<Response | n
     headers: {
       "content-type": MIME[ext] ?? "application/octet-stream",
       "cache-control": "public, max-age=31536000, immutable",
+      "content-length": String(buf.length),
     },
   });
 }

@@ -270,7 +270,7 @@ export function ProductForm({
         <Row label="대표 이미지" required>
           <p className="mb-2 text-xs text-[#333]">
             상품 목록과 상세 맨 앞에 나갑니다. 클릭하거나 사진을 끌어다 놓으세요.
-            올린 파일은 줄이거나 JPEG로 바꾸지 않고 원본 그대로 저장됩니다.
+            줄이거나 JPEG로 바꾸지 않고, 올리신 파일 그대로 저장됩니다.
           </p>
           <ImageDrop
             label="대표 사진 올리기"
@@ -329,7 +329,7 @@ export function ProductForm({
       <Section n={5} title="상세 설명">
         <p className="-mt-2 mb-3 text-xs leading-relaxed text-[#333]">
           스마트스토어처럼 사진·영상을 위에서 아래로 직접 올리시면 됩니다.
-          후기는 이 사이트에서 만들지 않고, 네이버 상품 페이지 초록 버튼으로 보냅니다.
+          사진은 원본 그대로 저장됩니다. 후기는 네이버 초록 버튼으로 보냅니다.
         </p>
         <Row label="상세 설명">
           <textarea
@@ -709,7 +709,7 @@ function uploadFailMessage(err: unknown, video = false) {
   const raw = err instanceof Error ? err.message : "";
   if (raw === "AUTH") return "로그인이 만료되었습니다. 관리자에 다시 들어간 뒤 올려 주세요.";
   if (raw === "too_large") return "파일이 너무 큽니다. 80MB 이하로 올려 주세요.";
-  if (raw === "bad_type" || raw === "HEIC") {
+  if (raw === "bad_type") {
     return video
       ? "MP4 파일로 올려 주세요."
       : "이 사진 형식은 올릴 수 없습니다. JPG 또는 PNG로 올려 주세요.";
@@ -717,39 +717,15 @@ function uploadFailMessage(err: unknown, video = false) {
   if (raw === "no_file") return "파일이 선택되지 않았습니다.";
   return video
     ? "영상 업로드에 실패했습니다. MP4로 다시 시도해 주세요."
-    : "사진 업로드에 실패했습니다. 다시 시도해 주세요.";
-}
-
-async function prepareImageFile(file: File): Promise<File> {
-  const heic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
-  if (!heic) return file;
-  try {
-    const bmp = await createImageBitmap(file);
-    const canvas = document.createElement("canvas");
-    canvas.width = bmp.width;
-    canvas.height = bmp.height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("HEIC");
-    ctx.drawImage(bmp, 0, 0);
-    bmp.close();
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.95),
-    );
-    if (!blob) throw new Error("HEIC");
-    return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
-  } catch {
-    throw new Error("HEIC");
-  }
+    : "사진 업로드에 실패했습니다. 관리자에 다시 로그인 후 올려 주세요.";
 }
 
 function uploadOriginal(file: File, token?: string): Promise<string> {
   if (!token) return Promise.reject(new Error("AUTH"));
-  return prepareImageFile(file).then((ready) => {
-    const fd = new FormData();
-    fd.set("token", token);
-    fd.set("file", ready);
-    return fetch("/api/media", { method: "POST", body: fd });
-  }).then(async (res) => {
+  const fd = new FormData();
+  fd.set("token", token);
+  fd.set("file", file, file.name);
+  return fetch("/api/media", { method: "POST", body: fd }).then(async (res) => {
     let data: { url?: string; error?: string } = {};
     try {
       data = (await res.json()) as { url?: string; error?: string };

@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { mkdir, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { assertSession, AUTH_HEADERS } from "@/lib/admin-auth.server";
+import { ensureUploadDir } from "@/lib/upload-dir.server";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: AUTH_HEADERS });
@@ -19,6 +20,8 @@ const IMAGE_EXT = new Set([
   ".bmp",
   ".heic",
   ".heif",
+  ".tif",
+  ".tiff",
 ]);
 const VIDEO_EXT = new Set([".mp4", ".webm", ".mov", ".m4v"]);
 const MIME_EXT: Record<string, string> = {
@@ -34,6 +37,7 @@ const MIME_EXT: Record<string, string> = {
   "image/x-windows-bmp": ".bmp",
   "image/heic": ".heic",
   "image/heif": ".heif",
+  "image/tiff": ".tiff",
   "video/mp4": ".mp4",
   "video/webm": ".webm",
   "video/quicktime": ".mov",
@@ -74,13 +78,12 @@ export const Route = createFileRoute("/api/media")({
               .basename(file.name || "file", ext)
               .replace(/[^a-zA-Z0-9._-]/g, "")
               .slice(0, 40) || "file";
-          const name = `${stamp}-${rand}-${base}${ext === ".jpeg" || ext === ".jfif" ? ".jpg" : ext}`;
+          const name = `${stamp}-${rand}-${base}${ext}`;
           const folder = isImage ? "upload" : "video";
-          const dir = path.join(process.cwd(), "public", "products", folder);
-          await mkdir(dir, { recursive: true });
+          const dir = await ensureUploadDir(folder);
           const buf = Buffer.from(await file.arrayBuffer());
           await writeFile(path.join(dir, name), buf);
-          return json({ url: `/products/${folder}/${name}` });
+          return json({ url: `/products/${folder}/${name}`, bytes: buf.length });
         } catch (err) {
           const message = err instanceof Error ? err.message : "upload_failed";
           const status = message === "AUTH" ? 401 : 500;
