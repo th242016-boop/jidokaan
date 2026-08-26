@@ -62,26 +62,13 @@ export async function migratePlainPin() {
     await putSetting("admin_locked_until", "");
     await putSetting("lock_reset_v2", "1");
   }
-  const loginFix = await setting("login_reset_20260820");
-  if (!loginFix) {
-    await putSetting("admin_fails", "0");
-    await putSetting("admin_locked_until", "");
-    await putSetting("admin_pin", "");
-    await putSetting("login_reset_20260820", "1");
-  }
-  const loginFix2 = await setting("login_open_v1");
-  if (!loginFix2) {
-    await putSetting("admin_fails", "0");
-    await putSetting("admin_locked_until", "");
-    await putSetting("admin_pin", "");
-    await putSetting("login_open_v1", "1");
-  }
-  const keypad = await setting("login_keypad_v6");
-  if (!keypad) {
-    await putSetting("admin_fails", "0");
-    await putSetting("admin_locked_until", "");
-    await putSetting("admin_pin", "");
-    await putSetting("login_keypad_v6", "1");
+  // Never wipe admin_pin. Old one-time flags already ran on live.
+  for (const key of ["login_reset_20260820", "login_open_v1", "login_keypad_v6"]) {
+    if (!(await setting(key))) {
+      await putSetting("admin_fails", "0");
+      await putSetting("admin_locked_until", "");
+      await putSetting(key, "1");
+    }
   }
 }
 

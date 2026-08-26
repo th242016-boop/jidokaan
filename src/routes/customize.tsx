@@ -10,7 +10,7 @@ import {
   formatProductPrice,
   t,
 } from "@/lib/i18n";
-import { getProduct, MEN_BOOT_SIZES, WOMEN_BOOT_SIZES, closestBootSize } from "@/lib/products";
+import { getProduct, MEN_BOOT_SIZES, WOMEN_BOOT_SIZES, closestBootSize, naverProductUrl } from "@/lib/products";
 import {
   paletteFor,
   PHOTO_NATIVE,
@@ -54,6 +54,7 @@ function CustomizePage() {
   const [confirming, setConfirming] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [zoomed, setZoomed] = useState(false);
+  const [showKrOrder, setShowKrOrder] = useState(false);
   const [localNames, setLocalNames] = useState<PartColorNames | null>(null);
   const colorNames = localNames ?? draftPartNames;
   const sizes = fit === "women" ? WOMEN_SIZES : MEN_SIZES;
@@ -81,6 +82,11 @@ function CustomizePage() {
     setConfirming(true);
     addCustomBoot(1, false);
     setCartOpen(false);
+    if (locale === "ko") {
+      setShowKrOrder(true);
+      setConfirming(false);
+      return;
+    }
     toast.success(dict.custom.added);
     setTimeout(() => navigate({ to: "/checkout" }), 400);
   }
@@ -269,6 +275,37 @@ function CustomizePage() {
         </div>
 
         <div className="shrink-0 border-t border-[#ddd] bg-white px-3 py-2 md:space-y-2 md:p-4">
+          {showKrOrder ? (
+            <div className="space-y-3 py-1">
+              <p className="text-[13px] leading-relaxed text-[#222] md:text-sm">
+                국내 결제 고객은 네이버 스토어에서 주문을 해주시고,
+                지금 조합해 주신 화면 속 제품을 캡쳐만 해 두시면 됩니다.
+              </p>
+              <Button
+                size="lg"
+                className="h-11 w-full rounded-[6px] bg-[#03C75A] text-sm text-white hover:bg-[#02b351]"
+                asChild
+              >
+                <a
+                  href={product ? naverProductUrl(product) : "https://smartstore.naver.com/lidea"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  네이버 스토어에서 주문
+                </a>
+              </Button>
+              <Button
+                size="lg"
+                variant="secondary"
+                className="h-11 w-full rounded-[6px] border border-[#ddd] bg-white text-sm text-black hover:bg-neutral-50"
+                type="button"
+                onClick={() => navigate({ to: "/checkout" })}
+              >
+                해외 고객은 이 사이트에서 결제
+              </Button>
+            </div>
+          ) : (
+            <>
           <p className="mb-1.5 hidden text-center text-sm font-bold md:mb-0 md:block">
             {product ? formatProductPrice(product, currency) : "₩288,000"}
           </p>
@@ -305,6 +342,8 @@ function CustomizePage() {
               <span className="truncate">{dict.product.addToCart}</span>
             </Button>
           </div>
+            </>
+          )}
         </div>
       </aside>
 
