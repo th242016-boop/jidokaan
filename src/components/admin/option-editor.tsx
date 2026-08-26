@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +14,14 @@ function parseValues(raw: string) {
     .filter(Boolean);
 }
 
+function groupsOrDefault(value: ProductOptions): OptionGroup[] {
+  if (value.groups.length) return value.groups;
+  return [
+    { name: "옵션", values: [] },
+    { name: "사이즈", values: [] },
+  ];
+}
+
 export function OptionEditor({
   value,
   onChange,
@@ -21,24 +29,17 @@ export function OptionEditor({
   value: ProductOptions;
   onChange: (next: ProductOptions) => void;
 }) {
-  const groups = value.groups.length ? value.groups : [{ name: "", values: [] as string[] }];
-  const count = Math.max(1, value.groups.length || 2);
+  const groups = groupsOrDefault(value);
+  const count = Math.max(1, groups.length);
   const [drafts, setDrafts] = useState<string[]>(() =>
     groups.map((g) => g.values.join(",")),
   );
-
-  useEffect(() => {
-    setDrafts((cur) => {
-      const next = groups.map((g, i) => (cur[i] !== undefined ? cur[i]! : g.values.join(",")));
-      return next;
-    });
-  }, [groups.length]);
 
   function setGroupCount(n: number) {
     const nextGroups: OptionGroup[] = [];
     const nextDrafts: string[] = [];
     for (let i = 0; i < n; i++) {
-      nextGroups.push(value.groups[i] ?? { name: i === 0 ? "옵션" : "사이즈", values: [] });
+      nextGroups.push(groups[i] ?? { name: i === 0 ? "옵션" : "사이즈", values: [] });
       nextDrafts.push(drafts[i] ?? nextGroups[i]!.values.join(","));
     }
     setDrafts(nextDrafts);
@@ -51,9 +52,9 @@ export function OptionEditor({
     });
   }
 
-  function patchGroup(i: number, patch: Partial<OptionGroup>) {
-    const next = value.groups.map((g, idx) => (idx === i ? { ...g, ...patch } : g));
-    onChange({ ...value, groups: next.length ? next : [{ name: "", values: [] }] });
+  function setName(i: number, name: string) {
+    const next = groups.map((g, idx) => (idx === i ? { ...g, name } : g));
+    onChange({ ...value, groups: next });
   }
 
   function setDraft(i: number, text: string) {
@@ -63,14 +64,13 @@ export function OptionEditor({
       next[i] = text;
       return next;
     });
-    patchGroup(i, { values: parseValues(text) });
   }
 
   function applyList() {
     const nextGroups = groups
       .map((g, i) => ({
         name: g.name.trim(),
-        values: parseValues(drafts[i] ?? g.values.join(",")),
+        values: parseValues(drafts[i] ?? ""),
       }))
       .filter((g) => g.name && g.values.length);
     onChange({
@@ -87,18 +87,11 @@ export function OptionEditor({
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={() =>
-            onChange({
-              ...value,
-              enabled: true,
-              groups: value.groups.length
-                ? value.groups
-                : [
-                    { name: "옵션", values: [] },
-                    { name: "사이즈", values: [] },
-                  ],
-            })
-          }
+          onClick={() => {
+            const next = groupsOrDefault(value);
+            if (!drafts.length) setDrafts(next.map((g) => g.values.join(",")));
+            onChange({ ...value, enabled: true, groups: next });
+          }}
           className={`h-9 px-4 text-sm font-semibold ${
             value.enabled ? "bg-[#00c73c] text-white" : "border border-[#ddd] bg-white"
           }`}
@@ -144,7 +137,7 @@ export function OptionEditor({
             </span>
           </label>
           <p className="text-xs text-[#00a832]">
-            옵션명과 값을 넣고 「옵션목록으로 적용」을 누르면 아래 표가 만들어집니다. 고객 화면에도 그대로 나갑니다.
+            옵션값은 쉼표(,)로 구분해 입력하세요. 「옵션목록으로 적용」을 누르면 아래 표가 만들어집니다.
           </p>
 
           <label className="flex items-center gap-3 text-sm">
@@ -166,14 +159,23 @@ export function OptionEditor({
             {groups.map((g, i) => (
               <div key={i} className="grid gap-2 sm:grid-cols-[8rem_1fr]">
                 <Input
+                  type="text"
+                  inputMode="text"
+                  autoComplete="off"
                   value={g.name}
-                  onChange={(e) => patchGroup(i, { name: e.target.value })}
+                  onChange={(e) => setName(i, e.target.value)}
                   placeholder={i === 0 ? "옵션명 예: 옵션" : "옵션명 예: 사이즈"}
                 />
-                <Input
-                  value={drafts[i] ?? g.values.join(",")}
+                <input
+                  type="text"
+                  inputMode="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={drafts[i] ?? ""}
                   onChange={(e) => setDraft(i, e.target.value)}
-                  placeholder="옵션값 쉼표로 구분  예: 여성225,여성230,남성240"
+                  onKeyDown={(e) => e.stopPropagation()}
+                  placeholder="예: 여성225,여성230,남성240"
+                  className="flex h-11 w-full rounded-xl border border-border bg-white px-3.5 text-sm text-fg"
                 />
               </div>
             ))}
@@ -188,7 +190,7 @@ export function OptionEditor({
               <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="bg-[#f3f4f6] text-xs">
                   <tr>
-                    {(value.groups.length ? value.groups : [{ name: "옵션" }]).map((g) => (
+                    {groups.map((g) => (
                       <th key={g.name} className="px-3 py-2">
                         {g.name || "옵션"}
                       </th>
