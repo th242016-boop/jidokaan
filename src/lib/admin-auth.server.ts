@@ -62,6 +62,27 @@ export async function migratePlainPin() {
     await putSetting("admin_locked_until", "");
     await putSetting("lock_reset_v2", "1");
   }
+  const loginFix = await setting("login_reset_20260820");
+  if (!loginFix) {
+    await putSetting("admin_fails", "0");
+    await putSetting("admin_locked_until", "");
+    await putSetting("admin_pin", "");
+    await putSetting("login_reset_20260820", "1");
+  }
+  const loginFix2 = await setting("login_open_v1");
+  if (!loginFix2) {
+    await putSetting("admin_fails", "0");
+    await putSetting("admin_locked_until", "");
+    await putSetting("admin_pin", "");
+    await putSetting("login_open_v1", "1");
+  }
+  const keypad = await setting("login_keypad_v6");
+  if (!keypad) {
+    await putSetting("admin_fails", "0");
+    await putSetting("admin_locked_until", "");
+    await putSetting("admin_pin", "");
+    await putSetting("login_keypad_v6", "1");
+  }
 }
 
 export async function lockStatus() {
@@ -183,6 +204,43 @@ export async function changeAdminPin(token: string, current: string, next: strin
   await putSetting("admin_pin", await hashSecret(trimmed));
   await putSetting("admin_fails", "0");
   await putSetting("admin_locked_until", "");
+}
+
+const RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function generateRecoveryCode() {
+  const bytes = randomBytes(16);
+  let out = "";
+  for (let i = 0; i < 16; i++) {
+    out += RECOVERY_ALPHABET[bytes[i]! % RECOVERY_ALPHABET.length];
+    if (i % 4 === 3 && i < 15) out += "-";
+  }
+  return out;
+}
+
+function normalizeRecovery(code: string) {
+  return code.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+export async function issueRecoveryCode(token: string) {
+  await assertSession(token);
+  const raw = generateRecoveryCode();
+  await putSetting("admin_recovery", await hashSecret(normalizeRecovery(raw)));
+  return raw;
+}
+
+export async function resetWithRecovery(code: string, nextPin: string) {
+  const stored = await setting("admin_recovery");
+  if (!stored) throw new Error("RECOVERY_NONE");
+  const ok = await verifySecret(normalizeRecovery(code), stored);
+  if (!ok) throw new Error("RECOVERY_BAD");
+  const trimmed = nextPin.trim();
+  if (trimmed.length < 8) throw new Error("PIN_SHORT");
+  await putSetting("admin_pin", await hashSecret(trimmed));
+  await putSetting("admin_recovery", "");
+  await putSetting("admin_fails", "0");
+  await putSetting("admin_locked_until", "");
+  return createSession();
 }
 
 export const AUTH_HEADERS = {

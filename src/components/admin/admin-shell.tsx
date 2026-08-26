@@ -11,6 +11,7 @@ export type AdminPageId =
   | "categories"
   | "orders"
   | "claims"
+  | "shipstatus"
   | "delay"
   | "settle"
   | "inbox"
@@ -45,6 +46,7 @@ const GROUPS: NavGroup[] = [
     title: "판매관리",
     items: [
       { id: "orders", label: "주문조회" },
+      { id: "shipstatus", label: "배송현황관리" },
       { id: "claims", label: "취소·반품·교환" },
       { id: "delay", label: "발송지연" },
       { id: "blacklist", label: "판매방해 고객" },

@@ -1,15 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { Star } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { ProductVisual } from "@/components/store/product-visual";
-import { formatProductCompare, formatProductPrice, pickLocalized, t } from "@/lib/i18n";
+import { formatProductCompare, formatProductPrice, pickLocalized } from "@/lib/i18n";
 import type { Product } from "@/lib/products";
 import { useStore } from "@/lib/store";
 
 export function ProductCard({ product }: { product: Product }) {
   const locale = useStore((s) => s.locale);
   const currency = useStore((s) => s.currency);
-  const dict = t(locale);
   const compare = formatProductCompare(product, currency);
 
   return (
@@ -20,14 +18,6 @@ export function ProductCard({ product }: { product: Product }) {
     >
       <div className="relative overflow-hidden rounded-2xl transition-transform duration-250 group-hover:-translate-y-0.5">
         <ProductVisual product={product} className="shadow-soft" />
-        {product.badge ? (
-          <Badge variant="accent" className="absolute top-3 left-3">
-            {pickLocalized(product.badge, locale)}
-          </Badge>
-        ) : null}
-        {!product.inStock ? (
-          <Badge className="absolute top-3 right-3">{dict.shop.outOfStock}</Badge>
-        ) : null}
       </div>
       <div className="flex flex-col gap-1.5 px-0.5">
         <div className="flex items-start justify-between gap-3">

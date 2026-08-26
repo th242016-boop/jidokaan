@@ -9,6 +9,9 @@ export type OrderStatus =
   | "return"
   | "exchange";
 
+export type ClaimKind = "cancel" | "return" | "exchange";
+export type ClaimStatus = "requested" | "accepted" | "rejected" | "cancelled";
+
 export type OrderItem = {
   productId: string;
   name: string;
@@ -39,11 +42,16 @@ export type StoreOrder = {
   currency: string;
   status: OrderStatus;
   tracking?: string;
+  courier?: string;
   note?: string;
   couponCode?: string;
   discountKrw?: number;
   discountUsd?: number;
-  claim?: "cancel" | "return" | "exchange";
+  claim?: ClaimKind;
+  claimStatus?: ClaimStatus;
+  claimReason?: string;
+  claimAt?: string;
+  claimAdminNote?: string;
   items: OrderItem[];
 };
 
@@ -93,3 +101,37 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   return: "반품",
   exchange: "교환",
 };
+
+export const CLAIM_KIND_LABEL: Record<ClaimKind, string> = {
+  cancel: "취소",
+  return: "반품",
+  exchange: "교환",
+};
+
+export const CLAIM_STATUS_LABEL: Record<ClaimStatus, string> = {
+  requested: "접수",
+  accepted: "승인",
+  rejected: "거부",
+  cancelled: "접수취소",
+};
+
+export const COURIERS = [
+  "우체국택배",
+  "우체국 EMS",
+  "CJ대한통운",
+  "한진택배",
+  "롯데택배",
+  "로젠택배",
+  "DHL",
+  "FedEx",
+  "UPS",
+  "기타",
+] as const;
+
+export function isPendingClaim(order: StoreOrder, kind?: ClaimKind) {
+  if (!order.claim) return false;
+  if (kind && order.claim !== kind) return false;
+  if (order.claimStatus === "requested") return true;
+  if (!order.claimStatus && order.status !== order.claim) return true;
+  return false;
+}

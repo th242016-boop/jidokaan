@@ -7,10 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  CartItemVisual,
-  customSpecLine,
-} from "@/components/store/cart-item-visual";
+import { DesignThumb } from "@/components/store/design-thumb";
 import {
   formatMoney,
   formatProductPrice,
@@ -19,9 +16,8 @@ import {
   t,
 } from "@/lib/i18n";
 import { getProduct } from "@/lib/products";
-import { formatCartSize } from "@/lib/simulator-config";
 import { quoteShipping, shipCopy } from "@/lib/shipping";
-import { useStore } from "@/lib/store";
+import { formatCartSize, useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
 
 export function CartDrawer() {
@@ -91,14 +87,21 @@ export function CartDrawer() {
               {cart.map((item) => {
                 const product = getProduct(item.productId);
                 if (!product) return null;
-                const spec = customSpecLine(item);
+                const swatches = item.partColors
+                  ? [
+                      item.partColors.a,
+                      item.partColors.b,
+                      item.partColors.e,
+                      item.partColors.k,
+                    ]
+                  : [item.color].filter(Boolean);
                 return (
                   <div
                     key={`${item.productId}-${item.size ?? ""}-${item.color ?? ""}`}
                     className="flex gap-3 rounded-2xl border border-border bg-bg/60 p-3"
                   >
-                    <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-[#111]">
-                      <CartItemVisual item={item} className="size-full" />
+                    <div className="size-24 shrink-0 overflow-hidden rounded-xl bg-[#111]">
+                      <DesignThumb item={item} className="size-full" />
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col gap-2">
                       <div className="flex items-start justify-between gap-2">
@@ -109,12 +112,20 @@ export function CartDrawer() {
                           {item.optionLabel ? (
                             <p className="text-xs text-subtle">{item.optionLabel}</p>
                           ) : item.size ? (
-                            <p className="text-xs text-subtle">{formatCartSize(item, locale)}</p>
-                          ) : null}
-                          {spec ? (
-                            <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-subtle">
-                              {spec}
+                            <p className="text-xs text-subtle">
+                              {formatCartSize(item, locale)}
                             </p>
+                          ) : null}
+                          {swatches.length > 0 ? (
+                            <div className="mt-1 flex gap-1">
+                              {swatches.map((c, i) => (
+                                <span
+                                  key={i}
+                                  className="size-3 rounded-full border border-border"
+                                  style={{ background: c as string }}
+                                />
+                              ))}
+                            </div>
                           ) : null}
                           <p className="price-num mt-1 text-sm text-muted">
                             {formatProductPrice(product, currency)}
@@ -124,7 +135,12 @@ export function CartDrawer() {
                           type="button"
                           className="rounded-full p-1.5 text-subtle hover:bg-surface-muted hover:text-fg"
                           onClick={() =>
-                            removeFromCart(item.productId, item.size, item.optionKey, item.sizeFit)
+                            removeFromCart(
+                              item.productId,
+                              item.size,
+                              item.optionKey,
+                              item.sizeFit,
+                            )
                           }
                           aria-label={dict.cart.remove}
                         >
@@ -137,7 +153,13 @@ export function CartDrawer() {
                             type="button"
                             className="flex size-8 items-center justify-center rounded-full hover:bg-surface-muted"
                             onClick={() =>
-                              setQty(item.productId, item.qty - 1, item.size, item.optionKey, item.sizeFit)
+                              setQty(
+                                item.productId,
+                                item.qty - 1,
+                                item.size,
+                                item.optionKey,
+                                item.sizeFit,
+                              )
                             }
                             aria-label="Decrease"
                           >
@@ -150,7 +172,13 @@ export function CartDrawer() {
                             type="button"
                             className="flex size-8 items-center justify-center rounded-full hover:bg-surface-muted"
                             onClick={() =>
-                              setQty(item.productId, item.qty + 1, item.size, item.optionKey, item.sizeFit)
+                              setQty(
+                                item.productId,
+                                item.qty + 1,
+                                item.size,
+                                item.optionKey,
+                                item.sizeFit,
+                              )
                             }
                             aria-label="Increase"
                           >

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Product } from "@/lib/products";
@@ -7,6 +8,7 @@ import {
   majorsOf,
   type ShopCategory,
 } from "@/lib/shop-taxonomy";
+import { cn } from "@/lib/utils";
 
 export function ProductList({
   products,
@@ -27,7 +29,7 @@ export function ProductList({
     op: string,
     extra?: { majorId?: string; order?: string[] },
   ) => void;
-  onReorder?: (ids: string[]) => void;
+  onReorder?: (ids: string[]) => Promise<boolean> | boolean | void;
 }) {
   const [q, setQ] = useState("");
   const [field, setField] = useState<"name" | "sku">("name");
@@ -37,6 +39,15 @@ export function ProductList({
   const [sort, setSort] = useState<"display" | "new" | "name" | "price">("display");
   const [picked, setPicked] = useState<string[]>([]);
   const [moveMajor, setMoveMajor] = useState("");
+  const [overId, setOverId] = useState<string | null>(null);
+  const [liveIds, setLiveIds] = useState<string[] | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
+  const dragId = useRef<string | null>(null);
+  const startPt = useRef<{ x: number; y: number } | null>(null);
+  const dragging = useRef(false);
+  const liveRef = useRef<string[]>([]);
 
   const stats = useMemo(() => {
     const all = products.length;
@@ -76,10 +87,16 @@ export function ProductList({
     return list;
   }, [products, q, field, display, sale, major, sort]);
 
-  const allChecked = rows.length > 0 && rows.every((p) => picked.includes(p.id));
+  const shown = useMemo(() => {
+    if (!liveIds) return rows;
+    const map = new Map(rows.map((p) => [p.id, p]));
+    return liveIds.map((id) => map.get(id)).filter((p): p is Product => Boolean(p));
+  }, [rows, liveIds]);
+
+  const allChecked = shown.length > 0 && shown.every((p) => picked.includes(p.id));
 
   function toggleAll() {
-    setPicked(allChecked ? [] : rows.map((p) => p.id));
+    setPicked(allChecked ? [] : shown.map((p) => p.id));
   }
 
   function run(op: string) {
@@ -94,19 +111,126 @@ export function ProductList({
     setPicked([]);
   }
 
+  async function persistOrder(viewIds: string[]) {
+    setSaving(true);
+    setSaveNote(null);
+    try {
+      const ok = await onReorder?.(viewIds);
+      if (ok === false) throw new Error("fail");
+      setDirty(false);
+      setLiveIds(viewIds);
+      liveRef.current = viewIds;
+      setSaveNote("저장했습니다. 쇼핑몰 상품 목록에 이 순서로 나갑니다.");
+      return true;
+    } catch {
+      setDirty(true);
+      setSaveNote("저장에 실패했습니다. 다시 로그인한 뒤 저장해 주세요.");
+      window.alert("저장에 실패했습니다. 관리자에 다시 로그인한 뒤 저장해 주세요.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveOrder() {
+    await persistOrder(liveRef.current.length ? liveRef.current : shown.map((p) => p.id));
+  }
+
   function moveRow(id: string, dir: -1 | 1) {
-    const i = rows.findIndex((p) => p.id === id);
+    if (sort !== "display") setSort("display");
+    const list = shown;
+    const i = list.findIndex((p) => p.id === id);
     const j = i + dir;
-    if (i < 0 || j < 0 || j >= rows.length) return;
-    const next = rows.map((p) => p.id);
-    const tmp = next[i];
-    next[i] = next[j];
+    if (i < 0 || j < 0 || j >= list.length) return;
+    const next = list.map((p) => p.id);
+    const tmp = next[i]!;
+    next[i] = next[j]!;
     next[j] = tmp;
-    onReorder?.(next);
+    liveRef.current = next;
+    setLiveIds(next);
     setSort("display");
+    void persistOrder(next);
+  }
+
+  function placeAt(fromId: string, at: number) {
+    const next = liveRef.current.filter((id) => id !== fromId);
+    const insert = Math.max(0, Math.min(at, next.length));
+    next.splice(insert, 0, fromId);
+    if (next.join() === liveRef.current.join()) return;
+    liveRef.current = next;
+    setLiveIds(next);
+  }
+
+  function onRowPointerDown(e: React.PointerEvent, id: string) {
+    if (sort !== "display") return;
+    const t = e.target as HTMLElement;
+    if (t.closest("input, select, a, [data-nodrag]")) return;
+    dragId.current = id;
+    dragging.current = false;
+    startPt.current = { x: e.clientX, y: e.clientY };
+    liveRef.current = (liveIds ?? rows.map((p) => p.id)).slice();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function onRowPointerMove(e: React.PointerEvent) {
+    if (!dragId.current || !startPt.current) return;
+    const dx = e.clientX - startPt.current.x;
+    const dy = e.clientY - startPt.current.y;
+    if (!dragging.current) {
+      if (Math.hypot(dx, dy) < 6) return;
+      dragging.current = true;
+    }
+    e.preventDefault();
+    const tbody = (e.currentTarget as HTMLElement).closest("tbody");
+    if (!tbody) return;
+    const others = [...tbody.querySelectorAll("tr[data-pid]")].filter(
+      (el) => (el as HTMLElement).dataset.pid !== dragId.current,
+    ) as HTMLElement[];
+    let at = others.length;
+    for (let i = 0; i < others.length; i++) {
+      const box = others[i]!.getBoundingClientRect();
+      if (e.clientY < box.top + box.height / 2) {
+        at = i;
+        break;
+      }
+    }
+    setOverId(others[at]?.dataset.pid ?? others[others.length - 1]?.dataset.pid ?? null);
+    placeAt(dragId.current, at);
+  }
+
+  function onRowPointerUp(e: React.PointerEvent, product: Product) {
+    const wasDrag = dragging.current;
+    const fromId = dragId.current;
+    dragId.current = null;
+    dragging.current = false;
+    startPt.current = null;
+    setOverId(null);
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* already released */
+    }
+    if (wasDrag && fromId) {
+      setSort("display");
+      void persistOrder(liveRef.current);
+      return;
+    }
+    if (!wasDrag && !(e.target as HTMLElement).closest("input, select, [data-nodrag]")) {
+      onEdit(product);
+    }
   }
 
   const majors = majorsOf(categories);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   return (
     <div className="space-y-3">
@@ -199,12 +323,20 @@ export function ProductList({
 
       <div className="overflow-hidden rounded border border-[#d5d7dc] bg-white">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#eee] px-3 py-2">
-          <p className="text-sm">총 {rows.length}개</p>
+          <p className="text-sm">
+            총 {shown.length}개
+            <span className="ml-2 text-xs text-[#666]">
+              위·아래 버튼으로 순서를 바꾸면 바로 저장됩니다. 끌어서 옮겨도 됩니다.
+            </span>
+          </p>
           <div className="flex flex-wrap items-center gap-2">
             <select
               className="h-8 rounded border border-[#ccc] bg-white px-2 text-sm"
               value={sort}
-              onChange={(e) => setSort(e.target.value as typeof sort)}
+              onChange={(e) => {
+                setLiveIds(null);
+                setSort(e.target.value as typeof sort);
+              }}
             >
               <option value="display">진열순 (직접 정한 순서)</option>
               <option value="new">최근 등록순</option>
@@ -214,6 +346,24 @@ export function ProductList({
             <Button size="sm" onClick={onCreate}>상품등록</Button>
           </div>
         </div>
+
+        {dirty || saveNote ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#222] bg-[#111] px-4 py-3 text-white">
+            <p className="text-sm font-medium">
+              {saveNote ?? "순서가 바뀌었습니다. 저장해야 쇼핑몰에 반영됩니다."}
+            </p>
+            {dirty ? (
+              <Button
+                type="button"
+                disabled={saving || busy}
+                className="bg-[#00c73c] text-white hover:bg-[#00b434]"
+                onClick={() => void saveOrder()}
+              >
+                {saving ? "저장 중…" : "진열 순서 저장"}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-1 border-b border-[#eee] px-3 py-2">
           <BulkBtn onClick={() => run("show")}>진열함</BulkBtn>
@@ -254,8 +404,24 @@ export function ProductList({
               </tr>
             </thead>
             <tbody>
-              {rows.map((p, i) => (
-                <tr key={p.id} className="border-t border-[#eee] hover:bg-[#fafafa]">
+              {shown.map((p, i) => (
+                <tr
+                  key={p.id}
+                  data-pid={p.id}
+                  onPointerDown={(e) => onRowPointerDown(e, p.id)}
+                  onPointerMove={onRowPointerMove}
+                  onPointerUp={(e) => onRowPointerUp(e, p)}
+                  onPointerCancel={(e) => onRowPointerUp(e, p)}
+                  className={cn(
+                    "border-t border-[#eee] select-none",
+                    sort === "display" && "cursor-grab",
+                    overId === p.id && dragId.current && overId !== dragId.current
+                      ? "bg-[#eef3ff]"
+                      : "hover:bg-[#fafafa]",
+                    dragId.current === p.id && "bg-[#e8eefc] opacity-80",
+                  )}
+                  style={sort === "display" ? { touchAction: "none" } : undefined}
+                >
                   <td className="px-3 py-2">
                     <input
                       type="checkbox"
@@ -267,33 +433,39 @@ export function ProductList({
                       }
                     />
                   </td>
-                  <td className="px-2 py-2 text-[#555]">{rows.length - i}</td>
+                  <td className="px-2 py-2 text-[#555]">{shown.length - i}</td>
                   <td className="px-2 py-2 text-[#333]">{p.sku || p.id}</td>
                   <td className="px-2 py-2">
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 text-left"
-                      onClick={() => onEdit(p)}
-                    >
-                      <span className="size-12 shrink-0 overflow-hidden rounded border border-[#ddd] bg-[#f3f3f3]">
-                        {p.image ? (
-                          <img src={p.image} alt="" className="size-full object-cover" />
-                        ) : null}
+                    <div className="flex items-center gap-2">
+                      {sort === "display" ? (
+                        <span
+                          className="inline-flex size-8 shrink-0 cursor-grab items-center justify-center rounded text-[#999] hover:bg-[#eee] hover:text-[#333]"
+                          title="끌어서 순서 변경"
+                        >
+                          <GripVertical className="size-4" />
+                        </span>
+                      ) : null}
+                      <span className="flex min-w-0 items-center gap-2 text-left">
+                        <span className="size-12 shrink-0 overflow-hidden rounded border border-[#ddd] bg-[#f3f3f3]">
+                          {p.image ? (
+                            <img src={p.image} alt="" className="pointer-events-none size-full object-cover" />
+                          ) : null}
+                        </span>
+                        <span>
+                          <span className="font-medium underline">{p.name.ko || p.name.en}</span>
+                          {p.customizable ? (
+                            <span className="mt-0.5 block text-[11px] text-[#666]">커스텀</span>
+                          ) : null}
+                        </span>
                       </span>
-                      <span>
-                        <span className="font-medium underline">{p.name.ko || p.name.en}</span>
-                        {p.customizable ? (
-                          <span className="mt-0.5 block text-[11px] text-[#666]">커스텀</span>
-                        ) : null}
-                      </span>
-                    </button>
+                    </div>
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-2 py-2" data-nodrag>
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
                         className="h-7 rounded border border-[#ccc] px-1.5 text-xs disabled:opacity-30"
-                        disabled={i === 0}
+                        disabled={i === 0 || saving || busy}
                         onClick={() => moveRow(p.id, -1)}
                       >
                         위
@@ -301,7 +473,7 @@ export function ProductList({
                       <button
                         type="button"
                         className="h-7 rounded border border-[#ccc] px-1.5 text-xs disabled:opacity-30"
-                        disabled={i === rows.length - 1}
+                        disabled={i === shown.length - 1 || saving || busy}
                         onClick={() => moveRow(p.id, 1)}
                       >
                         아래
@@ -319,13 +491,19 @@ export function ProductList({
                   <td className="px-2 py-2">{p.visible === false ? "진열안함" : "진열함"}</td>
                   <td className="px-2 py-2">{p.inStock ? "판매함" : "판매안함"}</td>
                   <td className="px-2 py-2">
-                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => onEdit(p)}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={busy}
+                      data-nodrag
+                      onClick={() => onEdit(p)}
+                    >
                       수정
                     </Button>
                   </td>
                 </tr>
               ))}
-              {rows.length === 0 ? (
+              {shown.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-4 py-10 text-center text-[#555]">
                     조건에 맞는 상품이 없습니다.

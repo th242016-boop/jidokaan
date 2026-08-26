@@ -28,18 +28,24 @@ function HomePage() {
         description={catalog.seo.description}
         keywords={catalog.seo.keywords}
       />
-      <section className="relative h-[calc(100dvh-var(--grok-banner-h,0px))] overflow-hidden bg-[#05070c]">
+      <section className="relative h-[calc(100dvh-var(--grok-banner-h,0px))] overflow-hidden bg-black">
         <Link
           to="/customize"
           aria-label={dict.nav.custom}
           className="absolute inset-0 z-[1] block overflow-hidden focus-ring"
         >
           <img
-            src="/products/hero-main.jpg?v=user-main2"
+            src="/products/hero-mobile.jpg?v=m2"
             alt={dict.nav.custom}
-            className="absolute inset-0 h-full w-full object-contain object-center select-none motion-safe:animate-[float-shoe_5s_ease-in-out_infinite]"
+            className="absolute inset-0 h-full w-full select-none object-contain object-center motion-safe:animate-[float-shoe_5s_ease-in-out_infinite] lg:hidden"
             draggable={false}
             fetchPriority="high"
+          />
+          <img
+            src="/products/hero-wide.jpg?v=w2"
+            alt=""
+            className="absolute inset-0 hidden h-full w-full select-none object-contain object-center motion-safe:animate-[float-shoe_5s_ease-in-out_infinite] lg:block"
+            draggable={false}
           />
         </Link>
       </section>
@@ -51,10 +57,10 @@ function HomePage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(70,75,95,0.14),transparent_55%)]" />
         <div className="container-page relative">
           <h2 className="max-w-4xl whitespace-pre-line text-3xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
-            {dict.home.originTitle}
+            {dict.home.storyTitle}
           </h2>
           <p className="mt-6 max-w-2xl whitespace-pre-line text-base leading-relaxed text-muted sm:text-lg">
-            {dict.home.originBody}
+            {dict.home.storyBody}
           </p>
 
           <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-3 sm:gap-6">

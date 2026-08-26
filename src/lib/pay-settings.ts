@@ -16,7 +16,7 @@ export const DEFAULT_PAY: PaySettings = {
   krBank: "",
   krAccount: "",
   krHolder: "",
-  krMemo: "주문번호로 입금해 주세요",
+  krMemo: "주문자명으로 입금해 주세요",
   intlBank: "",
   intlAccount: "",
   intlSwift: "",

@@ -25,6 +25,10 @@ export const Route = createRootRoute({
         content:
           "지도칸 JIDOKAAN — Korea's first custom handmade boxing shoes. Global shipping from Seoul. jidokaan.com",
       },
+      {
+        name: "naver-site-verification",
+        content: "3a0f4b678fd89f329dd163a4c4edee0853e21567",
+      },
       { title: APP_NAME },
       ...(ogImage
         ? [

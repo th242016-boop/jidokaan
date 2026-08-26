@@ -155,6 +155,27 @@ export function colorByName(name: string): ColorOpt | undefined {
 }
 
 export const READY_PARTS: PartId[] = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
+export const PICKABLE_PARTS: PartId[] = READY_PARTS.filter((id) => id !== "l");
+
+/**
+ * L is hidden from the picker.
+ * D = WHITE or BLACK → L copies I
+ * D = any other color → L copies A
+ */
+export function linkedLColor(
+  dName: string,
+  _dColor: string,
+  iName: string,
+  iColor: string,
+  aName: string,
+  aColor: string,
+): { name: string; color: string } {
+  const d = (dName || "WHITE").toUpperCase();
+  if (d === "WHITE" || d === "BLACK") {
+    return { name: iName, color: iColor };
+  }
+  return { name: aName, color: aColor };
+}
 
 /** Default view matches the base photo */
 export const PHOTO_NATIVE: Partial<Record<PartId, string>> = {
@@ -352,38 +373,6 @@ export function defaultPartNames(): PartColorNames {
     out[part.id] = PHOTO_NATIVE[part.id] ?? "WHITE";
   }
   return out;
-}
-
-/** L follows D if D is not WHITE/BLACK, else I — grok.me store. */
-export function lineFromParts(
-  dName: string | undefined,
-  _dColor: string | undefined,
-  iName: string,
-  iColor: string,
-  aName: string,
-  aColor: string,
-) {
-  const n = (dName || "WHITE").toUpperCase();
-  if (n === "WHITE" || n === "BLACK") return { name: iName, color: iColor };
-  return { name: aName, color: aColor };
-}
-
-export function formatCartSize(
-  item: { size?: string; sizeFit?: "men" | "women" },
-  locale: string,
-) {
-  if (!item.size) return "";
-  const fit =
-    item.sizeFit === "women"
-      ? locale === "ko"
-        ? "여성"
-        : "Women"
-      : item.sizeFit === "men"
-        ? locale === "ko"
-          ? "남성"
-          : "Men"
-        : "";
-  return fit ? `${item.size} (${fit})` : `${item.size}mm`;
 }
 
 export const SIM_ASSET = (file: string) => `/simulator/${file}`;

@@ -123,6 +123,7 @@ export type Dictionary = {
     account: string;
     signIn: string;
     custom: string;
+    orders: string;
   };
   hero: {
     eyebrow: string;
@@ -137,6 +138,8 @@ export type Dictionary = {
     originTitle: string;
     originBody: string;
     originItems: [string, string, string];
+    storyTitle: string;
+    storyBody: string;
     craftKicker: string;
     craftTitle: string;
     craftBody: string;
@@ -165,10 +168,6 @@ export type Dictionary = {
     women: string;
     sizeGuideTitle: string;
     sizeGuideBody: string;
-    studioLabel: string;
-    guideClick: string;
-    guideToggle: string;
-    sizeLabel: string;
   };
   trust: {
     freeShip: string;
@@ -221,6 +220,11 @@ export type Dictionary = {
     leadTime: string;
     leadDays: string;
     customHint: string;
+    customOrder: string;
+    specialOrder: string;
+    specialSoon: string;
+    naverReviews: string;
+    naverReviewsHint: string;
     upper: string;
     stripe: string;
     sole: string;
@@ -247,6 +251,7 @@ export type Dictionary = {
     firstName: string;
     lastName: string;
     address: string;
+    address2: string;
     city: string;
     region: string;
     postal: string;
@@ -270,6 +275,9 @@ export type Dictionary = {
     payPaypal: string;
     signInFirst: string;
     payNote: string;
+    shipAuto: string;
+    phoneHint: string;
+    noPobox: string;
   };
   success: {
     title: string;
@@ -329,7 +337,6 @@ export type Dictionary = {
     noAccount: string;
     orEmail: string;
     guestCheckout: string;
-    socialSoon: string;
     failed: string;
   };
   common: {
@@ -353,6 +360,7 @@ const EN: Dictionary = {
     account: "Account",
     signIn: "Sign in",
     custom: "Custom order",
+    orders: "Orders",
   },
   hero: {
     eyebrow: "100% Made in Korea · Global Shipping",
@@ -360,19 +368,22 @@ const EN: Dictionary = {
     body: "JIDOKAAN builds Korea’s first custom handmade boxing boots. Pick your colors, get pro-level comfort, ship worldwide from Seoul.",
     cta: "Shop custom boots",
     secondary: "Shipping info",
-    ships: "Handcrafted in Seongsu · ~10 days · global delivery",
+    ships: "Handcrafted in Seongsu · typically 20–30 days · global delivery",
   },
   home: {
     originKicker: "ORIGIN",
-    originTitle: "Korea’s first\nmade-to-order custom boxing shoes.",
+    originTitle: "Boxing shoes born\nfrom 15 years of handmade footwear.",
     originBody:
-      "JIDOKAAN makes every pair by hand, one at a time, in our Seongsu workshop. Combine the colors you love — we build them for you.",
+      "It started with a pair I made to wear myself.\nFriends responded so strongly that it became a brand.\nNext we grow into a specialist that custom-builds shoes for more sports — not only boxing.",
     originItems: ["Handcrafted in Seongsu", "Made to order", "100% Made in Korea"],
+    storyTitle: "Korea’s first\nmade-to-order custom boxing shoes.",
+    storyBody:
+      "JIDOKAAN makes every pair by hand, one at a time, in our Seongsu workshop. Combine the colors you love — we build them for you.",
     craftKicker: "CRAFT",
     craftTitle: "No compromise on fit.",
     craftBody:
-      "Wide last, locked-in support, ring-ready grip. Pro feel first — then your design on top. ~10 day handmade lead time.",
-    craftItems: ["Wide last", "High-grip sole", "~10 day make"],
+      "Wide last, locked-in support, ring-ready grip. Pro feel first — then your design on top. Typically 20–30 days handmade.",
+    craftItems: ["Wide last", "High-grip sole", "20–30 day make"],
     clickStudio: "Click · Custom studio",
     buildTitle: "Build your pair.",
     buildBody: "Design in Custom Studio, pick your country, place the order.",
@@ -398,10 +409,6 @@ const EN: Dictionary = {
     sizeGuideTitle: "Size guide",
     sizeGuideBody:
       "Women’s sizes are similar to most everyday shoes, so many customers order their usual size. Men’s sizes tend to run slightly larger than Nike and other common sneakers, so we recommend going one size down. If you have a wide foot, however, your regular size may fit better.",
-    studioLabel: "Custom Studio",
-    guideClick: "Click GUIDE ON/OFF to check the parts.",
-    guideToggle: "GUIDE ON/OFF",
-    sizeLabel: "SIZE",
   },
   trust: {
     freeShip: "Domestic free ship",
@@ -442,7 +449,7 @@ const EN: Dictionary = {
     added: "Added",
     buyNow: "Order now",
     shipsWorldwide: "Ships worldwide",
-    freeOver: "Free shipping in Korea over ₩50,000",
+    freeOver: "Ships worldwide from Seongsu, Seoul",
     materials: "Materials",
     weight: "Weight",
     shipsFrom: "Ships from",
@@ -453,8 +460,13 @@ const EN: Dictionary = {
     size: "Size (mm)",
     color: "Color",
     leadTime: "Lead time",
-    leadDays: "days (handmade)",
-    customHint: "Pick upper, stripe, and sole colors for your DRONE.",
+    leadDays: "days",
+    customHint: "Colors and size are chosen on the next screen — the custom simulator.",
+    customOrder: "Custom order",
+    specialOrder: "Special order",
+    specialSoon: "Simulator coming soon",
+    naverReviews: "See full reviews on Naver Smart Store",
+    naverReviewsHint: "Opens the Naver product page (click). You can also order there.",
     upper: "Upper",
     stripe: "Stripe",
     sole: "Sole",
@@ -476,11 +488,12 @@ const EN: Dictionary = {
     title: "Checkout",
     contact: "Contact",
     email: "Email",
-    phone: "Phone (optional)",
+    phone: "Phone",
     shipping: "Shipping address",
     firstName: "First name",
     lastName: "Last name",
     address: "Address",
+    address2: "Apartment, suite (optional)",
     city: "City",
     region: "State / region",
     postal: "Postal code",
@@ -505,6 +518,10 @@ const EN: Dictionary = {
     signInFirst: "Sign in to save this order to your account",
     payNote:
       "Choose how you want to pay. Card and wallet payments go live once the official jidokaan.com checkout is connected. Your order is still received.",
+    shipAuto:
+      "Shipping is applied automatically — no standard/express choice. Korea: domestic courier. Abroad: tracked DHL or EMS.",
+    phoneHint: "Required for international courier contact.",
+    noPobox: "PO Boxes and freight-forwarding addresses cannot be used.",
   },
   success: {
     title: "Order received",
@@ -524,7 +541,7 @@ const EN: Dictionary = {
   },
   shippingPage: {
     title: "Shipping, duties & production",
-    body: "Handmade first, then shipped domestic or international. ~10 days production + transit.",
+    body: "Handmade first, then shipped. Made-to-order typically takes 20–30 days.",
     zones: "Shipping zones",
     asia: "Korea & Asia",
     asiaBody: "2–5 business days after make (KR) · 3–8 (Asia)",
@@ -566,8 +583,6 @@ const EN: Dictionary = {
     noAccount: "New here? Create an account",
     orEmail: "or use email",
     guestCheckout: "Continue as guest",
-    socialSoon:
-      "Kakao and Naver open when jidokaan.com is live. Use Google or email for now.",
     failed: "Could not sign in. Please try again.",
   },
   common: {
@@ -627,34 +642,37 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "계정",
       signIn: "로그인",
       custom: "커스텀 주문",
+      orders: "주문조회",
     },
     hero: {
       title: "나만의 복싱화를\n전 세계 어디든",
       body: "지도칸은 국내 최초 커스텀 제작 수제 복싱화 브랜드입니다. 원하는 컬러로 주문하고, 세계 어디서나 같은 착용감으로 신으세요.",
       cta: "커스텀 복싱화 보기",
       secondary: "배송 안내",
-      ships: "성수 공방 제작 · 약 10일 · 글로벌 배송",
+      ships: "성수 공방 제작 · 평균 20~30일 · 글로벌 배송",
     },
     home: {
-      originTitle: "대한민국 최초,\n주문제작 커스텀 복싱화.",
+      originTitle: "15년 수제화 경력에서 시작된 복싱화",
       originBody:
-        "지도칸은 성수 공방에서 한 켤레씩 손으로 만듭니다.\n당신이 좋아하는 컬러를 조합하여 제작할 수 있습니다.",
+        "처음에는 내가 신을 복싱화를 직접 만들며 시작했습니다.\n주변의 폭발적인 반응으로 지금까지 이어졌고,\n앞으로는 복싱을 넘어 더 많은 스포츠의 커스텀 신발을 만드는 전문화된 기업으로 성장하려 합니다.",
       originItems: ["성수 공방 수제", "주문 제작", "100% Made in Korea"],
+      storyTitle: "대한민국 최초,\n주문제작 커스텀 복싱화.",
+      storyBody:
+        "지도칸은 성수 공방에서 한 켤레씩 손으로 만듭니다.\n당신이 좋아하는 컬러를 조합하여 제작할 수 있습니다.",
       craftTitle: "착화감은 타협하지 않습니다.",
       craftBody:
-        "넓은 발볼, 안정적인 지지, 링 위 그립. 프로 장비의 감각을 유지하면서 원하는 디자인을 입힐 수 있게 설계했습니다. 수제 제작 약 10일.",
-      craftItems: ["와이드 라스트", "고그립 솔", "약 10일 제작"],
+        "넓은 발볼, 안정적인 지지, 링 위 그립. 프로 장비의 감각을 유지하면서 원하는 디자인을 입힐 수 있게 설계했습니다. 수제 제작 평균 20~30일.",
+      craftItems: ["와이드 라스트", "고그립 솔", "평균 20~30일 제작"],
       clickStudio: "클릭 · 커스텀 스튜디오",
       buildTitle: "나만의 복싱화를 만드세요.",
       buildBody: "커스텀 스튜디오에서 디자인한 뒤, 배송 국가만 고르면 주문이 끝납니다.",
       viewAll: "모든 상품 보기",
-      studioLabel: "커스텀 스튜디오",
     },
     custom: {
       back: "뒤로",
       reset: "초기화",
       resetToast: "기본 컬러로 초기화",
-      guide2d: "가이드 켜기/끄기로 부위(A–K)를 확인하세요. (제품 정확 뷰)",
+      guide2d: "GUIDE ON/OFF로 부위(A–K)를 확인하세요. (제품 정확 뷰)",
       guide3d: "3D는 미리보기용입니다. 주문 확정 색은 2D와 동일합니다.",
       allParts: "전체 부위",
       shipTo: "배송 국가",
@@ -664,15 +682,11 @@ export const DICT: Record<Locale, Dictionary> = {
       colorNote: "시뮬레이터의 색상과 실제와는 차이가 있습니다",
       expandPreview: "사진을 누르면 확대됩니다",
       closePreview: "닫기",
-      men: "남성",
-      women: "여성",
+      men: "남성용",
+      women: "여성용",
       sizeGuideTitle: "사이즈 선택 가이드",
       sizeGuideBody:
         "여성용은 보통의 신발들과 비슷하기에 정사이즈로 많이 주문해주시는 편입니다. 남성용은 나이키와 같은 일반적인 신발들보다 약간 더 크다는 평가가 많아 한 치수 작게 주문하시길 권장합니다. 다만 발볼이 두꺼운 경우에는 정사이즈가 더 잘 맞을 수 있습니다.",
-      studioLabel: "커스텀 스튜디오",
-      guideClick: "가이드 켜기/끄기로 부위를 확인하세요.",
-      guideToggle: "가이드 켜기/끄기",
-      sizeLabel: "사이즈",
     },
     trust: {
       freeShip: "국내 무료 배송",
@@ -712,19 +726,24 @@ export const DICT: Record<Locale, Dictionary> = {
       added: "담았습니다",
       buyNow: "바로 주문",
       shipsWorldwide: "글로벌 배송 가능",
-      freeOver: "국내 5만원 이상 무료 배송",
+      freeOver: "성수에서 전 세계 발송",
       materials: "소재",
       weight: "무게",
       shipsFrom: "출고지",
       reviews: "리뷰",
-      description: "상세 설명",
+      description: "상세정보",
       qty: "수량",
       related: "함께 보면 좋은 제품",
       size: "사이즈 (mm)",
       color: "컬러",
       leadTime: "제작 기간",
-      leadDays: "일 내외 (수제)",
-      customHint: "갑피 · 스트라이프 · 솔 컬러를 골라 나만의 DRONE을 만드세요.",
+      leadDays: "일 내외",
+      customHint: "색상과 사이즈는 다음 화면 시뮬레이터에서 고릅니다.",
+      customOrder: "커스텀오더",
+      specialOrder: "스페셜오더",
+      specialSoon: "시뮬레이터 준비중 입니다",
+      naverReviews: "상세한 제품 후기는 네이버 스토어에서 확인",
+      naverReviewsHint: "클릭하면 네이버 상품 페이지로 이동합니다. 원하시면 거기서 주문하셔도 됩니다.",
       upper: "갑피",
       stripe: "스트라이프",
       sole: "솔",
@@ -746,11 +765,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "주문 · 결제",
       contact: "연락처",
       email: "이메일",
-      phone: "전화번호 (선택)",
+      phone: "전화번호",
       shipping: "배송지",
       firstName: "이름",
       lastName: "성",
       address: "주소",
+      address2: "상세주소 (동·호수, 선택)",
       city: "도시",
       region: "주/도",
       postal: "우편번호",
@@ -759,7 +779,7 @@ export const DICT: Record<Locale, Dictionary> = {
       card: "카드 번호",
       nameOnCard: "카드 소유자",
       expiry: "유효기간",
-      cvc: "보안코드",
+      cvc: "CVC",
       placeOrder: "주문 확정",
       placing: "처리 중…",
       note: "국내·해외 모두 jidokaan.com에서 주문합니다.",
@@ -775,6 +795,10 @@ export const DICT: Record<Locale, Dictionary> = {
       signInFirst: "로그인하면 주문이 계정에 저장됩니다",
       payNote:
         "결제 수단을 고르면 주문이 접수됩니다. 카드·페이는 jidokaan.com 결제 연결이 끝나는 즉시 바로 승인됩니다.",
+      shipAuto:
+        "배송 방법은 고르지 않습니다. 한국은 국내 택배, 해외는 DHL 또는 EMS 추적 택배로 보냅니다.",
+      phoneHint: "해외 배송은 택배사 연락을 위해 전화번호가 필요합니다.",
+      noPobox: "PO Box·해외 택배 대행지 주소는 받을 수 없습니다.",
     },
     success: {
       title: "주문이 접수되었습니다",
@@ -794,7 +818,7 @@ export const DICT: Record<Locale, Dictionary> = {
     },
     shippingPage: {
       title: "배송 · 관세 · 제작",
-      body: "수제 제작 후 국내·해외로 발송합니다. 제작 약 10일 + 배송 일정을 안내드립니다.",
+      body: "주문 후 제작 상품으로 평균적으로 20~30일 정도 소요됩니다.",
       zones: "배송 권역",
       asia: "국내 · 아시아",
       asiaBody: "제작 후 2–5 영업일 (국내) · 3–8일 (아시아)",
@@ -810,7 +834,6 @@ export const DICT: Record<Locale, Dictionary> = {
       shop: "샵",
       help: "고객지원",
       company: "브랜드",
-      rights: "모든 권리 보유.",
       contact: "문의",
       privacy: "개인정보",
       terms: "이용약관",
@@ -834,8 +857,6 @@ export const DICT: Record<Locale, Dictionary> = {
       noAccount: "처음이신가요? 회원가입",
       orEmail: "또는 이메일로",
       guestCheckout: "비회원으로 주문",
-      socialSoon:
-        "카카오·네이버는 jidokaan.com 오픈 후 연결됩니다. 지금은 구글 또는 이메일로 바로 시작하세요.",
       failed: "로그인에 실패했습니다. 다시 시도해 주세요.",
     },
     common: {
@@ -864,9 +885,9 @@ export const DICT: Record<Locale, Dictionary> = {
       ships: "聖水で手製 · 約10日 · 海外配送",
     },
     home: {
-      originTitle: "韓国初の\nカスタム手製。",
+      originTitle: "15年の靴づくりから始まった\nボクシングシューズ。",
       originBody:
-        "JIDOKAANは聖水の工房で一足ずつ手作業。量産ではなく、あなたのカラーとサイズに合わせた受注生産。",
+        "最初は自分が履く一足を手で作ったところから始まりました。\n周りの強い反応が今のブランドになり、\nボクシングにとどまらず、もっと多くのスポーツのカスタムシューズをつくる専門企業へ成長します。",
       originItems: ["聖水で手製", "受注生産", "100% Made in Korea"],
       craftTitle: "履き心地は妥協しない。",
       craftBody:
@@ -875,14 +896,12 @@ export const DICT: Record<Locale, Dictionary> = {
       clickStudio: "クリック · カスタムスタジオ",
       buildTitle: "自分だけの一足を。",
       buildBody: "カスタムスタジオでデザインして、配送国を選ぶだけ。",
-      viewAll: "すべての商品を見る",
-      studioLabel: "カスタムスタジオ",
     },
     custom: {
       back: "戻る",
       reset: "リセット",
       resetToast: "初期カラーに戻しました",
-      guide2d: "ガイドのON/OFFでパーツを確認。（製品どおりの2D）",
+      guide2d: "GUIDE ON/OFFでパーツ確認。(製品正確ビュー)",
       guide3d: "3Dはプレビュー。確定色は2Dと同じです。",
       allParts: "全パーツ",
       shipTo: "配送国",
@@ -897,178 +916,9 @@ export const DICT: Record<Locale, Dictionary> = {
       sizeGuideTitle: "サイズ選びガイド",
       sizeGuideBody:
         "レディースは一般的な靴とほぼ同じなので、いつものサイズでご注文いただく方が多いです。メンズはナイキなど一般的なスニーカーよりやや大きめとの声が多く、ワンサイズ下げてのご注文をおすすめします。ただし、足幅が広い方はいつものサイズの方が合う場合もあります。",
-      studioLabel: "カスタムスタジオ",
-      guideClick: "ガイドのON/OFFでパーツを確認してください。",
-      guideToggle: "ガイド ON/OFF",
-      sizeLabel: "サイズ",
     },
-    trust: {
-      freeShip: "国内送料無料",
-      freeShipBody: "韓国5万ウォン以上は国内送料無料 · 海外発送可",
-      duties: "関税の事前案内",
-      dutiesBody: "海外決済前に税・関税の目安を表示",
-      returns: "受注生産",
-      returnsBody: "製作開始前ならキャンセル可",
-      secure: "安全な決済",
-      secureBody: "カード・現地決済（デモ）",
-    },
-    sections: {
-      featured: "ラインナップ",
-      featuredBody: "DRONEシリーズ — 履き心地はそのまま、色はあなたのもの",
-      categories: "カテゴリー",
-      categoriesBody: "フルカスタムからケアまで",
-      why: "なぜ JIDOKAAN",
-      whyBody:
-        "韓国で手作業。幅広で安定したフィットとリング向けグリップを、世界のファイターへ。",
-      countries: "配送エリア",
-    },
-    shop: {
-      title: "全商品",
-      all: "すべて",
-      filter: "カテゴリー",
-      sort: "並び替え",
-      sortFeatured: "おすすめ",
-      sortPriceAsc: "価格が低い順",
-      sortPriceDesc: "価格が高い順",
-      sortRating: "評価順",
-      results: "件",
-      empty: "条件に合う商品がありません。",
-      inStock: "注文可",
-      outOfStock: "売り切れ",
-    },
-    product: {
-      addToCart: "カートに入れる",
-      added: "追加しました",
-      buyNow: "今すぐ注文",
-      shipsWorldwide: "海外発送可",
-      freeOver: "韓国5万ウォン以上は国内送料無料",
-      materials: "素材",
-      weight: "重量",
-      shipsFrom: "発送元",
-      reviews: "レビュー",
-      description: "詳細",
-      qty: "数量",
-      related: "こちらもおすすめ",
-      size: "サイズ (mm)",
-      color: "カラー",
-      leadTime: "製作期間",
-      leadDays: "日前後（手製）",
-      customHint: "アッパー・ストライプ・ソールの色を選んでDRONEを作る。",
-      upper: "アッパー",
-      stripe: "ストライプ",
-      sole: "ソール",
-    },
-    cart: {
-      title: "カート",
-      empty: "カートは空です。",
-      emptyCta: "ショップを見る",
-      subtotal: "小計",
-      shipping: "送料",
-      shippingCalc: "会計時に計算",
-      total: "合計",
-      checkout: "注文する",
-      continue: "買い物を続ける",
-      remove: "削除",
-      qty: "数量",
-    },
-    checkout: {
-      title: "注文・決済",
-      contact: "連絡先",
-      email: "メール",
-      phone: "電話（任意）",
-      shipping: "配送先",
-      firstName: "名",
-      lastName: "姓",
-      address: "住所",
-      city: "市区",
-      region: "都道府県",
-      postal: "郵便番号",
-      country: "国",
-      payment: "支払い",
-      card: "カード番号",
-      nameOnCard: "カード名義",
-      expiry: "有効期限",
-      cvc: "セキュリティコード",
-      placeOrder: "注文を確定",
-      placing: "処理中…",
-      note: "韓国・海外とも jidokaan.com で注文します。",
-      summary: "注文内容",
-      freeShipNote: "国内送料無料の対象です",
-      duty: "関税・税の目安",
-      freeShipAdd: "追加で国内送料無料",
-      payCard: "カード",
-      payKakao: "Kakao Pay",
-      payNaver: "Naver Pay",
-      payTransfer: "銀行振込",
-      payPaypal: "PayPal",
-      signInFirst: "ログインすると注文がアカウントに残ります",
-      payNote:
-        "支払い方法を選ぶと注文を受け付けます。カード・ウォレットは公式決済接続後に即時承認されます。",
-    },
-    success: {
-      title: "注文を受け付けました",
-      body: "製作日程と追跡案内をメールで送ります。サイト: jidokaan.com",
-      order: "注文番号",
-      continue: "ショップへ戻る",
-    },
-    about: {
-      title: "JIDOKAAN — カスタム手製ボクシングシューズ",
-      body: "韓国初のカスタム手製ボクシングシューズ。聖水の工房で一足ずつ作り、世界へ送ります。",
-      mission: "私たちの約束",
-      missionBody:
-        "履き心地は前提。品質はそのまま、価格は誠実に。ファイターが自分の色を履けるように。",
-      address: "ソウル特別市城東区聖水路18ギル36",
-      hours: "10:00 – 18:00（昼 12–13）",
-      studio: "工房",
-    },
-    shippingPage: {
-      title: "配送・関税・製作",
-      body: "手製のあと国内・海外へ発送。製作約10日＋配送日数。",
-      zones: "配送エリア",
-      asia: "韓国・アジア",
-      asiaBody: "製作後 2–5営業日（韓国）· 3–8日（アジア）",
-      americas: "米州",
-      americasBody: "製作後 5–12営業日",
-      europe: "欧州・その他",
-      europeBody: "製作後 5–14営業日",
-      returns: "受注生産について",
-      returnsBody:
-        "カスタム・手製のため、製作開始後の単純な返品はお受けできない場合があります。サイズ相談・キャンセルは製作前にサポートへ。",
-    },
-    footer: {
-      shop: "ショップ",
-      help: "サポート",
-      company: "ブランド",
-      rights: "無断転載を禁じます。",
-      contact: "お問い合わせ",
-      faq: "FAQ",
-      privacy: "プライバシー",
-      terms: "利用規約",
-      instagram: "Instagram",
-      address: "ソウル 聖水（JIDOKAAN工房）",
-    },
-    login: {
-      title: "ログイン",
-      body: "韓国・海外とも jidokaan.com ひとつで注文。",
-      continueWith: "続ける",
-      disabled: "ログインは無効です。",
-      back: "ホームへ",
-      google: "Googleで続ける",
-      kakao: "Kakao",
-      naver: "Naver",
-      email: "メール",
-      password: "パスワード",
-      name: "名前",
-      signIn: "ログイン",
-      signUp: "アカウント作成",
-      haveAccount: "アカウントをお持ちですか？ログイン",
-      noAccount: "初めてですか？アカウント作成",
-      orEmail: "またはメールで",
-      guestCheckout: "ゲストで注文",
-      socialSoon:
-        "Kakao・Naverは jidokaan.com 公開後に接続。いまは Google またはメールで。",
-      failed: "ログインできませんでした。もう一度お試しください。",
-    },
+    about: { studio: "工房" },
+    footer: { address: "ソウル 聖水（JIDOKAAN工房）" },
     common: { currency: "通貨", language: "言語", close: "閉じる", loading: "読み込み中…" },
   }),
   es: overlay(EN, {
@@ -3073,28 +2923,6 @@ export const DICT: Record<Locale, Dictionary> = {
   }),
 };
 
-const COLOR_LABEL: Record<string, Partial<Record<Locale, string>>> = {
-  WHITE: { ko: "화이트", ja: "ホワイト" },
-  BLACK: { ko: "블랙", ja: "ブラック" },
-  RED: { ko: "레드", ja: "レッド" },
-  ORANGE: { ko: "오렌지", ja: "オレンジ" },
-  YELLOW: { ko: "옐로우", ja: "イエロー" },
-  GREEN: { ko: "그린", ja: "グリーン" },
-  BLUE: { ko: "블루", ja: "ブルー" },
-  NAVY: { ko: "네이비", ja: "ネイビー" },
-  PURPLE: { ko: "퍼플", ja: "パープル" },
-  GOLD: { ko: "골드", ja: "ゴールド" },
-  SILVER: { ko: "실버", ja: "シルバー" },
-  MINT: { ko: "민트", ja: "ミント" },
-  PINK: { ko: "핑크", ja: "ピンク" },
-  "SKY BLUE": { ko: "스카이 블루", ja: "スカイブルー" },
-  GRAY: { ko: "그레이", ja: "グレー" },
-};
-
-export function colorLabel(locale: Locale, name: string) {
-  return COLOR_LABEL[name]?.[locale] || name;
-}
-
 export function t(locale: Locale): Dictionary {
   return DICT[locale] ?? DICT.en;
 }
@@ -3103,7 +2931,10 @@ export function pickLocalized(
   value: { ko?: string; en?: string; ja?: string } & Record<string, string | undefined>,
   locale: Locale,
 ): string {
-  return value[locale] || value.en || value.ko || value.ja || "";
+  if (Object.prototype.hasOwnProperty.call(value, locale) && typeof value[locale] === "string") {
+    return value[locale] ?? "";
+  }
+  return value.en || value.ko || value.ja || "";
 }
 
 export const COUNTRIES = [

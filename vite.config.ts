@@ -4,6 +4,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
+import { pipeUploadFile } from "./src/lib/serve-upload.server";
 
 /**
  * Finish PGLite bootstrap during dev-server setup (before traffic). Vite awaits
@@ -26,6 +27,25 @@ function pgliteBootstrapPlugin(): Plugin {
         console.error("[app-builder] DB bootstrap failed:", err);
         throw err;
       }
+    },
+  };
+}
+
+/**
+ * Uploaded photos live under public/products/upload which is watch-ignored so
+ * saving a product does not restart the dev server. Vite then never discovers
+ * new files and /products/upload/* 404s into the SPA. Serve them from disk.
+ */
+function uploadStaticPlugin(): Plugin {
+  return {
+    name: "app-builder:upload-static",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const pathname = (req.url ?? "").split("?", 1)[0] ?? "";
+        if (pipeUploadFile(req, res, pathname)) return;
+        next();
+      });
     },
   };
 }
@@ -129,16 +149,24 @@ export default defineConfig(({ command }) => ({
     host: "0.0.0.0",
     port: 8080,
     strictPort: true,
+    watch: {
+      ignored: [
+        "**/data/**",
+        "**/public/products/upload/**",
+        "**/public/products/video/**",
+      ],
+    },
   },
   resolve: { tsconfigPaths: true },
   plugins: [
+    uploadStaticPlugin(),
     pgliteBootstrapPlugin(),
     // Before tanstackStart so /auth/popup never falls through to the SPA.
     authPopupPlugin(),
     tailwindcss(),
     tanstackStart(),
     ...(command === "build"
-      ? [nitro({ preset: process.env.NITRO_PRESET || "node-server" })]
+      ? [nitro({ preset: process.env.NITRO_PRESET || "vercel" })]
       : []),
     viteReact(),
   ],

@@ -1,7 +1,14 @@
 import { isBlockedEmail, readCatalog } from "./catalog.server";
 import { assertSession } from "./admin-auth.server";
 import { couponDiscount, couponRejectReason, findCoupon } from "./coupon";
-import type { InboxItem, OrderStatus, StoreOrder, StoreReview } from "./order-types";
+import type {
+  ClaimKind,
+  ClaimStatus,
+  InboxItem,
+  OrderStatus,
+  StoreOrder,
+  StoreReview,
+} from "./order-types";
 
 export type { InboxItem, OrderStatus, StoreOrder, StoreReview };
 
@@ -39,18 +46,119 @@ export async function ensureOrderTables() {
 }
 
 function asJson<T>(data: unknown): T {
-  if (data == null) return {} as T;
-  if (typeof data === "string") return JSON.parse(data) as T;
-  if (typeof Buffer !== "undefined" && Buffer.isBuffer(data)) {
-    return JSON.parse(data.toString("utf8")) as T;
-  }
-  return data as T;
+  return (typeof data === "string" ? JSON.parse(data) : data) as T;
 }
 
-/** HOOK PLACEHOLDER — wire email/Kakao later. Do not call vendor APIs here. */
-export async function sendOrderNotifications(order: StoreOrder) {
-  void order;
-  // no-op: guest order is already persisted. Add Resend/Kakao later without secrets in repo.
+function emailMatch(a: string, b: string) {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+async function saveOrder(order: StoreOrder) {
+  const sql = await db();
+  await sql.query(
+    "update store_orders set data = $2::jsonb, status = $3 where id = $1",
+    [order.id, JSON.stringify(order), order.status],
+  );
+}
+
+export async function findOrderById(id: string): Promise<StoreOrder | null> {
+  await ensureOrderTables();
+  const needle = id.trim().toUpperCase();
+  if (!needle) return null;
+  const sql = await db();
+  const exact = await sql.query<{ data: unknown }>(
+    "select data from store_orders where id = $1",
+    [needle],
+  );
+  if (exact[0]) return asJson<StoreOrder>(exact[0].data);
+  const rows = await sql.query<{ data: unknown }>(
+    "select data from store_orders order by created_at desc limit 400",
+  );
+  for (const r of rows) {
+    const o = asJson<StoreOrder>(r.data);
+    if (o?.id?.toUpperCase() === needle) return o;
+  }
+  return null;
+}
+
+export async function lookupOrder(id: string, email: string) {
+  const order = await findOrderById(id);
+  if (!order || !emailMatch(order.email, email)) return null;
+  return order;
+}
+
+function canRequest(order: StoreOrder, kind: ClaimKind) {
+  if (order.claimStatus === "requested" || order.claimStatus === "accepted") {
+    return false;
+  }
+  if (kind === "cancel") return ["wait", "paid", "ready"].includes(order.status);
+  return ["shipped", "done", "confirmed"].includes(order.status);
+}
+
+export async function requestClaim(input: {
+  id: string;
+  email: string;
+  kind: ClaimKind;
+  reason: string;
+}) {
+  const order = await lookupOrder(input.id, input.email);
+  if (!order) throw new Error("NOT_FOUND");
+  const kind = input.kind;
+  if (kind !== "cancel" && kind !== "return" && kind !== "exchange") {
+    throw new Error("BAD_CLAIM");
+  }
+  if (!canRequest(order, kind)) throw new Error("NOT_ALLOWED");
+  const reason = String(input.reason ?? "").trim();
+  if (reason.length < 4) throw new Error("REASON");
+  const next: StoreOrder = {
+    ...order,
+    claim: kind,
+    claimStatus: "requested",
+    claimReason: reason.slice(0, 500),
+    claimAt: new Date().toISOString(),
+    claimAdminNote: "",
+  };
+  await saveOrder(next);
+  return next;
+}
+
+export async function decideClaim(
+  token: string,
+  id: string,
+  decision: "accept" | "reject" | "cancel",
+  note?: string,
+) {
+  await assertSession(token);
+  const order = await findOrderById(id);
+  if (!order) throw new Error("NOT_FOUND");
+  if (order.claimStatus !== "requested" || !order.claim) throw new Error("NO_CLAIM");
+  const next: StoreOrder = {
+    ...order,
+    claimAdminNote: String(note ?? "").slice(0, 300),
+  };
+  if (decision === "accept") {
+    next.status = order.claim;
+    next.claimStatus = "accepted";
+  } else if (decision === "reject") {
+    next.claimStatus = "rejected";
+  } else {
+    next.claimStatus = "cancelled";
+  }
+  await saveOrder(next);
+  return next;
+}
+
+export async function withdrawClaim(id: string, email: string) {
+  const order = await lookupOrder(id, email);
+  if (!order) throw new Error("NOT_FOUND");
+  if (order.claimStatus !== "requested" || !order.claim) throw new Error("NO_CLAIM");
+  const next: StoreOrder = {
+    ...order,
+    claimStatus: "cancelled",
+    claimAdminNote: "",
+  };
+  await saveOrder(next);
+  return next;
 }
 
 export async function countOrdersByEmail(email: string) {
@@ -127,11 +235,6 @@ export async function placeOrder(
     "insert into store_orders (id, data, status) values ($1, $2::jsonb, $3)",
     [order.id, JSON.stringify(order), order.status],
   );
-  try {
-    await sendOrderNotifications(order);
-  } catch {
-    /* notify must never fail the order */
-  }
   return order;
 }
 
@@ -142,40 +245,43 @@ export async function listOrders(token: string): Promise<StoreOrder[]> {
   const rows = await sql.query<{ data: unknown }>(
     "select data from store_orders order by created_at desc limit 200",
   );
-  const list = Array.isArray(rows) ? rows : [];
-  return list
-    .map((r) => asJson<StoreOrder>(r?.data))
-    .filter((o) => Boolean(o?.id));
+  return rows.map((r) => asJson<StoreOrder>(r.data)).filter((o) => o?.id);
 }
 
 export async function updateOrder(
   token: string,
   id: string,
-  patch: { status?: OrderStatus; tracking?: string; note?: string },
+  patch: {
+    status?: OrderStatus;
+    tracking?: string;
+    courier?: string;
+    note?: string;
+    claim?: ClaimKind;
+    claimStatus?: ClaimStatus;
+  },
 ) {
   await assertSession(token);
   await ensureOrderTables();
-  const sql = await db();
-  const rows = await sql.query<{ data: unknown }>(
-    "select data from store_orders where id = $1",
-    [id],
-  );
-  if (!rows[0]) throw new Error("NOT_FOUND");
-  const order = asJson<StoreOrder>(rows[0].data);
+  const order = await findOrderById(id);
+  if (!order) throw new Error("NOT_FOUND");
   const next: StoreOrder = {
     ...order,
     status: patch.status ?? order.status,
     tracking: patch.tracking ?? order.tracking,
+    courier: patch.courier ?? order.courier,
     note: patch.note ?? order.note,
-    claim:
-      patch.status === "cancel" || patch.status === "return" || patch.status === "exchange"
-        ? patch.status
-        : order.claim,
   };
-  await sql.query(
-    "update store_orders set data = $2::jsonb, status = $3 where id = $1",
-    [id, JSON.stringify(next), next.status],
-  );
+  if (patch.claim) next.claim = patch.claim;
+  if (patch.claimStatus) next.claimStatus = patch.claimStatus;
+  if (
+    patch.status === "cancel" ||
+    patch.status === "return" ||
+    patch.status === "exchange"
+  ) {
+    next.claim = patch.status;
+    if (!next.claimStatus) next.claimStatus = "accepted";
+  }
+  await saveOrder(next);
   return next;
 }
 

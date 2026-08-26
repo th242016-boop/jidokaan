@@ -8,6 +8,7 @@ import { LOCALES, t } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { UserButton } from "@/lib/auth/gates";
+import { useCatalog } from "@/lib/use-catalog";
 import { cn } from "@/lib/utils";
 
 export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
@@ -16,6 +17,8 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const setCartOpen = useStore((s) => s.setCartOpen);
   const cartCount = useStore((s) => s.cartCount());
   const dict = t(locale);
+  const { catalog } = useCatalog();
+  const notice = catalog.notice;
   const { user, isPending } = useCurrentUserState();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -24,6 +27,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     { to: "/shop" as const, label: dict.nav.shop },
     { to: "/about" as const, label: dict.nav.about },
     { to: "/shipping" as const, label: dict.nav.shipping },
+    { to: "/orders" as const, label: dict.nav.orders },
   ];
 
   return (
@@ -31,7 +35,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
       className={
         overlay
           ? "absolute top-[var(--grok-banner-h,0px)] right-0 left-0 z-40 border-0 bg-transparent"
-          : "sticky top-[var(--grok-banner-h,0px)] z-40 border-b border-white/[0.06] bg-[#07070a]/90 backdrop-blur-xl"
+          : "sticky top-[var(--grok-banner-h,0px)] z-40 border-b border-white/[0.06] bg-black/90 backdrop-blur-xl"
       }
     >
       <div
@@ -84,15 +88,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           ) : null}
         </div>
 
-        {overlay ? (
-          <div className="order-3 min-w-0 basis-full sm:order-none sm:flex-1 sm:basis-auto">
-            <div className="w-full sm:ml-auto sm:max-w-[min(52vw,26rem)]">
-              <OrderCountriesBar />
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1" />
-        )}
+        {overlay ? null : <div className="flex-1" />}
 
         <div className={cn("flex shrink-0 items-center gap-1 sm:gap-1.5", overlay && "ml-auto sm:ml-0")}>
           <label className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1.5 text-[11px] text-muted backdrop-blur-md sm:gap-1.5 sm:px-3 sm:py-2 sm:text-xs">
@@ -140,8 +136,37 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         </div>
       </div>
 
+      {overlay ? (
+        <div className="px-3 pt-1 sm:px-5 lg:px-8">
+          <div className="mx-auto w-full max-w-[min(92vw,28rem)] sm:max-w-[min(52vw,26rem)] sm:ml-auto sm:mr-5 lg:mr-8">
+            <OrderCountriesBar />
+          </div>
+        </div>
+      ) : null}
+
+      {notice?.enabled && notice.text ? (
+        <div
+          className={cn(
+            overlay
+              ? "px-3 pt-2 pb-1 sm:px-5 lg:px-8"
+              : "border-t border-white/[0.06] px-4 py-2.5",
+          )}
+        >
+          <p
+            className={cn(
+              "text-center text-[12px] leading-snug sm:text-sm",
+              overlay
+                ? "rounded-md bg-red-700/90 px-3 py-2 text-white"
+                : "text-fg/90",
+            )}
+          >
+            {notice.text}
+          </p>
+        </div>
+      ) : null}
+
       {!overlay && mobileOpen ? (
-        <div className="border-t border-white/[0.06] bg-[#07070a]/95 px-4 py-4 lg:hidden">
+        <div className="border-t border-white/[0.06] bg-black/95 px-4 py-4 lg:hidden">
           <nav className="flex flex-col gap-1">
             {nav.map((item) => (
               <Link

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import type { AdminPageId } from "@/components/admin/admin-shell";
 import type { InboxItem, StoreOrder, StoreReview } from "@/lib/order-types";
+import { isPendingClaim } from "@/lib/order-types";
 import type { Product } from "@/lib/products";
 
 export function Dashboard({
@@ -36,9 +37,9 @@ export function Dashboard({
 
   const n = (s: StoreOrder["status"]) => orders.filter((o) => o.status === s).length;
   const claims = {
-    cancel: orders.filter((o) => o.status === "cancel" || o.claim === "cancel").length,
-    return: orders.filter((o) => o.status === "return" || o.claim === "return").length,
-    exchange: orders.filter((o) => o.status === "exchange" || o.claim === "exchange").length,
+    cancel: orders.filter((o) => isPendingClaim(o, "cancel")).length,
+    return: orders.filter((o) => isPendingClaim(o, "return")).length,
+    exchange: orders.filter((o) => isPendingClaim(o, "exchange")).length,
   };
   const threeDays = 3 * 24 * 60 * 60 * 1000;
   const delayed = orders.filter(
@@ -127,7 +128,7 @@ export function Dashboard({
             ["반품요청", claims.return],
             ["교환요청", claims.exchange],
           ]}
-          onClick={() => onGo("claims")}
+          onClick={() => onGo("shipstatus")}
         />
         <Mini
           title="판매 지연"

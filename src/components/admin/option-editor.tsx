@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,24 +13,40 @@ export function OptionEditor({
   value: ProductOptions;
   onChange: (next: ProductOptions) => void;
 }) {
-  const [name, setName] = useState("");
-  const [vals, setVals] = useState("");
+  const count = Math.max(1, value.groups.length || 2);
 
-  function applyGroup() {
-    const values = vals.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
-    if (!name.trim() || !values.length) return;
-    const groups: OptionGroup[] = [
-      ...value.groups.filter((g) => g.name !== name.trim()),
-      { name: name.trim(), values },
-    ];
+  function setGroupCount(n: number) {
+    const groups: OptionGroup[] = [];
+    for (let i = 0; i < n; i++) {
+      groups.push(value.groups[i] ?? { name: i === 0 ? "옵션" : "사이즈", values: [] });
+    }
+    onChange({
+      ...value,
+      enabled: true,
+      type: "combo",
+      groups,
+      skus: buildSkus(groups, value.skus),
+    });
+  }
+
+  function patchGroup(i: number, patch: Partial<OptionGroup>) {
+    const groups = value.groups.map((g, idx) => (idx === i ? { ...g, ...patch } : g));
+    onChange({ ...value, groups });
+  }
+
+  function applyList() {
+    const groups = value.groups
+      .map((g) => ({
+        name: g.name.trim(),
+        values: g.values.map((v) => v.trim()).filter(Boolean),
+      }))
+      .filter((g) => g.name && g.values.length);
     onChange({
       ...value,
       enabled: true,
       groups,
       skus: buildSkus(groups, value.skus),
     });
-    setName("");
-    setVals("");
   }
 
   return (
@@ -39,7 +54,18 @@ export function OptionEditor({
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => onChange({ ...value, enabled: true })}
+          onClick={() =>
+            onChange({
+              ...value,
+              enabled: true,
+              groups: value.groups.length
+                ? value.groups
+                : [
+                    { name: "옵션", values: [] },
+                    { name: "사이즈", values: [] },
+                  ],
+            })
+          }
           className={`h-9 px-4 text-sm font-semibold ${
             value.enabled ? "bg-[#00c73c] text-white" : "border border-[#ddd] bg-white"
           }`}
@@ -58,7 +84,9 @@ export function OptionEditor({
       </div>
 
       {!value.enabled ? (
-        <p className="text-sm text-[#555]">옵션 없는 단품입니다. 신발 사이즈·색 등이 필요하면 설정함.</p>
+        <p className="text-sm text-[#555]">
+          옵션이 없는 단품입니다. 컬러·사이즈처럼 고를 게 있으면 설정함.
+        </p>
       ) : (
         <>
           <label className="flex items-center gap-4 text-sm">
@@ -75,7 +103,7 @@ export function OptionEditor({
               <label className="inline-flex items-center gap-1.5">
                 <input
                   type="radio"
-                  checked={value.type === "combo"}
+                  checked={value.type !== "single"}
                   onChange={() => onChange({ ...value, type: "combo" })}
                 />
                 조합형
@@ -83,65 +111,72 @@ export function OptionEditor({
             </span>
           </label>
           <p className="text-xs text-[#00a832]">
-            옵션별 재고·추가금액이 필요하면 조합형을 쓰세요. (컬러+사이즈, 용량+향 등)
+            옵션명과 값을 넣고 「옵션목록으로 적용」을 누르면 아래 표가 만들어집니다. 고객 화면에도 그대로 나갑니다.
           </p>
 
-          <div className="grid gap-2 sm:grid-cols-[8rem_1fr_auto]">
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="옵션명 예: 컬러"
-            />
-            <Input
-              value={vals}
-              onChange={(e) => setVals(e.target.value)}
-              placeholder="옵션값 예: 빨강,노랑,검정  (쉼표로 구분)"
-            />
-            <Button type="button" onClick={applyGroup}>
-              +
-            </Button>
+          <label className="flex items-center gap-3 text-sm">
+            옵션명 개수
+            <select
+              className="h-9 rounded border border-[#ccc] bg-white px-2"
+              value={count}
+              onChange={(e) => setGroupCount(Number(e.target.value))}
+            >
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  {n}개
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="space-y-2">
+            {(value.groups.length ? value.groups : [{ name: "", values: [] }]).map((g, i) => (
+              <div key={i} className="grid gap-2 sm:grid-cols-[8rem_1fr]">
+                <Input
+                  value={g.name}
+                  onChange={(e) => patchGroup(i, { name: e.target.value })}
+                  placeholder={i === 0 ? "옵션명 예: 옵션" : "옵션명 예: 사이즈"}
+                />
+                <Input
+                  value={g.values.join(",")}
+                  onChange={(e) =>
+                    patchGroup(i, {
+                      values: e.target.value.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
+                    })
+                  }
+                  placeholder="옵션값 쉼표로 구분  예: 여성225,여성230,남성240"
+                />
+              </div>
+            ))}
           </div>
-          <Button type="button" variant="secondary" onClick={applyGroup}>
+
+          <Button type="button" className="bg-[#00c73c] text-white hover:bg-[#00b434]" onClick={applyList}>
             옵션목록으로 적용
           </Button>
 
-          {value.groups.length > 0 ? (
-            <ul className="space-y-1 text-sm">
-              {value.groups.map((g) => (
-                <li key={g.name} className="flex justify-between rounded bg-white px-3 py-1.5">
-                  <span>
-                    <b>{g.name}</b> : {g.values.join(", ")}
-                  </span>
-                  <button
-                    type="button"
-                    className="text-[#c00]"
-                    onClick={() => {
-                      const groups = value.groups.filter((x) => x.name !== g.name);
-                      onChange({ ...value, groups, skus: buildSkus(groups, value.skus) });
-                    }}
-                  >
-                    삭제
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
           {value.skus.length > 0 ? (
             <div className="overflow-x-auto rounded border border-[#ddd] bg-white">
-              <table className="w-full min-w-[560px] text-left text-sm">
+              <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="bg-[#f3f4f6] text-xs">
                   <tr>
-                    <th className="px-3 py-2">옵션</th>
+                    {(value.groups.length ? value.groups : [{ name: "옵션" }]).map((g) => (
+                      <th key={g.name} className="px-3 py-2">
+                        {g.name || "옵션"}
+                      </th>
+                    ))}
                     <th className="px-3 py-2">추가금액(원)</th>
                     <th className="px-3 py-2">재고</th>
-                    <th className="px-3 py-2">사용</th>
+                    <th className="px-3 py-2">판매상태</th>
                   </tr>
                 </thead>
                 <tbody>
                   {value.skus.map((sku, i) => (
                     <tr key={sku.key} className="border-t border-[#eee]">
-                      <td className="px-3 py-2">{sku.key}</td>
+                      {sku.values.map((v, vi) => (
+                        <td key={`${sku.key}-${vi}`} className="px-3 py-2">
+                          {v}
+                        </td>
+                      ))}
                       <td className="px-3 py-1">
                         <Input
                           className="h-8 w-28"
@@ -173,16 +208,20 @@ export function OptionEditor({
                         />
                       </td>
                       <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={sku.enabled}
+                        <select
+                          className="h-8 rounded border border-[#ccc] bg-white px-1 text-xs"
+                          value={sku.enabled ? "on" : "off"}
                           onChange={(e) => {
+                            const enabled = e.target.value === "on";
                             const skus = value.skus.map((s, idx) =>
-                              idx === i ? { ...s, enabled: e.target.checked } : s,
+                              idx === i ? { ...s, enabled } : s,
                             );
                             onChange({ ...value, skus });
                           }}
-                        />
+                        >
+                          <option value="on">판매중</option>
+                          <option value="off">품절</option>
+                        </select>
                       </td>
                     </tr>
                   ))}

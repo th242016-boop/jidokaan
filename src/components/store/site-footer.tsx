@@ -70,7 +70,7 @@ export function SiteFooter() {
   const support = catalog.support.length ? catalog.support : SUPPORT;
 
   return (
-    <footer className="mt-auto border-t border-white/[0.05] bg-[#08080c]/90">
+    <footer className="mt-auto border-t border-white/[0.05] bg-black">
       <div className="container-page grid gap-12 py-14 md:grid-cols-2">
         <div className="space-y-5">
           <BrandLogo
@@ -123,20 +123,26 @@ export function SiteFooter() {
       <div className="border-t border-white/[0.05]">
         <div className="container-page flex flex-col items-center justify-between gap-3 py-5 sm:flex-row">
           <p className="text-xs text-subtle">
-            © {year} {dict.brandEn}. {dict.footer.rights}
+            © {year} {dict.brandEn}. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
+            <Link
+              to="/orders"
+              className="text-[11px] text-subtle/70 hover:text-muted"
+            >
+              {dict.nav.orders}
+            </Link>
             <Link
               to="/faq"
               className="text-[11px] text-subtle/70 hover:text-muted"
             >
-              {dict.footer.faq}
+              FAQ
             </Link>
             <Link
               to="/contact"
               className="text-[11px] text-subtle/70 hover:text-muted"
             >
-              {dict.footer.contact}
+              문의
             </Link>
             <Link
               to="/admin"

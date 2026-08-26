@@ -6,17 +6,19 @@ import { getProduct } from "@/lib/products";
 import {
   defaultPartColors,
   defaultPartNames,
-  lineFromParts,
+  linkedLColor,
   type PartColorNames,
   type PartColors,
   type PartId,
 } from "@/lib/simulator-config";
 
+export type SizeFit = "men" | "women";
+
 export type CartItem = {
   productId: string;
   qty: number;
   size?: string;
-  sizeFit?: "men" | "women";
+  sizeFit?: SizeFit;
   optionKey?: string;
   optionLabel?: string;
   extraKrw?: number;
@@ -25,6 +27,21 @@ export type CartItem = {
   partNames?: PartColorNames;
   color?: string;
 };
+
+export function formatCartSize(item: CartItem, locale: string) {
+  if (!item.size) return "";
+  const g =
+    item.sizeFit === "women"
+      ? locale === "ko"
+        ? "여성"
+        : "Women"
+      : item.sizeFit === "men"
+        ? locale === "ko"
+          ? "남성"
+          : "Men"
+        : "";
+  return g ? `${item.size} (${g})` : `${item.size}mm`;
+}
 
 type StoreState = {
   locale: Locale;
@@ -35,21 +52,21 @@ type StoreState = {
   draftParts: PartColors;
   draftPartNames: PartColorNames;
   draftSize: string;
-  draftFit: "men" | "women";
+  draftFit: SizeFit;
   setLocale: (locale: Locale) => void;
   setCurrency: (currency: Currency) => void;
   applyMarket: (locale: Locale, currency: Currency, picked?: boolean) => void;
   setCartOpen: (open: boolean) => void;
   setPartColor: (part: PartId, color: string, name: string) => void;
   setDraftSize: (size: string) => void;
-  setDraftFit: (fit: "men" | "women") => void;
+  setDraftFit: (fit: SizeFit) => void;
   resetDraft: () => void;
   addToCart: (
     productId: string,
     qty?: number,
     opts?: {
       size?: string;
-      sizeFit?: "men" | "women";
+      sizeFit?: SizeFit;
       optionKey?: string;
       optionLabel?: string;
       extraKrw?: number;
@@ -66,13 +83,13 @@ type StoreState = {
     qty: number,
     size?: string,
     optionKey?: string,
-    sizeFit?: "men" | "women",
+    sizeFit?: SizeFit,
   ) => void;
   removeFromCart: (
     productId: string,
     size?: string,
     optionKey?: string,
-    sizeFit?: "men" | "women",
+    sizeFit?: SizeFit,
   ) => void;
   clearCart: () => void;
   cartCount: () => number;
@@ -101,7 +118,7 @@ export const useStore = create<StoreState>()(
       draftParts: defaultPartColors(),
       draftPartNames: defaultPartNames(),
       draftSize: "265",
-      draftFit: "men",
+      draftFit: "men" as SizeFit,
       setLocale: (locale) => set({ locale, localePicked: true }),
       setCurrency: (currency) =>
         set({ currency: currency === "KRW" ? "KRW" : "USD" }),
@@ -114,14 +131,18 @@ export const useStore = create<StoreState>()(
       setCartOpen: (cartOpen) => set({ cartOpen }),
       setPartColor: (part, color, name) =>
         set((s) => {
-          const draftParts = { ...defaultPartColors(), ...s.draftParts, [part]: color };
+          const draftParts = {
+            ...defaultPartColors(),
+            ...s.draftParts,
+            [part]: color,
+          };
           const draftPartNames = {
             ...defaultPartNames(),
             ...s.draftPartNames,
             [part]: name,
           };
           if (part === "i" || part === "d" || part === "a") {
-            const line = lineFromParts(
+            const linked = linkedLColor(
               draftPartNames.d,
               draftParts.d,
               draftPartNames.i,
@@ -129,8 +150,8 @@ export const useStore = create<StoreState>()(
               draftPartNames.a,
               draftParts.a,
             );
-            draftParts.l = line.color;
-            draftPartNames.l = line.name;
+            draftParts.l = linked.color;
+            draftPartNames.l = linked.name;
           }
           return { draftParts, draftPartNames };
         }),
@@ -186,7 +207,7 @@ export const useStore = create<StoreState>()(
       addCustomBoot: (qty = 1, openCart = true) => {
         const { draftParts, draftPartNames, draftSize, draftFit, addToCart } =
           get();
-        const line = lineFromParts(
+        const linked = linkedLColor(
           draftPartNames.d,
           draftParts.d,
           draftPartNames.i,
@@ -197,8 +218,8 @@ export const useStore = create<StoreState>()(
         addToCart("drone-custom", qty, {
           size: draftSize,
           sizeFit: draftFit,
-          partColors: { ...draftParts, l: line.color },
-          partNames: { ...draftPartNames, l: line.name },
+          partColors: { ...draftParts, l: linked.color },
+          partNames: { ...draftPartNames, l: linked.name },
           color: draftParts.a,
           openCart,
         });
@@ -258,20 +279,20 @@ export const useStore = create<StoreState>()(
         draftFit: state.draftFit,
       }),
       merge: (persisted, current) => {
-        const n = (persisted ?? {}) as Partial<StoreState>;
-        const draftParts =
-          n.draftParts && typeof n.draftParts === "object" ? n.draftParts : {};
-        const draftPartNames =
-          n.draftPartNames && typeof n.draftPartNames === "object"
-            ? n.draftPartNames
+        const p = (persisted ?? {}) as Partial<StoreState>;
+        const parts =
+          p.draftParts && typeof p.draftParts === "object" ? p.draftParts : {};
+        const names =
+          p.draftPartNames && typeof p.draftPartNames === "object"
+            ? p.draftPartNames
             : {};
         return {
           ...current,
-          ...n,
-          draftParts: { ...defaultPartColors(), ...draftParts },
-          draftPartNames: { ...defaultPartNames(), ...draftPartNames },
-          draftFit: n.draftFit === "women" ? "women" : "men",
-          draftSize: typeof n.draftSize === "string" ? n.draftSize : "265",
+          ...p,
+          draftParts: { ...defaultPartColors(), ...parts },
+          draftPartNames: { ...defaultPartNames(), ...names },
+          draftFit: p.draftFit === "women" ? "women" : "men",
+          draftSize: typeof p.draftSize === "string" ? p.draftSize : "265",
         };
       },
     },

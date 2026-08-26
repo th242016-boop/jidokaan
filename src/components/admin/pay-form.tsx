@@ -39,7 +39,7 @@ export function PayForm({
         {field("krBank", "은행")}
         {field("krAccount", "계좌번호")}
         {field("krHolder", "예금주")}
-        {field("krMemo", "안내 문구", "예: 주문번호로 입금해 주세요. 입금 확인 후 제작합니다.")}
+        {field("krMemo", "안내 문구", "예: 주문자명으로 입금해 주세요. 입금 확인 후 제작합니다.")}
       </section>
       <section className="space-y-3 rounded border border-[#d5d7dc] bg-white p-5">
         <h2 className="text-sm font-semibold">해외 송금 (달러)</h2>

@@ -57,7 +57,7 @@ export function inferMajorId(p: Product): string {
 }
 
 /** 사장이 진열순서를 정했으면 그 숫자, 아니면 최근 등록이 앞. */
-export function sortForDisplay<T extends Pick<Product, "sortOrder" | "createdAt">>(list: T[]): T[] {
+export function sortForDisplay<T extends Pick<Product, "id" | "sortOrder" | "createdAt">>(list: T[]): T[] {
   const anyCustom = list.some((p) => (p.sortOrder ?? 0) > 0);
   return [...list].sort((a, b) => {
     if (anyCustom) {
@@ -71,6 +71,25 @@ export function sortForDisplay<T extends Pick<Product, "sortOrder" | "createdAt"
     }
     return (b.createdAt || "").localeCompare(a.createdAt || "");
   });
+}
+
+export function applyDisplayOrder<T extends Pick<Product, "id" | "sortOrder">>(
+  list: T[],
+  ids: string[],
+): T[] {
+  if (!ids.length) return list;
+  const map = new Map(list.map((p) => [p.id, p]));
+  const out: T[] = [];
+  for (const id of ids) {
+    const p = map.get(id);
+    if (!p) continue;
+    out.push({ ...p, sortOrder: out.length + 1 });
+    map.delete(id);
+  }
+  for (const p of map.values()) {
+    out.push({ ...p, sortOrder: out.length + 1 });
+  }
+  return out;
 }
 
 export function fillProductSeo(p: Product): Product {
@@ -96,6 +115,7 @@ export function normalizeProduct(p: Product): Product {
       : "ready") as CategoryId;
   return fillProductSeo({
     ...p,
+    badge: undefined,
     minorId,
     majorId,
     category,

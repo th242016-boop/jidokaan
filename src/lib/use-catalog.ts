@@ -56,7 +56,7 @@ function publish(next: CatalogPayload) {
 }
 
 export async function fetchCatalog(): Promise<CatalogPayload> {
-  const res = await fetch("/api/catalog");
+  const res = await fetch("/api/catalog", { cache: "no-store" });
   if (!res.ok) throw new Error("catalog");
   const data = (await res.json()) as CatalogPayload;
   return {
@@ -76,20 +76,28 @@ export async function fetchCatalog(): Promise<CatalogPayload> {
 
 export function useCatalog() {
   const [catalog, setCatalog] = useState<CatalogPayload>(memory ?? fallback);
+  const [ready, setReady] = useState(Boolean(memory));
 
   useEffect(() => {
-    const sub = (next: CatalogPayload) => setCatalog(next);
+    const sub = (next: CatalogPayload) => {
+      setCatalog(next);
+      setReady(true);
+    };
     listeners.add(sub);
-    if (memory) setCatalog(memory);
-    else {
-      void fetchCatalog()
-        .then((data) => publish(data))
-        .catch(() => {
-          publish(fallback);
-        });
-    }
+    void fetchCatalog()
+      .then((data) => publish(data))
+      .catch(() => {
+        if (!memory) publish(fallback);
+      });
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        void fetchCatalog().then(publish).catch(() => undefined);
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
     return () => {
       listeners.delete(sub);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
 
@@ -109,5 +117,5 @@ export function useCatalog() {
     });
   }, []);
 
-  return { catalog, ready: true, replace };
+  return { catalog, ready, replace };
 }

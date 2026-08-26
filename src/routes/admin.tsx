@@ -23,6 +23,7 @@ import type { InfoRow, StoreNotice } from "@/lib/site-defaults";
 import type { ShopCategory, SiteSeo } from "@/lib/shop-taxonomy";
 import { PayForm } from "@/components/admin/pay-form";
 import { PinForm } from "@/components/admin/pin-form";
+import { AdminGate } from "@/components/admin/pin-keypad";
 import type { PaySettings } from "@/lib/pay-settings";
 import type { ShippingSettings } from "@/lib/shipping";
 import { GuideManual } from "@/components/admin/guide-manual";
@@ -35,6 +36,7 @@ import {
   DelayBoard,
   ReviewBoard,
   SettleBoard,
+  ShipStatusBoard,
 } from "@/components/admin/extra-boards";
 import type { Coupon } from "@/lib/order-types";
 
@@ -56,46 +58,17 @@ export const Route = createFileRoute("/admin")({
 
 const TOKEN_KEY = "jidokaan-admin-token";
 
-const TOKEN_MAX_AGE = 12 * 60 * 60;
-
-function cookieToken(): string {
-  if (typeof document === "undefined") return "";
-  const parts = document.cookie.split(";").map((c) => c.trim());
-  const hit = parts.find((c) => c.startsWith(`${TOKEN_KEY}=`));
-  return hit ? decodeURIComponent(hit.slice(TOKEN_KEY.length + 1)) : "";
-}
-
 function readToken() {
   try {
-    return (
-      localStorage.getItem(TOKEN_KEY) ??
-      sessionStorage.getItem(TOKEN_KEY) ??
-      cookieToken()
-    );
+    return sessionStorage.getItem(TOKEN_KEY) ?? "";
   } catch {
-    return cookieToken();
+    return "";
   }
 }
 
 function writeToken(token: string) {
   try {
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-      sessionStorage.setItem(TOKEN_KEY, token);
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
-      sessionStorage.removeItem(TOKEN_KEY);
-    }
-  } catch {
-    /* ignore */
-  }
-  try {
-    if (typeof document === "undefined") return;
-    if (token) {
-      document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; Path=/; Max-Age=${TOKEN_MAX_AGE}; SameSite=Lax`;
-    } else {
-      document.cookie = `${TOKEN_KEY}=; Path=/; Max-Age=0; SameSite=Lax`;
-    }
+    sessionStorage.setItem(TOKEN_KEY, token);
   } catch {
     /* ignore */
   }
@@ -113,15 +86,19 @@ async function postCatalog(body: Record<string, unknown>): Promise<CatalogPayloa
 }
 
 function AdminPage() {
-  const { catalog, replace } = useCatalog();
+  const { catalog, ready, replace } = useCatalog();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const page: AdminPageId =
     search.p && isAdminPage(search.p) ? search.p : "home";
   const [token, setToken] = useState(readToken);
-  const [pinInput, setPinInput] = useState("");
-  const [nextPin, setNextPin] = useState("");
+  const [gateBusy, setGateBusy] = useState(false);
   const [gateError, setGateError] = useState<string | null>(null);
+  const [freshRecovery, setFreshRecovery] = useState<string | null>(null);
+  const [recoverOpen, setRecoverOpen] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [recoveryPin, setRecoveryPin] = useState("");
+  const [recoveryPin2, setRecoveryPin2] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -152,15 +129,30 @@ function AdminPage() {
 
   const unlocked = Boolean(token);
 
-  async function unlock(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    const existing = readToken();
+    if (!existing) return;
+    void postCatalog({ action: "ping", token: existing }).catch(() => {
+      writeToken("");
+      setToken("");
+    });
+  }, []);
+
+  async function recover() {
     setGateError(null);
+    if (recoveryPin.length < 8) {
+      setGateError("새 비밀번호는 8자 이상으로 만들어 주세요.");
+      return;
+    }
+    if (recoveryPin !== recoveryPin2) {
+      setGateError("새 비밀번호가 서로 다릅니다.");
+      return;
+    }
     try {
-      const used = catalog.hasPin ? pinInput : nextPin;
       const next = await postCatalog({
-        action: "unlock",
-        pin: used,
-        nextPin: catalog.hasPin ? undefined : nextPin,
+        action: "resetWithRecovery",
+        recoveryCode,
+        nextPin: recoveryPin,
       });
       const session = (next as CatalogPayload & { token?: string }).token ?? "";
       writeToken(session);
@@ -168,20 +160,55 @@ function AdminPage() {
       replace(next);
     } catch (err) {
       const raw = err instanceof Error ? err.message : "";
+      if (raw === "RECOVERY_NONE") {
+        setGateError("등록된 복구 코드가 없습니다. 로그인 후 설정에서 먼저 만들어 주세요.");
+      } else if (raw === "PIN_SHORT") {
+        setGateError("새 비밀번호는 8자 이상으로 만들어 주세요.");
+      } else {
+        setGateError("복구 코드가 맞지 않습니다.");
+      }
+    }
+  }
+
+  async function unlockWith(used: string, nextPin?: string) {
+    setGateBusy(true);
+    setGateError(null);
+    try {
+      const next = await postCatalog({
+        action: "unlock",
+        pin: used,
+        nextPin,
+      });
+      const session = (next as CatalogPayload & { token?: string }).token ?? "";
+      if (!session) throw new Error("AUTH");
+      writeToken(session);
+      setToken(session);
+      replace(next);
+      if (!catalog.hasPin) {
+        try {
+          const rec = (await postCatalog({
+            action: "issueRecovery",
+            token: session,
+          })) as CatalogPayload & { recoveryCode?: string };
+          if (rec.recoveryCode) setFreshRecovery(rec.recoveryCode);
+        } catch {
+          /* skip */
+        }
+      }
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "";
       if (raw.startsWith("LOCKED")) {
-        setGateError("비밀번호를 5번 틀려 15분 동안 잠겼습니다. 잠시 후 다시 시도하세요.");
+        setGateError("비밀번호를 여러 번 틀려 잠시 잠겼습니다. 잠시 후 다시 입력해 주세요.");
       } else if (raw.startsWith("PIN_BAD")) {
         const left = raw.split(":")[1];
-        setGateError(`비밀번호가 맞지 않습니다. ${left}번 더 틀리면 잠깁니다.`);
+        setGateError(`비밀번호가 다릅니다. ${left}번 더 틀리면 잠깁니다.`);
       } else if (raw === "PIN_SHORT") {
-        setGateError("비밀번호는 8자 이상으로 만들어 주세요.");
+        setGateError("비밀번호는 8자 이상으로 입력해 주세요.");
       } else {
-        setGateError(
-          catalog.hasPin
-            ? "비밀번호가 맞지 않습니다."
-            : "비밀번호는 8자 이상으로 만들어 주세요.",
-        );
+        setGateError("지금은 들어갈 수 없습니다. 비밀번호를 다시 입력해 주세요.");
       }
+    } finally {
+      setGateBusy(false);
     }
   }
 
@@ -212,56 +239,93 @@ function AdminPage() {
     if (ok) go("list");
   }
 
+  if (!ready) {
+    return (
+      <div className="admin-ui grid min-h-dvh place-items-center px-4">
+        <p className="text-sm text-[#555]">관리자를 불러오는 중…</p>
+      </div>
+    );
+  }
+
   if (!unlocked) {
     return (
       <div className="admin-ui grid min-h-dvh place-items-center px-4">
-        <form
-          onSubmit={unlock}
-          className="w-full max-w-sm space-y-4 rounded-3xl border border-border bg-white p-6"
-        >
+        <div className="w-full max-w-sm space-y-4">
           <BrandLogo variant="full" tone="light" className="h-9" imgClassName="h-9 w-auto" />
           <h1 className="text-xl font-semibold">지도칸 관리자</h1>
-          <p className="text-sm text-[#333]">
-            {catalog.hasPin
-              ? "비밀번호를 입력하면 상품과 회사 정보를 직접 수정할 수 있습니다."
-              : "처음입니다. 관리자 비밀번호를 8자 이상으로 만들어 주세요. 숫자·영문·특수문자를 쓸 수 있습니다. 이 비밀번호는 사장님만 아세요."}
-          </p>
-          {catalog.hasPin ? (
-            <div className="space-y-1.5">
-              <Label htmlFor="pin">비밀번호</Label>
-              <Input
-                id="pin"
-                type="password"
-                inputMode="text"
-                autoComplete="current-password"
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value)}
-                required
-              />
+          <AdminGate
+            hasPin={catalog.hasPin}
+            busy={gateBusy}
+            error={gateError}
+            onSubmitPin={(used, nextPin) => void unlockWith(used, nextPin)}
+            onRecover={() => {
+              setRecoverOpen((v) => !v);
+              setGateError(null);
+            }}
+          />
+          {recoverOpen ? (
+            <div className="space-y-3 rounded-3xl border border-border bg-white p-6">
+              <p className="text-sm leading-relaxed text-[#333]">
+                설정에서 만들어 둔 복구 코드를 넣고 새 비밀번호를 정하면 바로 들어갑니다. 영문·숫자 모두 가능하고, 8자 이상이어야 합니다.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="rec-code">복구 코드</Label>
+                <Input
+                  id="rec-code"
+                  value={recoveryCode}
+                  onChange={(e) => setRecoveryCode(e.target.value)}
+                  placeholder="XXXX-XXXX-XXXX-XXXX"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rec-pin">새 비밀번호 (8자 이상)</Label>
+                <Input
+                  id="rec-pin"
+                  type="password"
+                  autoComplete="new-password"
+                  value={recoveryPin}
+                  onChange={(e) => setRecoveryPin(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rec-pin2">새 비밀번호 확인</Label>
+                <Input
+                  id="rec-pin2"
+                  type="password"
+                  autoComplete="new-password"
+                  value={recoveryPin2}
+                  onChange={(e) => setRecoveryPin2(e.target.value)}
+                />
+              </div>
+              <Button type="button" className="w-full" onClick={() => void recover()}>
+                복구 후 들어가기
+              </Button>
             </div>
-          ) : (
-            <div className="space-y-1.5">
-              <Label htmlFor="nextPin">새 비밀번호 (8자 이상)</Label>
-              <Input
-                id="nextPin"
-                type="password"
-                inputMode="text"
-                autoComplete="new-password"
-                value={nextPin}
-                onChange={(e) => setNextPin(e.target.value)}
-                required
-                minLength={8}
-              />
-            </div>
-          )}
-          {gateError ? <p className="text-sm text-danger">{gateError}</p> : null}
-          <Button type="submit" className="w-full">
-            들어가기
-          </Button>
+          ) : null}
           <Link to="/" className="block text-center text-sm text-[#333] hover:text-fg">
             쇼핑몰로 돌아가기
           </Link>
-        </form>
+        </div>
+      </div>
+    );
+  }
+
+  if (freshRecovery) {
+    return (
+      <div className="admin-ui grid min-h-dvh place-items-center px-4">
+        <div className="w-full max-w-sm space-y-4 rounded-3xl border border-border bg-white p-6">
+          <h1 className="text-xl font-semibold">복구 코드를 적어두세요</h1>
+          <p className="text-sm leading-relaxed text-[#333]">
+            비밀번호를 잊어버렸을 때 이 코드로 다시 들어갑니다. 사진으로 찍거나 종이에 적으세요. 한 번만 보여 줍니다.
+          </p>
+          <p className="rounded-2xl bg-[#111] px-3 py-4 text-center text-xl font-mono tracking-widest text-white">
+            {freshRecovery}
+          </p>
+          <Button type="button" className="w-full" onClick={() => setFreshRecovery(null)}>
+            적었습니다. 관리자 열기
+          </Button>
+        </div>
       </div>
     );
   }
@@ -294,6 +358,7 @@ function AdminPage() {
           initial={editing}
           categories={catalog.categories}
           busy={busy}
+          token={token}
           onCancel={() => go("list")}
           onSave={onSaveProduct}
           onDelete={onDelete}
@@ -313,9 +378,13 @@ function AdminPage() {
               "선택한 상품을 반영했습니다.",
             )
           }
-          onReorder={(ids) =>
-            void mutate({ action: "reorder", ids }, "진열 순서를 저장했습니다.")
-          }
+          onReorder={async (ids) => {
+            const ok = await mutate(
+              { action: "reorder", ids },
+              "진열 순서를 저장했습니다. 쇼핑몰 상품 목록에 이 순서로 나갑니다.",
+            );
+            return ok;
+          }}
         />
       ) : null}
 
@@ -356,6 +425,7 @@ function AdminPage() {
       ) : null}
 
       {!editing && page === "orders" ? <OrderBoard token={token} /> : null}
+      {!editing && page === "shipstatus" ? <ShipStatusBoard token={token} /> : null}
       {!editing && page === "claims" ? <ClaimsBoard token={token} /> : null}
       {!editing && page === "delay" ? <DelayBoard token={token} /> : null}
       {!editing && page === "settle" ? <SettleBoard token={token} /> : null}
@@ -413,6 +483,16 @@ function AdminPage() {
               setMsg("비밀번호 변경에 실패했습니다. 현재 비밀번호를 확인하세요.");
               return false;
             }
+          }}
+          onIssueRecovery={async () => {
+            const res = await fetch("/api/catalog", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "issueRecovery", token }),
+            });
+            const data = (await res.json()) as { recoveryCode?: string; error?: string };
+            if (!res.ok || !data.recoveryCode) throw new Error(data.error || "fail");
+            return data.recoveryCode;
           }}
         />
       ) : null}

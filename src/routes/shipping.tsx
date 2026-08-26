@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteShell } from "@/components/store/site-shell";
 import { t } from "@/lib/i18n";
 import {
@@ -74,6 +74,11 @@ function ShippingPage() {
             <h2 className="text-xl font-semibold">{dict.shippingPage.returns}</h2>
             <p className="mt-3 leading-relaxed text-muted">
               {dict.shippingPage.returnsBody}
+            </p>
+            <p className="mt-4">
+              <Link to="/orders" className="text-sm font-medium underline-offset-4 hover:underline">
+                {ko ? "주문번호로 교환·반품 접수" : "Request exchange or return"}
+              </Link>
             </p>
           </div>
         </div>

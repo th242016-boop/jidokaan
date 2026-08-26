@@ -2,14 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AUTH_HEADERS } from "@/lib/admin-auth.server";
 import {
   countOrdersByEmail,
+  decideClaim,
   listOrders,
+  lookupOrder,
   placeOrder,
+  requestClaim,
   updateOrder,
+  withdrawClaim,
   type OrderStatus,
   type StoreOrder,
 } from "@/lib/orders.server";
 import { readCatalog } from "@/lib/catalog.server";
 import { couponRejectReason, findCoupon } from "@/lib/coupon";
+import type { ClaimKind } from "@/lib/order-types";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: AUTH_HEADERS });
@@ -21,15 +26,17 @@ export const Route = createFileRoute("/api/orders")({
       GET: async ({ request }) => {
         try {
           const url = new URL(request.url);
-          const header = request.headers.get("authorization") ?? "";
-          const bearer = header.toLowerCase().startsWith("bearer ")
-            ? header.slice(7).trim()
-            : "";
-          const token = url.searchParams.get("token") ?? bearer;
+          const id = url.searchParams.get("id") ?? "";
+          const email = url.searchParams.get("email") ?? "";
+          if (id && email) {
+            const order = await lookupOrder(id, email);
+            if (!order) return json({ error: "NOT_FOUND" }, 404);
+            return json({ order });
+          }
+          const token = url.searchParams.get("token") ?? "";
           return json({ orders: await listOrders(token) });
-        } catch (err) {
-          const message = err instanceof Error ? err.message : "fail";
-          return json({ error: message }, message === "AUTH" ? 401 : 500);
+        } catch {
+          return json({ error: "AUTH" }, 401);
         }
       },
       POST: async ({ request }) => {
@@ -38,9 +45,14 @@ export const Route = createFileRoute("/api/orders")({
             action?: string;
             token?: string;
             id?: string;
+            email?: string;
             status?: OrderStatus;
             tracking?: string;
+            courier?: string;
             note?: string;
+            kind?: ClaimKind;
+            reason?: string;
+            decision?: "accept" | "reject" | "cancel";
           } & Partial<StoreOrder>;
           if (body.action === "checkCoupon") {
             const catalog = await readCatalog();
@@ -58,10 +70,38 @@ export const Route = createFileRoute("/api/orders")({
               offUsd: coupon?.offUsd,
             });
           }
+          if (body.action === "lookup") {
+            const order = await lookupOrder(String(body.id ?? ""), String(body.email ?? ""));
+            if (!order) return json({ error: "NOT_FOUND" }, 404);
+            return json({ order });
+          }
+          if (body.action === "claim") {
+            const order = await requestClaim({
+              id: String(body.id ?? ""),
+              email: String(body.email ?? ""),
+              kind: (body.kind ?? "return") as ClaimKind,
+              reason: String(body.reason ?? ""),
+            });
+            return json({ order });
+          }
+          if (body.action === "withdraw") {
+            const order = await withdrawClaim(String(body.id ?? ""), String(body.email ?? ""));
+            return json({ order });
+          }
+          if (body.action === "decide" && body.token && body.id) {
+            const order = await decideClaim(
+              body.token,
+              body.id,
+              body.decision ?? "reject",
+              body.note,
+            );
+            return json({ order });
+          }
           if (body.action === "update" && body.token && body.id) {
             const order = await updateOrder(body.token, body.id, {
               status: body.status,
               tracking: body.tracking,
+              courier: body.courier,
               note: body.note,
             });
             return json({ order });

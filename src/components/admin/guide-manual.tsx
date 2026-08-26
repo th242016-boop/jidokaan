@@ -31,7 +31,7 @@ export function GuideManual() {
       <section>
         <h3 className="text-base font-semibold">3. 진열 순서</h3>
         <p className="mt-2">
-          상품목록에서 위/아래 버튼을 누르면 그 순서가 쇼핑몰에 그대로 나갑니다.
+          상품목록에서 <b>위·아래</b> 버튼을 누르면 순서가 바로 저장됩니다. 상품을 잡고 끌어 놓아도 바로 저장됩니다. 코드 수정으로 사이트가 다시 올라가도 상품 내용·순서는 덮어쓰지 않습니다.
           순서를 한 번도 안 정하면 <b>최근 등록한 상품이 앞</b>에 옵니다.
         </p>
       </section>
@@ -107,7 +107,17 @@ export function GuideManual() {
       </section>
 
       <section>
-        <h3 className="text-base font-semibold">8. 결제사 등록</h3>
+        <h3 className="text-base font-semibold">8. 교환 · 반품</h3>
+        <ol className="mt-2 list-decimal space-y-1 pl-5">
+          <li>손님은 쇼핑몰 <b>주문조회</b>에서 주문번호+이메일로 찾습니다.</li>
+          <li>배송중·배송완료면 교환 또는 반품을 접수합니다. 제작 전(입금대기·신규·배송준비)은 취소만 됩니다.</li>
+          <li>접수는 <b>판매관리 → 배송현황관리</b>에 바로 뜹니다.</li>
+          <li>그 화면에서 <b>승인 / 거부 / 접수취소</b>를 누릅니다. 승인하면 주문 상태가 교환 또는 반품으로 바뀝니다.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h3 className="text-base font-semibold">9. 결제사 등록</h3>
         <p className="mt-2">
           스토어관리 → 계좌·결제 페이지 아래에 신청 링크와 순서가 있습니다.
         </p>

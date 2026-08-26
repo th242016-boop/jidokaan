@@ -58,8 +58,8 @@ function OrderSuccessPage() {
         <p className="mt-3 max-w-md text-muted">
           {transfer
             ? ko
-              ? "입금이 확인되면 제작을 시작합니다. 주문번호를 입금자 표시에 넣어 주세요."
-              : "We start making the pair after the transfer is confirmed. Put the order number in the memo."
+              ? "입금이 확인되면 제작을 시작합니다. 주문자명으로 입금해 주세요."
+              : "We start making the pair after the transfer is confirmed. Please transfer under the orderer's name."
             : dict.success.body}
         </p>
         {order ? (
@@ -85,12 +85,27 @@ function OrderSuccessPage() {
                 {pay.intlPaypal ? <p>PayPal: <b>{pay.intlPaypal}</b></p> : null}
               </>
             )}
-            {pay.krMemo && kr ? <p className="mt-2 text-muted">{pay.krMemo}</p> : null}
+            {kr ? (
+              <p className="mt-2 text-muted">
+                {pay.krMemo && !pay.krMemo.includes("주문번호")
+                  ? pay.krMemo
+                  : "주문자명으로 입금해 주세요"}
+              </p>
+            ) : null}
           </div>
         ) : null}
-        <Button className="mt-8" size="lg" asChild>
-          <Link to="/shop">{dict.success.continue}</Link>
-        </Button>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Button size="lg" asChild>
+            <Link to="/shop">{dict.success.continue}</Link>
+          </Button>
+          {order ? (
+            <Button size="lg" variant="secondary" asChild>
+              <Link to="/orders" search={{ id: order }}>
+                {ko ? "주문조회 · 교환/반품" : "Look up order"}
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       </div>
     </SiteShell>
   );

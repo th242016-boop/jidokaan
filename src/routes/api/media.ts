@@ -1,0 +1,92 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { assertSession, AUTH_HEADERS } from "@/lib/admin-auth.server";
+
+function json(data: unknown, status = 200) {
+  return Response.json(data, { status, headers: AUTH_HEADERS });
+}
+
+const IMAGE_EXT = new Set([
+  ".jpg",
+  ".jpeg",
+  ".jfif",
+  ".png",
+  ".webp",
+  ".gif",
+  ".avif",
+  ".svg",
+  ".bmp",
+  ".heic",
+  ".heif",
+]);
+const VIDEO_EXT = new Set([".mp4", ".webm", ".mov", ".m4v"]);
+const MIME_EXT: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/jpg": ".jpg",
+  "image/pjpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+  "image/avif": ".avif",
+  "image/svg+xml": ".svg",
+  "image/bmp": ".bmp",
+  "image/x-windows-bmp": ".bmp",
+  "image/heic": ".heic",
+  "image/heif": ".heif",
+  "video/mp4": ".mp4",
+  "video/webm": ".webm",
+  "video/quicktime": ".mov",
+};
+
+function fileExt(file: File): string {
+  const fromName = path.extname(file.name || "").toLowerCase();
+  if (IMAGE_EXT.has(fromName) || VIDEO_EXT.has(fromName)) return fromName;
+  return MIME_EXT[file.type.toLowerCase()] ?? "";
+}
+
+export const Route = createFileRoute("/api/media")({
+  server: {
+    handlers: {
+      POST: async ({ request }) => {
+        try {
+          const type = request.headers.get("content-type") || "";
+          if (!type.includes("multipart/form-data")) {
+            return json({ error: "no_file" }, 400);
+          }
+          const form = await request.formData();
+          const token = String(form.get("token") ?? "");
+          await assertSession(token);
+          const file = form.get("file");
+          if (!(file instanceof File) || file.size < 1) {
+            return json({ error: "no_file" }, 400);
+          }
+          if (file.size > 80 * 1024 * 1024) {
+            return json({ error: "too_large" }, 413);
+          }
+          const ext = fileExt(file);
+          if (!ext) return json({ error: "bad_type" }, 400);
+          const isImage = IMAGE_EXT.has(ext);
+          const stamp = Date.now().toString(36);
+          const rand = Math.random().toString(36).slice(2, 8);
+          const base =
+            path
+              .basename(file.name || "file", ext)
+              .replace(/[^a-zA-Z0-9._-]/g, "")
+              .slice(0, 40) || "file";
+          const name = `${stamp}-${rand}-${base}${ext === ".jpeg" || ext === ".jfif" ? ".jpg" : ext}`;
+          const folder = isImage ? "upload" : "video";
+          const dir = path.join(process.cwd(), "public", "products", folder);
+          await mkdir(dir, { recursive: true });
+          const buf = Buffer.from(await file.arrayBuffer());
+          await writeFile(path.join(dir, name), buf);
+          return json({ url: `/products/${folder}/${name}` });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "upload_failed";
+          const status = message === "AUTH" ? 401 : 500;
+          return json({ error: message }, status);
+        }
+      },
+    },
+  },
+});

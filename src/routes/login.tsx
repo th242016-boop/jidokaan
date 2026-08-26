@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SiteShell } from "@/components/store/site-shell";
-import { authClient, authEnabled, signIn } from "@/lib/auth/client";
+import { authClient, authEnabled, signIn, signInSocial } from "@/lib/auth/client";
 import { t } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,28 @@ function safeNext(next?: string) {
   return next;
 }
 
+function inPreviewHost() {
+  return (
+    typeof window !== "undefined" &&
+    window.location.hostname.endsWith(".grok-sandbox.com")
+  );
+}
+
+function explainError(raw: string, failed: string) {
+  const msg = raw.trim();
+  const lower = msg.toLowerCase();
+  if (!msg) return failed;
+  if (lower.includes("provider not found") || lower.includes("provider_not_found")) {
+    return failed;
+  }
+  if (lower.includes("invalid origin")) return failed;
+  if (lower.includes("invalid email") || lower.includes("invalid password")) return failed;
+  if (lower.includes("user already exists") || lower.includes("already exists")) {
+    return failed;
+  }
+  return msg.length > 180 ? failed : msg;
+}
+
 function LoginPage() {
   const locale = useStore((s) => s.locale);
   const dict = t(locale);
@@ -35,26 +57,67 @@ function LoginPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"google" | "kakao" | "naver" | "email" | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
-  const [soon, setSoon] = useState(false);
 
   async function onGoogle() {
     setError(null);
+    setBusy("google");
     try {
-      await signIn("grok-google", {
+      if (inPreviewHost()) {
+        await signIn("grok-google", {
+          callbackURL: dest,
+          errorCallbackURL: "/login",
+        });
+        return;
+      }
+      await signInSocial("google", {
         callbackURL: dest,
         errorCallbackURL: "/login",
       });
-    } catch {
-      setError(dict.login.failed);
+    } catch (err) {
+      setError(explainError(err instanceof Error ? err.message : "", dict.login.failed));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onKakao() {
+    setError(null);
+    setBusy("kakao");
+    try {
+      await signInSocial("kakao", {
+        callbackURL: dest,
+        errorCallbackURL: "/login",
+      });
+    } catch (err) {
+      setError(explainError(err instanceof Error ? err.message : "", dict.login.failed));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onNaver() {
+    setError(null);
+    setBusy("naver");
+    try {
+      await signInSocial("naver", {
+        callbackURL: dest,
+        errorCallbackURL: "/login",
+      });
+    } catch (err) {
+      setError(explainError(err instanceof Error ? err.message : "", dict.login.failed));
+    } finally {
+      setBusy(null);
     }
   }
 
   async function onEmail(e: React.FormEvent) {
     e.preventDefault();
     if (!authEnabled) return;
-    setBusy(true);
+    setBusy("email");
     setError(null);
     try {
       if (mode === "up") {
@@ -72,10 +135,10 @@ function LoginPage() {
         if (err) throw new Error(err.message);
       }
       await navigate({ to: dest });
-    } catch {
-      setError(dict.login.failed);
+    } catch (err) {
+      setError(explainError(err instanceof Error ? err.message : "", dict.login.failed));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -100,38 +163,35 @@ function LoginPage() {
                 <button
                   type="button"
                   onClick={onGoogle}
-                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-border bg-white text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100"
+                  disabled={busy !== null}
+                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-border bg-white text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100 disabled:opacity-60"
                 >
                   <GoogleMark />
-                  {dict.login.google}
+                  {busy === "google" ? dict.common.loading : dict.login.google}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSoon(true)}
-                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-[#FEE500] text-sm font-semibold text-[#191919] transition hover:brightness-95"
+                  onClick={onKakao}
+                  disabled={busy !== null}
+                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-[#FEE500] text-sm font-semibold text-[#191919] transition hover:brightness-95 disabled:opacity-60"
                 >
                   <KakaoMark />
-                  {dict.login.kakao}
+                  {busy === "kakao" ? dict.common.loading : dict.login.kakao}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSoon(true)}
-                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-[#03C75A] text-sm font-semibold text-white transition hover:brightness-95"
+                  onClick={onNaver}
+                  disabled={busy !== null}
+                  className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-[#03C75A] text-sm font-semibold text-white transition hover:brightness-95 disabled:opacity-60"
                 >
                   <NaverMark />
-                  {dict.login.naver}
+                  {busy === "naver" ? dict.common.loading : dict.login.naver}
                 </button>
               </>
             ) : (
               <p className="text-sm text-muted">{dict.login.disabled}</p>
             )}
           </div>
-
-          {soon ? (
-            <p className="mt-3 rounded-xl bg-surface-muted px-3 py-2.5 text-[12px] leading-relaxed text-muted">
-              {dict.login.socialSoon}
-            </p>
-          ) : null}
 
           {authEnabled ? (
             <>
@@ -184,9 +244,9 @@ function LoginPage() {
                 <Button
                   type="submit"
                   className="h-12 w-full"
-                  disabled={busy}
+                  disabled={busy !== null}
                 >
-                  {busy
+                  {busy === "email"
                     ? dict.common.loading
                     : mode === "up"
                       ? dict.login.signUp

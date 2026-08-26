@@ -6,8 +6,11 @@ import type { ShippingSettings } from "@/lib/shipping";
 import type { StoreNotice } from "@/lib/catalog.server";
 import {
   AUTH_HEADERS,
+  assertSession,
   changeAdminPin,
   destroySession,
+  issueRecoveryCode,
+  resetWithRecovery,
   unlockAdmin,
 } from "@/lib/admin-auth.server";
 import type { Coupon } from "@/lib/order-types";
@@ -53,6 +56,7 @@ export const Route = createFileRoute("/api/catalog")({
             pin?: string;
             nextPin?: string;
             currentPin?: string;
+            recoveryCode?: string;
             token?: string;
             product?: Product;
             id?: string;
@@ -76,6 +80,10 @@ export const Route = createFileRoute("/api/catalog")({
             const session = await unlockAdmin(body.pin ?? "", body.nextPin);
             return json({ ok: true, token: session, ...(await readCatalog()) });
           }
+          if (body.action === "ping") {
+            await assertSession(token);
+            return json({ ok: true });
+          }
           if (body.action === "logout") {
             await destroySession(token);
             return json({ ok: true });
@@ -83,6 +91,17 @@ export const Route = createFileRoute("/api/catalog")({
           if (body.action === "changePin") {
             await changeAdminPin(token, body.currentPin ?? "", body.nextPin ?? "");
             return json({ ok: true, ...(await readCatalog()) });
+          }
+          if (body.action === "issueRecovery") {
+            const recoveryCode = await issueRecoveryCode(token);
+            return json({ ok: true, recoveryCode });
+          }
+          if (body.action === "resetWithRecovery") {
+            const session = await resetWithRecovery(
+              body.recoveryCode ?? "",
+              body.nextPin ?? "",
+            );
+            return json({ ok: true, token: session, ...(await readCatalog()) });
           }
           if (body.action === "reorder" && body.ids?.length) {
             await reorderProducts(token, body.ids);

@@ -11,9 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
-import { Route as CartRouteImport } from './routes/cart'
-import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -22,15 +19,20 @@ import { Route as FaqRouteImport } from './routes/faq'
 import { Route as HandoffRouteImport } from './routes/handoff'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OrderSuccessRouteImport } from './routes/order-success'
+import { Route as OrdersRouteImport } from './routes/orders'
 import { Route as ShippingRouteImport } from './routes/shipping'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as ApiAnalyticsRouteImport } from './routes/api/analytics'
 import { Route as ApiCatalogRouteImport } from './routes/api/catalog'
 import { Route as ApiInboxRouteImport } from './routes/api/inbox'
+import { Route as ApiLoginProvidersRouteImport } from './routes/api/login-providers'
+import { Route as ApiMediaRouteImport } from './routes/api/media'
 import { Route as ApiOrdersRouteImport } from './routes/api/orders'
 import { Route as ApiReviewsRouteImport } from './routes/api/reviews'
 import { Route as ProductsProductIdRouteImport } from './routes/products/$productId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ProductsUploadSplatRouteImport } from './routes/products/upload/$'
+import { Route as ProductsVideoSplatRouteImport } from './routes/products/video/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,21 +42,6 @@ const IndexRoute = IndexRouteImport.update({
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CartRoute = CartRouteImport.update({
-  id: '/cart',
-  path: '/cart',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -97,6 +84,11 @@ const OrderSuccessRoute = OrderSuccessRouteImport.update({
   path: '/order-success',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrdersRoute = OrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShippingRoute = ShippingRouteImport.update({
   id: '/shipping',
   path: '/shipping',
@@ -122,6 +114,16 @@ const ApiInboxRoute = ApiInboxRouteImport.update({
   path: '/api/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLoginProvidersRoute = ApiLoginProvidersRouteImport.update({
+  id: '/api/login-providers',
+  path: '/api/login-providers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMediaRoute = ApiMediaRouteImport.update({
+  id: '/api/media',
+  path: '/api/media',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiOrdersRoute = ApiOrdersRouteImport.update({
   id: '/api/orders',
   path: '/api/orders',
@@ -142,13 +144,20 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProductsUploadSplatRoute = ProductsUploadSplatRouteImport.update({
+  id: '/products/upload/$',
+  path: '/products/upload/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProductsVideoSplatRoute = ProductsVideoSplatRouteImport.update({
+  id: '/products/video/$',
+  path: '/products/video/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/cart': typeof CartRoute
-  '/privacy': typeof PrivacyRoute
-  '/terms': typeof TermsRoute
   '/admin': typeof AdminRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
@@ -157,22 +166,24 @@ export interface FileRoutesByFullPath {
   '/handoff': typeof HandoffRoute
   '/login': typeof LoginRoute
   '/order-success': typeof OrderSuccessRoute
+  '/orders': typeof OrdersRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
   '/api/analytics': typeof ApiAnalyticsRoute
   '/api/catalog': typeof ApiCatalogRoute
   '/api/inbox': typeof ApiInboxRoute
+  '/api/login-providers': typeof ApiLoginProvidersRoute
+  '/api/media': typeof ApiMediaRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/reviews': typeof ApiReviewsRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/products/upload/$': typeof ProductsUploadSplatRoute
+  '/products/video/$': typeof ProductsVideoSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/cart': typeof CartRoute
-  '/privacy': typeof PrivacyRoute
-  '/terms': typeof TermsRoute
   '/admin': typeof AdminRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
@@ -181,23 +192,25 @@ export interface FileRoutesByTo {
   '/handoff': typeof HandoffRoute
   '/login': typeof LoginRoute
   '/order-success': typeof OrderSuccessRoute
+  '/orders': typeof OrdersRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
   '/api/analytics': typeof ApiAnalyticsRoute
   '/api/catalog': typeof ApiCatalogRoute
   '/api/inbox': typeof ApiInboxRoute
+  '/api/login-providers': typeof ApiLoginProvidersRoute
+  '/api/media': typeof ApiMediaRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/reviews': typeof ApiReviewsRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/products/upload/$': typeof ProductsUploadSplatRoute
+  '/products/video/$': typeof ProductsVideoSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/cart': typeof CartRoute
-  '/privacy': typeof PrivacyRoute
-  '/terms': typeof TermsRoute
   '/admin': typeof AdminRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
@@ -206,24 +219,26 @@ export interface FileRoutesById {
   '/handoff': typeof HandoffRoute
   '/login': typeof LoginRoute
   '/order-success': typeof OrderSuccessRoute
+  '/orders': typeof OrdersRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
   '/api/analytics': typeof ApiAnalyticsRoute
   '/api/catalog': typeof ApiCatalogRoute
   '/api/inbox': typeof ApiInboxRoute
+  '/api/login-providers': typeof ApiLoginProvidersRoute
+  '/api/media': typeof ApiMediaRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/reviews': typeof ApiReviewsRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/products/upload/$': typeof ProductsUploadSplatRoute
+  '/products/video/$': typeof ProductsVideoSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/about'
-    | '/cart'
-    | '/privacy'
-    | '/terms'
     | '/admin'
     | '/checkout'
     | '/contact'
@@ -232,22 +247,24 @@ export interface FileRouteTypes {
     | '/handoff'
     | '/login'
     | '/order-success'
+    | '/orders'
     | '/shipping'
     | '/shop'
     | '/api/analytics'
     | '/api/catalog'
     | '/api/inbox'
+    | '/api/login-providers'
+    | '/api/media'
     | '/api/orders'
     | '/api/reviews'
     | '/products/$productId'
     | '/api/auth/$'
+    | '/products/upload/$'
+    | '/products/video/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
-    | '/cart'
-    | '/privacy'
-    | '/terms'
     | '/admin'
     | '/checkout'
     | '/contact'
@@ -256,22 +273,24 @@ export interface FileRouteTypes {
     | '/handoff'
     | '/login'
     | '/order-success'
+    | '/orders'
     | '/shipping'
     | '/shop'
     | '/api/analytics'
     | '/api/catalog'
     | '/api/inbox'
+    | '/api/login-providers'
+    | '/api/media'
     | '/api/orders'
     | '/api/reviews'
     | '/products/$productId'
     | '/api/auth/$'
+    | '/products/upload/$'
+    | '/products/video/$'
   id:
     | '__root__'
     | '/'
     | '/about'
-    | '/cart'
-    | '/privacy'
-    | '/terms'
     | '/admin'
     | '/checkout'
     | '/contact'
@@ -280,23 +299,25 @@ export interface FileRouteTypes {
     | '/handoff'
     | '/login'
     | '/order-success'
+    | '/orders'
     | '/shipping'
     | '/shop'
     | '/api/analytics'
     | '/api/catalog'
     | '/api/inbox'
+    | '/api/login-providers'
+    | '/api/media'
     | '/api/orders'
     | '/api/reviews'
     | '/products/$productId'
     | '/api/auth/$'
+    | '/products/upload/$'
+    | '/products/video/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
-  CartRoute: typeof CartRoute
-  PrivacyRoute: typeof PrivacyRoute
-  TermsRoute: typeof TermsRoute
   AdminRoute: typeof AdminRoute
   CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
@@ -305,15 +326,20 @@ export interface RootRouteChildren {
   HandoffRoute: typeof HandoffRoute
   LoginRoute: typeof LoginRoute
   OrderSuccessRoute: typeof OrderSuccessRoute
+  OrdersRoute: typeof OrdersRoute
   ShippingRoute: typeof ShippingRoute
   ShopRoute: typeof ShopRoute
   ApiAnalyticsRoute: typeof ApiAnalyticsRoute
   ApiCatalogRoute: typeof ApiCatalogRoute
   ApiInboxRoute: typeof ApiInboxRoute
+  ApiLoginProvidersRoute: typeof ApiLoginProvidersRoute
+  ApiMediaRoute: typeof ApiMediaRoute
   ApiOrdersRoute: typeof ApiOrdersRoute
   ApiReviewsRoute: typeof ApiReviewsRoute
   ProductsProductIdRoute: typeof ProductsProductIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ProductsUploadSplatRoute: typeof ProductsUploadSplatRoute
+  ProductsVideoSplatRoute: typeof ProductsVideoSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -330,27 +356,6 @@ declare module '@tanstack/react-router' {
       path: '/about'
       fullPath: '/about'
       preLoaderRoute: typeof AboutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cart': {
-      id: '/cart'
-      path: '/cart'
-      fullPath: '/cart'
-      preLoaderRoute: typeof CartRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -409,6 +414,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrderSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/orders': {
+      id: '/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof OrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shipping': {
       id: '/shipping'
       path: '/shipping'
@@ -444,6 +456,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInboxRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/login-providers': {
+      id: '/api/login-providers'
+      path: '/api/login-providers'
+      fullPath: '/api/login-providers'
+      preLoaderRoute: typeof ApiLoginProvidersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/media': {
+      id: '/api/media'
+      path: '/api/media'
+      fullPath: '/api/media'
+      preLoaderRoute: typeof ApiMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/orders': {
       id: '/api/orders'
       path: '/api/orders'
@@ -472,15 +498,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/products/upload/$': {
+      id: '/products/upload/$'
+      path: '/products/upload/$'
+      fullPath: '/products/upload/$'
+      preLoaderRoute: typeof ProductsUploadSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/products/video/$': {
+      id: '/products/video/$'
+      path: '/products/video/$'
+      fullPath: '/products/video/$'
+      preLoaderRoute: typeof ProductsVideoSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
-  CartRoute: CartRoute,
-  PrivacyRoute: PrivacyRoute,
-  TermsRoute: TermsRoute,
   AdminRoute: AdminRoute,
   CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
@@ -489,15 +526,20 @@ const rootRouteChildren: RootRouteChildren = {
   HandoffRoute: HandoffRoute,
   LoginRoute: LoginRoute,
   OrderSuccessRoute: OrderSuccessRoute,
+  OrdersRoute: OrdersRoute,
   ShippingRoute: ShippingRoute,
   ShopRoute: ShopRoute,
   ApiAnalyticsRoute: ApiAnalyticsRoute,
   ApiCatalogRoute: ApiCatalogRoute,
   ApiInboxRoute: ApiInboxRoute,
+  ApiLoginProvidersRoute: ApiLoginProvidersRoute,
+  ApiMediaRoute: ApiMediaRoute,
   ApiOrdersRoute: ApiOrdersRoute,
   ApiReviewsRoute: ApiReviewsRoute,
   ProductsProductIdRoute: ProductsProductIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ProductsUploadSplatRoute: ProductsUploadSplatRoute,
+  ProductsVideoSplatRoute: ProductsVideoSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -89,7 +89,19 @@ export const authConfigured =
 // it derives the origin per-request from the (proxied) host, validated against the
 // preview allowlist, which makes the OAuth `redirect_uri` the concrete preview URL
 // the broker's preview client accepts.
-const explicitBaseURL = env("BETTER_AUTH_URL");
+const databaseUrl = env("DATABASE_URL");
+const googleId = env("GOOGLE_CLIENT_ID");
+const googleSecret = env("GOOGLE_CLIENT_SECRET");
+const kakaoId = env("KAKAO_CLIENT_ID");
+const kakaoSecret = env("KAKAO_CLIENT_SECRET");
+const naverId = env("NAVER_CLIENT_ID");
+const naverSecret = env("NAVER_CLIENT_SECRET");
+
+// Railway/production must never fall back to localhost — that is why live
+// email returned INVALID_ORIGIN and Google OAuth used localhost redirect_uri.
+const explicitBaseURL =
+  env("BETTER_AUTH_URL") ?? (databaseUrl ? "https://jidokaan.com" : undefined);
+
 // Explicit `string[]` (not a readonly tuple) — Better Auth's DynamicBaseURLConfig
 // requires a mutable `allowedHosts: string[]`.
 const previewAllowedHosts: string[] = [...PREVIEW_ALLOWED_HOSTS];
@@ -101,38 +113,115 @@ const LOCAL_DEV_ORIGINS: string[] = [
   "http://127.0.0.1:8080",
   "http://[::1]:8080",
 ];
+const STORE_ORIGINS = [
+  "https://jidokaan.com",
+  "https://www.jidokaan.com",
+  "https://jidokaan-production.up.railway.app",
+];
 const baseURL = explicitBaseURL ?? {
   // Include loopback hosts so dynamic baseURL resolves for local email/password
-  // (not only the preview wildcard).
-  allowedHosts: [...previewAllowedHosts, "localhost", "127.0.0.1", "[::1]"],
+  // (not only the preview wildcard). Store hosts cover Railway if BETTER_AUTH_URL
+  // is missing.
+  allowedHosts: [
+    ...previewAllowedHosts,
+    "localhost",
+    "127.0.0.1",
+    "[::1]",
+    "jidokaan.com",
+    "www.jidokaan.com",
+    "jidokaan-production.up.railway.app",
+  ],
   // `auto` → trust both http:// and https:// expansions of allowedHosts
   // (preview is https; local dev is http).
   protocol: "auto" as const,
-  fallback: "http://localhost:8080",
+  fallback: databaseUrl ? "https://jidokaan.com" : "http://localhost:8080",
 };
 
 // Origins Better Auth accepts on credentialed POSTs (sign-up/sign-in, etc.).
 // Missing entries here surface as FORBIDDEN "Invalid origin".
-const trustedOrigins: string[] = explicitBaseURL
-  ? [explicitBaseURL, ...LOCAL_DEV_ORIGINS]
-  : [
-      // Host wildcards (matched against Origin's host)
-      ...previewAllowedHosts,
-      // Full-origin wildcards (matched against Origin)
-      ...previewAllowedHosts.flatMap((host) => [`https://${host}`, `http://${host}`]),
-      ...LOCAL_DEV_ORIGINS,
-    ];
+const trustedOrigins: string[] = [
+  ...(explicitBaseURL ? [explicitBaseURL] : []),
+  ...LOCAL_DEV_ORIGINS,
+  ...STORE_ORIGINS,
+  ...previewAllowedHosts,
+  ...previewAllowedHosts.flatMap((host) => [`https://${host}`, `http://${host}`]),
+];
 
-const databaseUrl = env("DATABASE_URL");
-
-// Static broker OAuth endpoints (skip OIDC discovery on every sign-in / callback).
-// Discovery would cost an extra network hop to the broker before the popup can
-// even redirect to Google/X — the live-preview popup felt stuck on the app for
-// that whole round-trip. These paths match the broker's discovery document.
 const issuerBase = grokIssuer.replace(/\/+$/, "");
 const grokAuthorizationUrl = `${issuerBase}/api/auth/oauth2/authorize`;
 const grokTokenUrl = `${issuerBase}/api/auth/oauth2/token`;
 const grokUserInfoUrl = `${issuerBase}/api/auth/oauth2/userinfo`;
+
+type SocialProfile = Record<string, unknown>;
+
+function asRecord(value: unknown): SocialProfile {
+  return value && typeof value === "object" ? (value as SocialProfile) : {};
+}
+
+function str(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function kakaoProfile(profile: SocialProfile) {
+  const account = asRecord(profile.kakao_account);
+  const p = asRecord(account.profile);
+  const id = String(profile.id ?? account.id ?? "");
+  const email =
+    str(account.email) ||
+    str(profile.email) ||
+    (id ? `kakao-${id}@login.jidokaan.com` : "kakao@login.jidokaan.com");
+  return {
+    email,
+    name: str(p.nickname) || str(profile.name) || "Kakao",
+    image: str(p.profile_image_url) || str(profile.image) || undefined,
+  };
+}
+
+function naverProfile(profile: SocialProfile) {
+  const response = asRecord(profile.response);
+  const id = str(response.id) || str(profile.id) || "naver";
+  const email =
+    str(response.email) ||
+    str(profile.email) ||
+    `naver-${id}@login.jidokaan.com`;
+  return {
+    email,
+    name: str(response.name) || str(response.nickname) || str(profile.name) || "Naver",
+    image: str(response.profile_image) || str(profile.image) || undefined,
+  };
+}
+
+const socialProviders = {
+  ...(googleId && googleSecret
+    ? { google: { clientId: googleId, clientSecret: googleSecret } }
+    : {}),
+  ...(kakaoId && kakaoSecret
+    ? {
+        kakao: {
+          clientId: kakaoId,
+          clientSecret: kakaoSecret,
+          mapProfileToUser: (profile: unknown) => kakaoProfile(asRecord(profile)),
+        },
+      }
+    : {}),
+  ...(naverId && naverSecret
+    ? {
+        naver: {
+          clientId: naverId,
+          clientSecret: naverSecret,
+          mapProfileToUser: (profile: unknown) => naverProfile(asRecord(profile)),
+        },
+      }
+    : {}),
+};
+
+export const socialConfigured = {
+  email: emailAndPasswordEnabled,
+  google: Boolean(googleId && googleSecret),
+  kakao: Boolean(kakaoId && kakaoSecret),
+  naver: Boolean(naverId && naverSecret),
+  preview: !databaseUrl,
+};
 
 // Real Postgres when `DATABASE_URL` is set (deployed apps), else the app's
 // embedded PGLite (preview) via a Kysely dialect — so Better Auth persists to the
@@ -147,8 +236,9 @@ export const SESSION_TOKEN_COOKIE = "__Host-grok-auth.session_token";
 
 // Built separately so the `betterAuth({...})` call stays easy to edit without
 // breaking brackets (models often trip on the conditional plugin spread).
-const grokOAuthPlugin = authConfigured
-  ? genericOAuth({
+const grokOAuthPlugin =
+  authConfigured && !databaseUrl
+    ? genericOAuth({
       config: GROK_PROVIDERS.map(({ providerId, idp }) => ({
         providerId,
         clientId: grokClientId as string,
@@ -191,7 +281,12 @@ export const auth = betterAuth({
     encryptOAuthTokens: true,
     accountLinking: {
       enabled: true,
-      trustedProviders: GROK_PROVIDERS.map((p) => p.providerId),
+      trustedProviders: [
+        ...GROK_PROVIDERS.map((p) => p.providerId),
+        "google",
+        "kakao",
+        "naver",
+      ],
       // X's synthetic email is never "verified", so don't gate linking on the
       // local user's email-verified state.
       requireLocalEmailVerified: false,
@@ -206,6 +301,8 @@ export const auth = betterAuth({
 
   // Local email/password — toggled only via `./email-password` (not a plugin).
   ...(emailAndPasswordEnabled ? { emailAndPassword: { enabled: true } } : {}),
+
+  ...(Object.keys(socialProviders).length ? { socialProviders } : {}),
 
   // `__Host-` prefixed cookies: the browser REFUSES any same-named cookie that
   // carries a `Domain` attribute, so a sibling `*.grok.me` app cannot "toss" a

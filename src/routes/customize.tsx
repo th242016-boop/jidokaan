@@ -7,16 +7,19 @@ import { LayerSimulator } from "@/components/customizer/layer-simulator";
 import { Button } from "@/components/ui/button";
 import {
   currencyForCountry,
-  colorLabel,
   formatProductPrice,
   t,
 } from "@/lib/i18n";
-import { getProduct } from "@/lib/products";
+import { getProduct, MEN_BOOT_SIZES, WOMEN_BOOT_SIZES, closestBootSize } from "@/lib/products";
 import {
   paletteFor,
-  READY_PARTS,
+  PHOTO_NATIVE,
+  PICKABLE_PARTS,
   REAL_LAYERS,
   SIM_PARTS,
+  defaultPartNames,
+  linkedLColor,
+  type PartColorNames,
 } from "@/lib/simulator-config";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -25,16 +28,11 @@ export const Route = createFileRoute("/customize")({
   component: CustomizePage,
 });
 
-const MEN_SIZES = [
-  "240", "245", "250", "255", "260", "265", "270", "275", "280", "285", "290", "295", "300",
-];
-const WOMEN_SIZES = ["225", "230", "235", "240", "245"];
+const MEN_SIZES = MEN_BOOT_SIZES;
+const WOMEN_SIZES = WOMEN_BOOT_SIZES;
 
-function closestSize(target: string, list: string[]) {
-  const n = Number(target);
-  return list.reduce((best, cur) =>
-    Math.abs(Number(cur) - n) < Math.abs(Number(best) - n) ? cur : best,
-  );
+function closestSize(target: string, list: readonly string[]) {
+  return closestBootSize(target, list);
 }
 
 function CustomizePage() {
@@ -44,17 +42,20 @@ function CustomizePage() {
   const draftParts = useStore((s) => s.draftParts);
   const draftPartNames = useStore((s) => s.draftPartNames);
   const size = useStore((s) => s.draftSize);
+  const fit = useStore((s) => s.draftFit);
   const setPartColor = useStore((s) => s.setPartColor);
   const setDraftSize = useStore((s) => s.setDraftSize);
+  const setDraftFit = useStore((s) => s.setDraftFit);
   const addCustomBoot = useStore((s) => s.addCustomBoot);
   const setCartOpen = useStore((s) => s.setCartOpen);
   const dict = t(locale);
   const navigate = useNavigate();
-  const product = getProduct("drone-custom")!;
+  const product = getProduct("drone-custom");
   const [confirming, setConfirming] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [zoomed, setZoomed] = useState(false);
-  const [fit, setFit] = useState<"men" | "women">("men");
+  const [localNames, setLocalNames] = useState<PartColorNames | null>(null);
+  const colorNames = localNames ?? draftPartNames;
   const sizes = fit === "women" ? WOMEN_SIZES : MEN_SIZES;
 
   useEffect(() => {
@@ -88,7 +89,7 @@ function CustomizePage() {
     <div className="flex h-[calc(100dvh-var(--grok-banner-h,0px))] flex-col overflow-hidden bg-white font-[Helvetica_Neue,Helvetica,Arial,sans-serif] text-black md:flex-row">
       <LocaleSync />
 
-      <div className="relative h-[54svh] min-h-[280px] shrink-0 bg-[#141416] md:h-full md:min-h-0 md:flex-[2]">
+      <div className="relative z-0 h-[42svh] min-h-[220px] w-full shrink-0 overflow-hidden bg-[#141416] md:h-full md:min-h-0 md:w-[58%] md:max-w-[58%] md:flex-none">
         <Link
           to="/"
           className="absolute top-3 left-3 z-20 inline-flex items-center gap-1 rounded-[30px] border border-black/10 bg-white/80 px-2.5 py-1.5 text-[10px] font-bold tracking-wide text-black backdrop-blur-sm md:top-5 md:left-5 md:px-3 md:py-2 md:text-[11px]"
@@ -101,11 +102,10 @@ function CustomizePage() {
         </p>
         <LayerSimulator
           colors={draftParts}
-          colorNames={draftPartNames}
+          colorNames={colorNames}
           showGuide={showGuide}
           onGuideChange={setShowGuide}
           onPreviewClick={() => setZoomed(true)}
-          guideLabel={dict.custom.guideToggle}
           className="absolute inset-0"
         />
         <p className="pointer-events-none absolute bottom-2 left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/50 px-2.5 py-1 text-[9px] font-semibold text-white/90 md:bottom-4 md:text-[11px]">
@@ -113,28 +113,28 @@ function CustomizePage() {
         </p>
       </div>
 
-      <aside className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-[#ddd] bg-white md:min-w-[340px] md:border-t-0 md:border-l">
+      <aside className="relative z-30 flex min-h-0 min-w-0 w-full flex-1 flex-col border-t border-[#ddd] bg-white pointer-events-auto md:w-[42%] md:flex-none md:border-t-0 md:border-l">
         <div className="hidden shrink-0 border-b border-[#eee] bg-white px-5 py-6 md:block">
           <h1 className="m-0 text-2xl font-black tracking-[1px] text-black uppercase">
             JIDOKAAN
           </h1>
           <p className="mt-0.5 mb-0 text-[11px] font-medium text-[#999]">
-            {dict.custom.studioLabel}
+            Custom Studio
           </p>
           <p className="mt-1.5 mb-0 flex items-center text-[11px] font-semibold tracking-[0.5px] text-[#d0021b]">
             <span className="mr-1.5 text-sm">ⓘ</span>
-            {dict.custom.guideClick}
+            Click GUIDE ON/OFF to check the parts.
           </p>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="px-3 pt-3 pb-5 md:px-5 md:pt-5 md:pb-8">
-            {READY_PARTS.length === 0 ? (
+            {PICKABLE_PARTS.length === 0 ? (
               <p className="text-sm leading-relaxed text-neutral-500">
                 베이스 사진만 표시 중입니다. G 색 사진이 오면 여기서 바꿉니다.
               </p>
             ) : null}
-            {SIM_PARTS.filter((p) => READY_PARTS.includes(p.id)).map((part) => {
+            {SIM_PARTS.filter((p) => PICKABLE_PARTS.includes(p.id)).map((part) => {
               const supplied = REAL_LAYERS[part.id];
               const pal = supplied
                 ? paletteFor(part).filter(
@@ -148,17 +148,40 @@ function CustomizePage() {
                   </div>
                   <div className="grid grid-cols-5 gap-1.5 md:grid-cols-4 md:gap-2">
                     {pal.map((opt) => {
-                      const active = draftPartNames[part.id] === opt.name;
+                      const active =
+                        (colorNames?.[part.id] ?? PHOTO_NATIVE[part.id]) ===
+                        opt.name;
                       return (
                         <button
                           key={`${part.id}-${opt.name}`}
                           type="button"
-                          title={colorLabel(locale, opt.name)}
-                          onClick={() =>
-                            setPartColor(part.id, opt.color, opt.name)
-                          }
+                          title={opt.name}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setPartColor(part.id, opt.color, opt.name);
+                            setLocalNames((prev) => {
+                              const next: PartColorNames = {
+                                ...defaultPartNames(),
+                                ...(prev ?? draftPartNames),
+                                [part.id]: opt.name,
+                              };
+                              if (part.id === "i" || part.id === "d" || part.id === "a") {
+                                const linked = linkedLColor(
+                                  next.d,
+                                  "",
+                                  next.i,
+                                  "",
+                                  next.a,
+                                  "",
+                                );
+                                next.l = linked.name;
+                              }
+                              return next;
+                            });
+                          }}
                           className={cn(
-                            "relative aspect-square w-full overflow-hidden rounded-[6px] border transition",
+                            "relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition",
                             active
                               ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]"
                               : "border-[#ddd] hover:scale-105 hover:border-[#888]",
@@ -178,7 +201,7 @@ function CustomizePage() {
                             className="absolute inset-0 flex items-center justify-center p-0.5 text-center text-[8px] font-bold leading-[1.1] break-words md:text-[10px]"
                             style={{ color: opt.isBright ? "#000" : "#fff" }}
                           >
-                            {colorLabel(locale, opt.name)}
+                            {opt.name}
                           </span>
                         </button>
                       );
@@ -191,7 +214,7 @@ function CustomizePage() {
             <div className="border-t border-[#eee] pt-6">
               <div className="mb-2.5 flex flex-wrap items-center gap-2">
                 <span className="border-l-4 border-black pl-2.5 text-sm font-bold">
-                  {dict.custom.sizeLabel}
+                  SIZE
                 </span>
                 <div className="flex gap-1.5">
                   {(["men", "women"] as const).map((g) => (
@@ -200,7 +223,7 @@ function CustomizePage() {
                       type="button"
                       onClick={() => {
                         const next = g === "women" ? WOMEN_SIZES : MEN_SIZES;
-                        setFit(g);
+                        setDraftFit(g);
                         if (!next.includes(size)) {
                           setDraftSize(closestSize(size, next));
                         }
@@ -247,11 +270,11 @@ function CustomizePage() {
 
         <div className="shrink-0 border-t border-[#ddd] bg-white px-3 py-2 md:space-y-2 md:p-4">
           <p className="mb-1.5 hidden text-center text-sm font-bold md:mb-0 md:block">
-            {formatProductPrice(product, currency)}
+            {product ? formatProductPrice(product, currency) : "₩288,000"}
           </p>
           <div className="flex items-center gap-2 md:flex-col md:items-stretch">
             <p className="min-w-[4.5rem] shrink-0 text-left text-xs font-bold md:hidden">
-              {formatProductPrice(product, currency)}
+              {product ? formatProductPrice(product, currency) : "₩288,000"}
             </p>
             <Button
               size="lg"
@@ -293,7 +316,7 @@ function CustomizePage() {
         >
           <LayerSimulator
             colors={draftParts}
-            colorNames={draftPartNames}
+            colorNames={colorNames}
             showGuide={false}
             hideChrome
             onPreviewClick={() => setZoomed(false)}

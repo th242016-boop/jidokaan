@@ -19,7 +19,6 @@ export function LayerSimulator({
   onGuideChange,
   hideChrome,
   onPreviewClick,
-  guideLabel,
 }: {
   colors: PartColors;
   colorNames?: PartColorNames;
@@ -28,7 +27,6 @@ export function LayerSimulator({
   onGuideChange?: (v: boolean) => void;
   hideChrome?: boolean;
   onPreviewClick?: () => void;
-  guideLabel?: string;
 }) {
   const [internalGuide, setInternalGuide] = useState(false);
   const showGuide = controlledGuide ?? internalGuide;
@@ -51,23 +49,33 @@ export function LayerSimulator({
           onClick={() => setGuide(!showGuide)}
           className="absolute top-3 right-3 z-20 rounded-[30px] border border-white/30 bg-black/60 px-3 py-1.5 text-[10px] font-bold tracking-[0.5px] text-white shadow-[0_4px_10px_rgba(0,0,0,0.15)] backdrop-blur-[4px] transition active:scale-95 md:top-5 md:right-5 md:px-4 md:py-2 md:text-[11px]"
         >
-          {guideLabel ?? "GUIDE ON/OFF"}
+          GUIDE ON/OFF
         </button>
       )}
 
-      <button
-        type="button"
-        className="relative h-full w-full cursor-zoom-in border-0 bg-transparent p-0"
-        onClick={onPreviewClick}
-        aria-label="Enlarge preview"
+      <div
+        className={cn(
+          "absolute inset-0",
+          onPreviewClick && !hideChrome ? "cursor-zoom-in" : "",
+        )}
+        onClick={hideChrome ? undefined : onPreviewClick}
+        onKeyDown={
+          hideChrome || !onPreviewClick
+            ? undefined
+            : (e) => {
+                if (e.key === "Enter" || e.key === " ") onPreviewClick();
+              }
+        }
+        role={onPreviewClick && !hideChrome ? "button" : undefined}
+        tabIndex={onPreviewClick && !hideChrome ? 0 : undefined}
+        aria-label={onPreviewClick && !hideChrome ? "Enlarge preview" : undefined}
       >
         <img
           src={`${PHOTO_BASE}`}
           alt="JIDOKAAN custom base"
-          className="absolute inset-0 h-full w-full object-contain"
+          className="pointer-events-none absolute inset-0 h-full w-full object-contain"
           draggable={false}
         />
-
         {SIM_PARTS.filter((p) => READY_PARTS.includes(p.id)).map((part) => {
           const name =
             colorNames?.[part.id as PartId] ??
@@ -85,7 +93,6 @@ export function LayerSimulator({
             />
           );
         })}
-
         {showGuide ? (
           <img
             src="/simulator/photo/guide.png?v=g2"
@@ -94,7 +101,7 @@ export function LayerSimulator({
             draggable={false}
           />
         ) : null}
-      </button>
+      </div>
     </div>
   );
 }

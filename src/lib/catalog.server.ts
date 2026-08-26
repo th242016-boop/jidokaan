@@ -9,6 +9,7 @@ import {
   fillProductSeo,
   migrateCategories,
   normalizeProduct,
+  applyDisplayOrder,
   sortForDisplay,
   type ShopCategory,
   type SiteSeo,
@@ -45,6 +46,24 @@ function asProduct(raw: unknown): Product | null {
   return normalizeProduct(p);
 }
 
+/** Insert missing starter products only. Never update or delete live rows. */
+async function applySmartstoreCatalog(
+  sql: Awaited<ReturnType<typeof db>>,
+) {
+  const existing = await sql.query<{ id: string }>(
+    "select id from catalog_products",
+  );
+  const have = new Set(existing.map((r) => r.id));
+  for (let i = 0; i < PRODUCTS.length; i++) {
+    const p = normalizeProduct(PRODUCTS[i]);
+    if (have.has(p.id)) continue;
+    await sql.query(
+      "insert into catalog_products (id, data, sort) values ($1, $2::jsonb, $3) on conflict (id) do nothing",
+      [p.id, JSON.stringify(p), i],
+    );
+  }
+}
+
 function parseRows(raw: string | null | undefined, fallback: InfoRow[]): InfoRow[] {
   if (!raw) return fallback;
   try {
@@ -64,11 +83,6 @@ function parseJson<T>(raw: string | null | undefined, fallback: T): T {
   }
 }
 
-/**
- * Upserts the grok.me PRODUCTS catalog even when catalog_products is not empty,
- * then deletes SKUs that are not on grok.me (legacy drone-black/white, ring-red/mint,
- * lace-pack, care-kit, jidokaan-patch, and any other non-PRODUCTS rows).
- */
 export async function seedIfEmpty() {
   const sql = await db();
   await sql.query(`
@@ -85,29 +99,27 @@ export async function seedIfEmpty() {
       value text not null
     )
   `);
-  const keepIds = PRODUCTS.map((p) => p.id);
-  for (let i = 0; i < PRODUCTS.length; i++) {
-    const p = normalizeProduct(PRODUCTS[i]);
-    await sql.query(
-      `insert into catalog_products (id, data, sort, updated_at)
-       values ($1, $2::jsonb, $3, now())
-       on conflict (id) do update set data = excluded.data, sort = excluded.sort, updated_at = now()`,
-      [p.id, JSON.stringify(p), p.sortOrder ?? i + 1],
-    );
+  const seeded = await sql<{ value: string }>`
+    select value from site_settings where key = ${"catalog_seeded"}
+  `;
+  const count = await sql<{ n: number }>`select count(*)::int as n from catalog_products`;
+  if ((count[0]?.n ?? 0) === 0 && seeded.length === 0) {
+    for (let i = 0; i < PRODUCTS.length; i++) {
+      const p = normalizeProduct(PRODUCTS[i]);
+      await sql.query(
+        "insert into catalog_products (id, data, sort) values ($1, $2::jsonb, $3) on conflict (id) do nothing",
+        [p.id, JSON.stringify(p), i],
+      );
+    }
   }
-  const legacyOffGrokMe = [
-    "drone-black",
-    "drone-white",
-    "ring-red",
-    "ring-mint",
-    "lace-pack",
-    "care-kit",
-    "jidokaan-patch",
-  ];
-  await sql.query(
-    "delete from catalog_products where id <> all($1::text[]) or id = any($2::text[])",
-    [keepIds, legacyOffGrokMe],
-  );
+  if (seeded.length === 0) {
+    await sql`
+      insert into site_settings (key, value)
+      values (${"catalog_seeded"}, ${"1"})
+      on conflict (key) do nothing
+    `;
+  }
+  await applySmartstoreCatalog(sql);
   const pin = await sql<{ value: string }>`
     select value from site_settings where key = ${"admin_pin"}
   `;
@@ -122,29 +134,12 @@ export async function seedIfEmpty() {
   const cats = await sql<{ value: string }>`
     select value from site_settings where key = ${"categories_json"}
   `;
-  const current = parseJson<ShopCategory[]>(cats[0]?.value, []);
-  const nextCats = migrateCategories(current);
-  if (JSON.stringify(current) !== JSON.stringify(nextCats)) {
+  if (!cats.length) {
     await sql`
       insert into site_settings (key, value)
-      values (${"categories_json"}, ${JSON.stringify(nextCats)})
-      on conflict (key) do update set value = excluded.value
+      values (${"categories_json"}, ${JSON.stringify(DEFAULT_CATEGORIES)})
+      on conflict (key) do nothing
     `;
-  }
-  const all = await sql.query<{ id: string; data: unknown }>(
-    "select id, data from catalog_products",
-  );
-  for (const row of all) {
-    const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
-    const p = asProduct(data);
-    if (!p) continue;
-    const fixed = normalizeProduct(p);
-    if (fixed.majorId !== p.majorId || fixed.minorId !== p.minorId) {
-      await sql.query(
-        "update catalog_products set data = $2::jsonb where id = $1",
-        [fixed.id, JSON.stringify(fixed)],
-      );
-    }
   }
 }
 
@@ -169,8 +164,12 @@ export async function readCatalog(): Promise<CatalogPayload> {
   const categories = migrateCategories(parseJson(map.categories_json, DEFAULT_CATEGORIES));
   const seo = parseJson(map.seo_json, DEFAULT_SEO);
   const rawProducts = products.length ? products : PRODUCTS.map(normalizeProduct);
+  const savedOrder = parseJson<string[]>(map.product_order, []);
+  const ordered = savedOrder.length
+    ? applyDisplayOrder(rawProducts, savedOrder)
+    : sortForDisplay(rawProducts);
   return {
-    products: sortForDisplay(rawProducts),
+    products: ordered,
     company: parseRows(map.company_json, DEFAULT_COMPANY),
     support: parseRows(map.support_json, DEFAULT_SUPPORT),
     categories: categories.length ? categories : DEFAULT_CATEGORIES,
@@ -185,6 +184,18 @@ export async function readCatalog(): Promise<CatalogPayload> {
   };
 }
 
+async function persistDisk() {
+  try {
+    const { dbSource, getPglite } = await import("./db");
+    if (dbSource === "pglite") {
+      const pg = await getPglite();
+      await pg.exec("CHECKPOINT");
+    }
+  } catch {
+    /* neon */
+  }
+}
+
 export async function assertAdmin(token: string) {
   await assertSession(token);
 }
@@ -196,6 +207,7 @@ async function writeSetting(key: string, value: string) {
     values (${key}, ${value})
     on conflict (key) do update set value = excluded.value
   `;
+  await persistDisk();
 }
 
 export async function upsertProduct(token: string, product: Product) {
@@ -211,12 +223,14 @@ export async function upsertProduct(token: string, product: Product) {
      on conflict (id) do update set data = excluded.data, sort = excluded.sort, updated_at = now()`,
     [saved.id, JSON.stringify(saved), saved.sortOrder ?? 0],
   );
+  await persistDisk();
 }
 
 export async function deleteProduct(token: string, id: string) {
   await assertAdmin(token);
   const sql = await db();
   await sql`delete from catalog_products where id = ${id}`;
+  await persistDisk();
 }
 
 export async function bulkProducts(
@@ -265,15 +279,21 @@ export async function bulkProducts(
       [next.id, JSON.stringify(normalizeProduct(next))],
     );
   }
+  await persistDisk();
 }
 
 export async function reorderProducts(token: string, ids: string[]) {
   await assertAdmin(token);
+  const unique = ids.filter((id, i) => id && ids.indexOf(id) === i);
+  if (!unique.length) return;
+  await writeSetting("product_order", JSON.stringify(unique));
   const sql = await db();
   const catalog = await readCatalog();
   const byId = new Map(catalog.products.map((p) => [p.id, p]));
-  for (let i = 0; i < ids.length; i++) {
-    const p = byId.get(ids[i]);
+  const rest = catalog.products.map((p) => p.id).filter((id) => !unique.includes(id));
+  const full = [...unique, ...rest];
+  for (let i = 0; i < full.length; i++) {
+    const p = byId.get(full[i]!);
     if (!p) continue;
     const next = normalizeProduct({ ...p, sortOrder: i + 1 });
     await sql.query(
@@ -281,6 +301,7 @@ export async function reorderProducts(token: string, ids: string[]) {
       [next.id, JSON.stringify(next), i + 1],
     );
   }
+  await persistDisk();
 }
 
 export async function writeSiteInfo(

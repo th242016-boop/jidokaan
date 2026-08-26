@@ -3,11 +3,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  CartItemVisual,
-  customSpecLine,
-  hasCustomSpec,
-} from "@/components/store/cart-item-visual";
+import { DesignThumb } from "@/components/store/design-thumb";
 import { SiteShell } from "@/components/store/site-shell";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import {
@@ -20,9 +16,8 @@ import {
   t,
 } from "@/lib/i18n";
 import { getProduct } from "@/lib/products";
-import { formatCartSize } from "@/lib/simulator-config";
-import { quoteShipping, shipCopy, type ShipMethod } from "@/lib/shipping";
-import { useStore } from "@/lib/store";
+import { quoteShipping, shipCopy } from "@/lib/shipping";
+import { formatCartSize, useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
 import { trackStoreEvent } from "@/components/analytics-tracker";
 import { couponDiscount } from "@/lib/coupon";
@@ -33,6 +28,38 @@ export const Route = createFileRoute("/checkout")({
 });
 
 type PayMethod = "card" | "kakao" | "naver" | "transfer" | "paypal";
+
+type SavedCheckout = {
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  region?: string;
+  postal?: string;
+  country?: string;
+};
+
+const PROFILE_KEY = "jidokaan-checkout-profile";
+
+function readProfile(): SavedCheckout {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as SavedCheckout;
+  } catch {
+    return {};
+  }
+}
+
+function writeProfile(p: SavedCheckout) {
+  try {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
+  } catch {
+    /* ignore */
+  }
+}
 
 function CheckoutPage() {
   const locale = useStore((s) => s.locale);
@@ -53,7 +80,12 @@ function CheckoutPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [pay, setPay] = useState<PayMethod>("card");
-  const [shipMethod, setShipMethod] = useState<ShipMethod>("standard");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [address2, setAddress2] = useState("");
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [postal, setPostal] = useState("");
   const [depositor, setDepositor] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [couponMsg, setCouponMsg] = useState("");
@@ -69,36 +101,58 @@ function CheckoutPage() {
 
   useEffect(() => {
     setCartOpen(false);
+    const saved = readProfile();
     try {
-      const saved = sessionStorage.getItem("jidokaan-ship-country");
-      if (saved) {
-        setCountry(saved);
-        setCurrency(currencyForCountry(saved));
+      const shipCountry = sessionStorage.getItem("jidokaan-ship-country");
+      if (shipCountry) {
+        setCountry(shipCountry);
+        setCurrency(currencyForCountry(shipCountry));
+      } else if (saved.country) {
+        setCountry(saved.country);
+        setCurrency(currencyForCountry(saved.country));
       }
     } catch {
-      /* ignore */
+      if (saved.country) {
+        setCountry(saved.country);
+        setCurrency(currencyForCountry(saved.country));
+      }
     }
+    if (saved.email) setEmail(saved.email);
+    if (saved.firstName) setFirstName(saved.firstName);
+    if (saved.lastName) setLastName(saved.lastName);
+    if (saved.phone) setPhone(saved.phone);
+    if (saved.address) setAddress(saved.address);
+    if (saved.city) setCity(saved.city);
+    if (saved.region) setRegion(saved.region);
+    if (saved.postal) setPostal(saved.postal);
   }, [setCartOpen, setCurrency]);
 
   useEffect(() => {
     if (!user) return;
     if (user.primaryEmail) setEmail(user.primaryEmail);
-    if (user.displayName && !firstName) {
+    if (user.displayName) {
       const parts = user.displayName.trim().split(/\s+/);
-      if (parts.length === 1) setFirstName(parts[0]);
-      else {
-        setFirstName(parts[0]);
-        setLastName(parts.slice(1).join(" "));
+      setFirstName((cur) => cur || parts[0] || "");
+      if (parts.length > 1) {
+        setLastName((cur) => cur || parts.slice(1).join(" "));
       }
     }
-  }, [user, firstName]);
+  }, [user]);
+
+  useEffect(() => {
+    const name = `${lastName} ${firstName}`.trim();
+    if (name) setDepositor((cur) => cur || name);
+  }, [firstName, lastName]);
 
   const isKrw = currency === "KRW";
   const isDomestic = country === "KR";
+  const regionRequired = ["US", "CA", "AU", "MX", "CN", "IN", "BR", "JP"].includes(
+    country,
+  );
   const qty = cart.reduce((n, i) => n + i.qty, 0);
   const quote = quoteShipping({
     country,
-    method: shipMethod,
+    method: "standard",
     subtotalKrw,
     subtotalUsd: Math.round(subtotalUsd / 100),
     qty,
@@ -176,7 +230,18 @@ function CheckoutPage() {
     e.preventDefault();
     if (cart.length === 0) return;
     setPlacing(true);
-    const fd = new FormData(e.currentTarget);
+    const fullAddress = [address.trim(), address2.trim()].filter(Boolean).join(", ");
+    writeProfile({
+      email,
+      firstName,
+      lastName,
+      phone,
+      address,
+      city,
+      region,
+      postal,
+      country,
+    });
     const items = cart
       .map((item) => {
         const product = getProduct(item.productId);
@@ -185,11 +250,12 @@ function CheckoutPage() {
           productId: item.productId,
           name: `${product.name.ko || product.name.en}${item.optionLabel ? ` (${item.optionLabel})` : ""}`,
           qty: item.qty,
-          size: item.size,
+          size: item.size
+            ? formatCartSize(item, "ko")
+            : undefined,
           priceKrw: product.priceKrw + (item.extraKrw ?? 0),
           priceUsd: Math.round((product.priceUsd + (item.extraUsd ?? 0)) / 100),
           partNames: item.partNames,
-          partColors: item.partColors,
         };
       })
       .filter(Boolean);
@@ -200,16 +266,16 @@ function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          phone: String(fd.get("phone") ?? ""),
+          phone: phone.trim(),
           name: `${lastName} ${firstName}`.trim(),
-          address: String(fd.get("address") ?? ""),
-          city: String(fd.get("city") ?? ""),
-          region: String(fd.get("region") ?? ""),
-          postal: String(fd.get("postal") ?? ""),
+          address: fullAddress,
+          city: city.trim(),
+          region: region.trim(),
+          postal: postal.trim(),
           country,
           pay,
           depositor,
-          shipMethod,
+          shipMethod: "standard",
           shippingKrw,
           shippingUsd: quote.usd,
           totalKrw,
@@ -236,7 +302,7 @@ function CheckoutPage() {
           pay,
           depositor,
           currency,
-          shipMethod,
+          shipMethod: "standard",
           shipping: isKrw ? shippingKrw : shippingUsd,
           total: isKrw ? totalKrw : totalUsd,
         }),
@@ -300,7 +366,9 @@ function CheckoutPage() {
               </h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2 space-y-2">
-                  <Label htmlFor="email">{dict.checkout.email}</Label>
+                  <Label htmlFor="email">
+                    {dict.checkout.email} <span className="text-accent">*</span>
+                  </Label>
                   <Input
                     id="email"
                     type="email"
@@ -312,8 +380,20 @@ function CheckoutPage() {
                   />
                 </div>
                 <div className="sm:col-span-2 space-y-2">
-                  <Label htmlFor="phone">{dict.checkout.phone}</Label>
-                  <Input id="phone" name="phone" type="tel" autoComplete="tel" />
+                  <Label htmlFor="phone">
+                    {dict.checkout.phone} <span className="text-accent">*</span>
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    required
+                    autoComplete="tel"
+                    inputMode="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder={isDomestic ? "010-0000-0000" : "+1 555 000 0000"}
+                  />
+                  <p className="text-xs text-muted">{dict.checkout.phoneHint}</p>
                 </div>
               </div>
             </section>
@@ -324,7 +404,9 @@ function CheckoutPage() {
               </h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">{dict.checkout.firstName}</Label>
+                  <Label htmlFor="firstName">
+                    {dict.checkout.firstName} <span className="text-accent">*</span>
+                  </Label>
                   <Input
                     id="firstName"
                     required
@@ -334,7 +416,9 @@ function CheckoutPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">{dict.checkout.lastName}</Label>
+                  <Label htmlFor="lastName">
+                    {dict.checkout.lastName} <span className="text-accent">*</span>
+                  </Label>
                   <Input
                     id="lastName"
                     required
@@ -344,23 +428,74 @@ function CheckoutPage() {
                   />
                 </div>
                 <div className="sm:col-span-2 space-y-2">
-                  <Label htmlFor="address">{dict.checkout.address}</Label>
-                  <Input id="address" name="address" required autoComplete="street-address" />
+                  <Label htmlFor="address">
+                    {dict.checkout.address} <span className="text-accent">*</span>
+                  </Label>
+                  <Input
+                    id="address"
+                    required
+                    autoComplete="address-line1"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-2">
+                  <Label htmlFor="address2">{dict.checkout.address2}</Label>
+                  <Input
+                    id="address2"
+                    autoComplete="address-line2"
+                    value={address2}
+                    onChange={(e) => setAddress2(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="city">{dict.checkout.city}</Label>
-                  <Input id="city" name="city" required autoComplete="address-level2" />
+                  <Label htmlFor="city">
+                    {dict.checkout.city} <span className="text-accent">*</span>
+                  </Label>
+                  <Input
+                    id="city"
+                    required
+                    autoComplete="address-level2"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="region">{dict.checkout.region}</Label>
-                  <Input id="region" name="region" autoComplete="address-level1" />
+                  <Label htmlFor="region">
+                    {dict.checkout.region}
+                    {regionRequired ? <span className="text-accent"> *</span> : null}
+                  </Label>
+                  <Input
+                    id="region"
+                    required={regionRequired}
+                    autoComplete="address-level1"
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value)}
+                    placeholder={
+                      country === "US"
+                        ? "CA, NY, TX…"
+                        : country === "CA"
+                          ? "ON, BC, QC…"
+                          : undefined
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="postal">{dict.checkout.postal}</Label>
-                  <Input id="postal" name="postal" required autoComplete="postal-code" />
+                  <Label htmlFor="postal">
+                    {dict.checkout.postal} <span className="text-accent">*</span>
+                  </Label>
+                  <Input
+                    id="postal"
+                    required
+                    autoComplete="postal-code"
+                    value={postal}
+                    onChange={(e) => setPostal(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="country">{dict.checkout.country}</Label>
+                  <Label htmlFor="country">
+                    {dict.checkout.country} <span className="text-accent">*</span>
+                  </Label>
                   <select
                     id="country"
                     className="flex h-11 w-full rounded-xl border border-border bg-surface px-3.5 text-sm text-fg focus-ring"
@@ -380,48 +515,20 @@ function CheckoutPage() {
                     ))}
                   </select>
                 </div>
-                <div className="sm:col-span-2 space-y-2">
-                  <Label>{copy.standard.includes("일반") ? "배송 방법" : "Shipping method"}</Label>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {(["standard", "express"] as const).map((m) => {
-                      const q = quoteShipping({
-                        country,
-                        method: m,
-                        subtotalKrw,
-                        subtotalUsd: Math.round(subtotalUsd / 100),
-                        qty,
-                        settings: catalog.shipping,
-                      });
-                      const price = isKrw
-                        ? q.krw === 0
-                          ? locale === "ko" ? "무료" : "Free"
-                          : fmtKrw(q.krw)
-                        : q.usd === 0
-                          ? "Free"
-                          : `$${q.usd}`;
-                      return (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => setShipMethod(m)}
-                          className={cn(
-                            "rounded-xl border px-4 py-3 text-left text-sm transition",
-                            shipMethod === m
-                              ? "border-fg bg-fg text-primary-fg"
-                              : "border-border bg-surface-muted hover:border-border-strong",
-                          )}
-                        >
-                          <span className="block font-semibold">
-                            {m === "standard" ? copy.standard : copy.express}
-                          </span>
-                          <span className="mt-1 block text-xs opacity-80">
-                            {copy.makeDays} {q.days} {copy.days} · {price}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="sm:col-span-2 space-y-2 rounded-xl border border-border bg-surface-muted/60 px-4 py-3">
+                  <p className="text-sm font-medium">{copy.autoShip}</p>
+                  <p className="text-xs text-muted">
+                    {copy.makeDays} {quote.days} {copy.days}
+                    {quote.free
+                      ? ` · ${locale === "ko" ? "배송비 무료" : "shipping free"}`
+                      : ""}
+                  </p>
                   <p className="text-xs text-muted">{copy.production}</p>
+                  {!isDomestic ? (
+                    <p className="text-xs text-muted">
+                      {copy.dutyTitle}. {copy.dutyBody} {dict.checkout.noPobox}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </section>
@@ -465,11 +572,13 @@ function CheckoutPage() {
             <h2 className="mb-4 text-base font-semibold">
               {dict.checkout.summary}
             </h2>
-            {cart.some(hasCustomSpec) ? (
+            {cart.some((i) => i.partNames || i.partColors) ? (
               <div className="mb-5 overflow-hidden rounded-2xl border border-border bg-[#111]">
                 <div className="aspect-square w-full">
-                  <CartItemVisual
-                    item={cart.find(hasCustomSpec) ?? cart[0]}
+                  <DesignThumb
+                    item={
+                      cart.find((i) => i.partNames || i.partColors) ?? cart[0]
+                    }
                     className="h-full w-full"
                   />
                 </div>
@@ -479,14 +588,13 @@ function CheckoutPage() {
               {cart.map((item) => {
                 const product = getProduct(item.productId);
                 if (!product) return null;
-                const spec = customSpecLine(item);
                 return (
                   <div
                     key={`${item.productId}-${item.size ?? ""}-${item.sizeFit ?? ""}-${item.color ?? ""}`}
                     className="flex gap-3"
                   >
                     <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-[#111]">
-                      <CartItemVisual item={item} className="size-full" />
+                      <DesignThumb item={item} className="size-full" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
@@ -495,10 +603,13 @@ function CheckoutPage() {
                       <p className="text-xs text-muted">
                         {dict.cart.qty} {item.qty}
                         {item.size ? ` · ${formatCartSize(item, locale)}` : ""}
+                        {item.optionLabel ? ` · ${item.optionLabel}` : ""}
                       </p>
-                      {spec ? (
-                        <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-subtle">
-                          {spec}
+                      {item.partNames ? (
+                        <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-subtle">
+                          {Object.entries(item.partNames)
+                            .map(([k, v]) => `${k.toUpperCase()} ${v}`)
+                            .join(" · ")}
                         </p>
                       ) : null}
                     </div>
@@ -632,7 +743,15 @@ function BankBox({
             <li>{ko ? "은행" : "Bank"}: <b className="text-fg">{pay?.krBank}</b></li>
             <li>{ko ? "계좌" : "Account"}: <b className="text-fg">{pay?.krAccount}</b></li>
             <li>{ko ? "예금주" : "Holder"}: <b className="text-fg">{pay?.krHolder}</b></li>
-            {pay?.krMemo ? <li>{pay.krMemo}</li> : null}
+            {pay?.krMemo ? (
+              <li>
+                {pay.krMemo.includes("주문번호")
+                  ? "주문자명으로 입금해 주세요"
+                  : pay.krMemo}
+              </li>
+            ) : (
+              <li>{ko ? "주문자명으로 입금해 주세요" : "Transfer under the orderer's name"}</li>
+            )}
           </ul>
         ) : (
           <ul className="space-y-1 text-muted">

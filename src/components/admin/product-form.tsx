@@ -35,11 +35,13 @@ export function emptyProduct(): Product {
     shape: "drone",
     images: [],
     detailImages: [],
+    detailVideos: [],
+    smartstoreUrl: "",
     sizes: [
       "225", "230", "235", "240", "245", "250", "255", "260",
       "265", "270", "275", "280", "285", "290", "295", "300",
     ],
-    leadDays: 10,
+    leadDays: 25,
     customizable: false,
     createdAt: new Date().toISOString(),
     majorId: "shoes",
@@ -52,6 +54,7 @@ export function ProductForm({
   initial,
   categories,
   busy,
+  token,
   onCancel,
   onSave,
   onDelete,
@@ -59,6 +62,7 @@ export function ProductForm({
   initial: Product;
   categories: ShopCategory[];
   busy: boolean;
+  token?: string;
   onCancel: () => void;
   onSave: (p: Product) => void;
   onDelete: (id: string) => void;
@@ -68,6 +72,7 @@ export function ProductForm({
     visible: initial.visible !== false,
     images: initial.images ?? [],
     detailImages: initial.detailImages ?? [],
+    detailVideos: initial.detailVideos ?? [],
     majorId: initial.majorId || "shoes",
     options: initial.options ?? { ...EMPTY_OPTIONS },
   });
@@ -191,7 +196,14 @@ export function ProductForm({
           <Input
             value={p.sku}
             onChange={(e) => setP({ ...p, sku: e.target.value })}
-            placeholder="비우면 자동 생성"
+            placeholder="스마트스토어 상품번호면 후기 버튼이 자동 연결됩니다"
+          />
+        </Row>
+        <Row label="네이버 상품주소">
+          <Input
+            value={p.smartstoreUrl ?? ""}
+            onChange={(e) => setP({ ...p, smartstoreUrl: e.target.value })}
+            placeholder="https://smartstore.naver.com/lidea/products/번호  (비우면 상품코드로 자동)"
           />
         </Row>
         <Row label="상품 요약설명">
@@ -239,7 +251,7 @@ export function ProductForm({
               className="w-24"
               type="number"
               min={0}
-              value={p.leadDays ?? 10}
+              value={p.leadDays ?? 25}
               onChange={(e) => setP({ ...p, leadDays: Number(e.target.value) || 0 })}
             />
             <span className="text-sm text-[#333]">일</span>
@@ -258,6 +270,7 @@ export function ProductForm({
         <Row label="대표 이미지" required>
           <p className="mb-2 text-xs text-[#333]">
             상품 목록과 상세 맨 앞에 나갑니다. 클릭하거나 사진을 끌어다 놓으세요.
+            올린 파일은 줄이거나 JPEG로 바꾸지 않고 원본 그대로 저장됩니다.
           </p>
           <ImageDrop
             label="대표 사진 올리기"
@@ -266,8 +279,10 @@ export function ProductForm({
             onFiles={async (files) => {
               setUploading(true);
               try {
-                const data = await compressImage(files[0]);
+                const data = await uploadOriginal(files[0], token);
                 setP((cur) => ({ ...cur, image: data }));
+              } catch (err) {
+                window.alert(uploadFailMessage(err));
               } finally {
                 setUploading(false);
               }
@@ -287,11 +302,13 @@ export function ProductForm({
             onFiles={async (files) => {
               setUploading(true);
               try {
-                const added = await Promise.all(files.slice(0, 12).map(compressImage));
+                const added = await uploadMany(files.slice(0, 12), token);
                 setP((cur) => ({
                   ...cur,
                   images: [...(cur.images ?? []), ...added].slice(0, 12),
                 }));
+              } catch (err) {
+                window.alert(uploadFailMessage(err));
               } finally {
                 setUploading(false);
               }
@@ -310,6 +327,10 @@ export function ProductForm({
       </Section>
 
       <Section n={5} title="상세 설명">
+        <p className="-mt-2 mb-3 text-xs leading-relaxed text-[#333]">
+          스마트스토어처럼 사진·영상을 위에서 아래로 직접 올리시면 됩니다.
+          후기는 이 사이트에서 만들지 않고, 네이버 상품 페이지 초록 버튼으로 보냅니다.
+        </p>
         <Row label="상세 설명">
           <textarea
             className="min-h-36 w-full rounded border border-border bg-white px-3 py-2 text-sm leading-relaxed"
@@ -329,11 +350,13 @@ export function ProductForm({
             onFiles={async (files) => {
               setUploading(true);
               try {
-                const added = await Promise.all(files.slice(0, 20).map(compressImage));
+                const added = await uploadMany(files.slice(0, 20), token);
                 setP((cur) => ({
                   ...cur,
                   detailImages: [...(cur.detailImages ?? []), ...added].slice(0, 20),
                 }));
+              } catch (err) {
+                window.alert(uploadFailMessage(err));
               } finally {
                 setUploading(false);
               }
@@ -349,24 +372,61 @@ export function ProductForm({
             }
           />
         </Row>
+        <Row label="상세 영상 (MP4)">
+          <p className="mb-2 text-xs text-[#333]">
+            스마트스토어처럼 상세 맨 위에서 자동재생됩니다. 음소거+반복. 해외에서도 재생됩니다.
+            네이버 링크는 넣지 말고, MP4 파일을 올리세요.
+          </p>
+          <input
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime"
+            className="block w-full text-sm"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file || !token) return;
+              setUploading(true);
+              try {
+                const fd = new FormData();
+                fd.set("token", token);
+                fd.set("file", file);
+                const res = await fetch("/api/media", { method: "POST", body: fd });
+                const data = (await res.json()) as { url?: string; error?: string };
+                if (!res.ok || !data.url) throw new Error(data.error || "fail");
+                setP((cur) => ({
+                  ...cur,
+                  detailVideos: [...(cur.detailVideos ?? []), { src: data.url! }],
+                }));
+              } catch (err) {
+                window.alert(uploadFailMessage(err, true));
+              } finally {
+                setUploading(false);
+              }
+            }}
+          />
+          <ul className="mt-2 space-y-1 text-xs">
+            {(p.detailVideos ?? []).map((v, i) => (
+              <li key={v.src} className="flex items-center justify-between gap-2">
+                <span className="truncate">{v.src}</span>
+                <button
+                  type="button"
+                  className="text-red-600"
+                  onClick={() =>
+                    setP({
+                      ...p,
+                      detailVideos: (p.detailVideos ?? []).filter((_, idx) => idx !== i),
+                    })
+                  }
+                >
+                  삭제
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Row>
       </Section>
 
-      <Section n={6} title="옵션 / 재고">
-        <Row label="사이즈">
-          <Input
-            value={(p.sizes ?? []).join(", ")}
-            onChange={(e) =>
-              setP({
-                ...p,
-                sizes: e.target.value
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean),
-              })
-            }
-            placeholder="225, 230, 235 … 비우면 사이즈 선택 없음"
-          />
-        </Row>
+      <Section n={6} title="커스텀 시뮬레이터">
         <Row label="커스텀">
           <label className="inline-flex items-center gap-2 text-sm">
             <input
@@ -374,7 +434,7 @@ export function ProductForm({
               checked={Boolean(p.customizable)}
               onChange={(e) => setP({ ...p, customizable: e.target.checked })}
             />
-            이 상품은 커스텀 시뮬레이터로 연결
+            이 상품은 커스텀 시뮬레이터로 연결 (옵션과 함께 쓸 수 있음)
           </label>
         </Row>
       </Section>
@@ -545,8 +605,15 @@ function ImageDrop({
 
   function take(list: FileList | File[] | null) {
     if (!list) return;
-    const files = Array.from(list).filter((f) => f.type.startsWith("image/"));
-    if (files.length) void onFiles(files);
+    const files = Array.from(list).filter((f) =>
+      f.type.startsWith("image/") ||
+      /\.(jpe?g|jfif|png|webp|gif|avif|svg|bmp|heic|heif)$/i.test(f.name),
+    );
+    if (!files.length) {
+      window.alert("JPG, PNG, WEBP 사진만 올릴 수 있습니다. 아이폰은 ‘모든 사진’에서 JPG로 보내 주세요.");
+      return;
+    }
+    void onFiles(files);
   }
 
   return (
@@ -554,7 +621,7 @@ function ImageDrop({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif"
         multiple={multiple}
         className="sr-only"
         onChange={(e) => {
@@ -594,7 +661,7 @@ function ImageDrop({
           <>
             <span className="text-sm font-semibold text-fg">{label}</span>
             <span className="text-xs text-[#333]">
-              JPG · PNG · WEBP · 여기로 끌어다 놓거나 클릭
+              JPG · PNG · WEBP · HEIC · 여기로 끌어다 놓거나 클릭
             </span>
           </>
         )}
@@ -638,29 +705,67 @@ function ThumbGrid({
   );
 }
 
-function compressImage(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const max = 1400;
-      const scale = Math.min(1, max / Math.max(img.width, img.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("canvas"));
-        return;
-      }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", 0.84));
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("image"));
-    };
-    img.src = url;
+function uploadFailMessage(err: unknown, video = false) {
+  const raw = err instanceof Error ? err.message : "";
+  if (raw === "AUTH") return "로그인이 만료되었습니다. 관리자에 다시 들어간 뒤 올려 주세요.";
+  if (raw === "too_large") return "파일이 너무 큽니다. 80MB 이하로 올려 주세요.";
+  if (raw === "bad_type" || raw === "HEIC") {
+    return video
+      ? "MP4 파일로 올려 주세요."
+      : "이 사진 형식은 올릴 수 없습니다. JPG 또는 PNG로 올려 주세요.";
+  }
+  if (raw === "no_file") return "파일이 선택되지 않았습니다.";
+  return video
+    ? "영상 업로드에 실패했습니다. MP4로 다시 시도해 주세요."
+    : "사진 업로드에 실패했습니다. 다시 시도해 주세요.";
+}
+
+async function prepareImageFile(file: File): Promise<File> {
+  const heic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+  if (!heic) return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = bmp.width;
+    canvas.height = bmp.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("HEIC");
+    ctx.drawImage(bmp, 0, 0);
+    bmp.close();
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.95),
+    );
+    if (!blob) throw new Error("HEIC");
+    return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+  } catch {
+    throw new Error("HEIC");
+  }
+}
+
+function uploadOriginal(file: File, token?: string): Promise<string> {
+  if (!token) return Promise.reject(new Error("AUTH"));
+  return prepareImageFile(file).then((ready) => {
+    const fd = new FormData();
+    fd.set("token", token);
+    fd.set("file", ready);
+    return fetch("/api/media", { method: "POST", body: fd });
+  }).then(async (res) => {
+    let data: { url?: string; error?: string } = {};
+    try {
+      data = (await res.json()) as { url?: string; error?: string };
+    } catch {
+      throw new Error(res.status === 413 ? "too_large" : "fail");
+    }
+    if (!res.ok || !data.url) throw new Error(data.error || (res.status === 413 ? "too_large" : "fail"));
+    return data.url;
   });
 }
+
+async function uploadMany(files: File[], token?: string) {
+  const urls: string[] = [];
+  for (const file of files) {
+    urls.push(await uploadOriginal(file, token));
+  }
+  return urls;
+}
+
