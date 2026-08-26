@@ -467,7 +467,7 @@ export function CouponBoard({
 export function CustomerBoard({ token }: { token: string }) {
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [members, setMembers] = useState<
-    { id: string; name: string; email: string; createdAt: string; providers: string[] }[]
+    { id: string; name: string; email: string; phone: string; createdAt: string; providers: string[] }[]
   >([]);
   useEffect(() => {
     void fetch(`/api/orders?token=${encodeURIComponent(token)}`)
@@ -503,6 +503,7 @@ export function CustomerBoard({ token }: { token: string }) {
                 <th className="px-3 py-2">가입일</th>
                 <th className="px-3 py-2">이름</th>
                 <th className="px-3 py-2">이메일</th>
+                <th className="px-3 py-2">휴대폰</th>
                 <th className="px-3 py-2">가입방법</th>
               </tr>
             </thead>
@@ -514,12 +515,13 @@ export function CustomerBoard({ token }: { token: string }) {
                   </td>
                   <td className="px-3 py-2">{m.name || "—"}</td>
                   <td className="px-3 py-2">{m.email || "—"}</td>
+                  <td className="px-3 py-2">{m.phone || "—"}</td>
                   <td className="px-3 py-2">{m.providers.join(", ") || "—"}</td>
                 </tr>
               ))}
               {members.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-[#555]">
+                  <td colSpan={5} className="px-4 py-10 text-center text-[#555]">
                     아직 가입한 회원이 없습니다.
                   </td>
                 </tr>

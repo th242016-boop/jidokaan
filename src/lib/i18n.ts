@@ -331,6 +331,10 @@ export type Dictionary = {
     email: string;
     password: string;
     name: string;
+    phone: string;
+    phoneNeed: string;
+    phoneSave: string;
+    phoneInvalid: string;
     signIn: string;
     signUp: string;
     haveAccount: string;
@@ -577,6 +581,10 @@ const EN: Dictionary = {
     email: "Email",
     password: "Password",
     name: "Name",
+    phone: "Mobile number",
+    phoneNeed: "Leave a mobile number so we can contact you about orders.",
+    phoneSave: "Save number",
+    phoneInvalid: "Enter a valid mobile number.",
     signIn: "Sign in",
     signUp: "Create account",
     haveAccount: "Already have an account? Sign in",
@@ -851,6 +859,10 @@ export const DICT: Record<Locale, Dictionary> = {
       email: "이메일",
       password: "비밀번호",
       name: "이름",
+      phone: "휴대폰 번호",
+      phoneNeed: "주문 연락을 위해 휴대폰 번호를 남겨 주세요.",
+      phoneSave: "번호 저장",
+      phoneInvalid: "올바른 휴대폰 번호를 입력해 주세요.",
       signIn: "로그인",
       signUp: "회원가입",
       haveAccount: "이미 계정이 있나요? 로그인",

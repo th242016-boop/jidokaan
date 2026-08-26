@@ -32,6 +32,7 @@ import { Route as ApiLoginProvidersRouteImport } from './routes/api/login-provid
 import { Route as ApiMediaRouteImport } from './routes/api/media'
 import { Route as ApiMembersRouteImport } from './routes/api/members'
 import { Route as ApiOrdersRouteImport } from './routes/api/orders'
+import { Route as ApiProfileRouteImport } from './routes/api/profile'
 import { Route as ApiReviewsRouteImport } from './routes/api/reviews'
 import { Route as ProductsProductIdRouteImport } from './routes/products/$productId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -153,6 +154,11 @@ const ApiOrdersRoute = ApiOrdersRouteImport.update({
   path: '/api/orders',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProfileRoute = ApiProfileRouteImport.update({
+  id: '/api/profile',
+  path: '/api/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiReviewsRoute = ApiReviewsRouteImport.update({
   id: '/api/reviews',
   path: '/api/reviews',
@@ -203,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/api/media': typeof ApiMediaRoute
   '/api/members': typeof ApiMembersRoute
   '/api/orders': typeof ApiOrdersRoute
+  '/api/profile': typeof ApiProfileRoute
   '/api/reviews': typeof ApiReviewsRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -233,6 +240,7 @@ export interface FileRoutesByTo {
   '/api/media': typeof ApiMediaRoute
   '/api/members': typeof ApiMembersRoute
   '/api/orders': typeof ApiOrdersRoute
+  '/api/profile': typeof ApiProfileRoute
   '/api/reviews': typeof ApiReviewsRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -264,6 +272,7 @@ export interface FileRoutesById {
   '/api/media': typeof ApiMediaRoute
   '/api/members': typeof ApiMembersRoute
   '/api/orders': typeof ApiOrdersRoute
+  '/api/profile': typeof ApiProfileRoute
   '/api/reviews': typeof ApiReviewsRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -296,6 +305,7 @@ export interface FileRouteTypes {
     | '/api/media'
     | '/api/members'
     | '/api/orders'
+    | '/api/profile'
     | '/api/reviews'
     | '/products/$productId'
     | '/api/auth/$'
@@ -326,6 +336,7 @@ export interface FileRouteTypes {
     | '/api/media'
     | '/api/members'
     | '/api/orders'
+    | '/api/profile'
     | '/api/reviews'
     | '/products/$productId'
     | '/api/auth/$'
@@ -356,6 +367,7 @@ export interface FileRouteTypes {
     | '/api/media'
     | '/api/members'
     | '/api/orders'
+    | '/api/profile'
     | '/api/reviews'
     | '/products/$productId'
     | '/api/auth/$'
@@ -387,6 +399,7 @@ export interface RootRouteChildren {
   ApiMediaRoute: typeof ApiMediaRoute
   ApiMembersRoute: typeof ApiMembersRoute
   ApiOrdersRoute: typeof ApiOrdersRoute
+  ApiProfileRoute: typeof ApiProfileRoute
   ApiReviewsRoute: typeof ApiReviewsRoute
   ProductsProductIdRoute: typeof ProductsProductIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -557,6 +570,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOrdersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/profile': {
+      id: '/api/profile'
+      path: '/api/profile'
+      fullPath: '/api/profile'
+      preLoaderRoute: typeof ApiProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/reviews': {
       id: '/api/reviews'
       path: '/api/reviews'
@@ -619,6 +639,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaRoute: ApiMediaRoute,
   ApiMembersRoute: ApiMembersRoute,
   ApiOrdersRoute: ApiOrdersRoute,
+  ApiProfileRoute: ApiProfileRoute,
   ApiReviewsRoute: ApiReviewsRoute,
   ProductsProductIdRoute: ProductsProductIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

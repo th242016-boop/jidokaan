@@ -1,7 +1,10 @@
 export type InfoRow = { label: string; value: string; href?: string };
 export type StoreNotice = { enabled: boolean; text: string };
 
-export const DEFAULT_NOTICE: StoreNotice = { enabled: false, text: "" };
+export const DEFAULT_NOTICE: StoreNotice = {
+  enabled: true,
+  text: "모든 준비 중입니다. 커스텀 시뮬레이터는 이용하실 수 있으며, 주문결제는 아직 열려있지 않습니다.",
+};
 
 export const DEFAULT_COMPANY: InfoRow[] = [
   { label: "상호명", value: "지도칸" },

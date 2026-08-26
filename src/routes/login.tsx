@@ -57,6 +57,7 @@ function LoginPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState<"google" | "kakao" | "naver" | "email" | null>(
     null,
   );
@@ -127,6 +128,13 @@ function LoginPage() {
           name: name.trim() || email.split("@")[0] || "Member",
         });
         if (err) throw new Error(err.message);
+        const saved = await fetch("/api/profile", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone }),
+        });
+        if (!saved.ok) throw new Error(dict.login.phoneInvalid);
       } else {
         const { error: err } = await authClient.signIn.email({
           email: email.trim(),
@@ -211,6 +219,22 @@ function LoginPage() {
                       onChange={(e) => setName(e.target.value)}
                       autoComplete="name"
                     />
+                  </div>
+                ) : null}
+                {mode === "up" ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="phone">{dict.login.phone}</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      required
+                      inputMode="tel"
+                      placeholder="010-0000-0000"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      autoComplete="tel"
+                    />
+                    <p className="text-xs text-muted">{dict.login.phoneNeed}</p>
                   </div>
                 ) : null}
                 <div className="space-y-1.5">

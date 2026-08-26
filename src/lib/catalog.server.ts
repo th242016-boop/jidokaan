@@ -131,6 +131,21 @@ export async function seedIfEmpty() {
     `;
   }
   await migratePlainPin();
+  const noticeFlag = await sql<{ value: string }>`
+    select value from site_settings where key = ${"notice_closed_banner_v1"}
+  `;
+  if (!noticeFlag.length) {
+    await sql`
+      insert into site_settings (key, value)
+      values (${"notice_json"}, ${JSON.stringify(DEFAULT_NOTICE)})
+      on conflict (key) do update set value = excluded.value
+    `;
+    await sql`
+      insert into site_settings (key, value)
+      values (${"notice_closed_banner_v1"}, ${"1"})
+      on conflict (key) do nothing
+    `;
+  }
   const cats = await sql<{ value: string }>`
     select value from site_settings where key = ${"categories_json"}
   `;
@@ -175,7 +190,10 @@ export async function readCatalog(): Promise<CatalogPayload> {
     categories: categories.length ? categories : DEFAULT_CATEGORIES,
     seo: seo?.title ? seo : DEFAULT_SEO,
     shipping: parseJson(map.shipping_json, DEFAULT_SHIPPING),
-    notice: parseJson(map.notice_json, DEFAULT_NOTICE),
+    notice: (() => {
+      const n = parseJson(map.notice_json, DEFAULT_NOTICE);
+      return n?.text ? n : DEFAULT_NOTICE;
+    })(),
     coupons: parseJson(map.coupons_json, []),
     pay: parseJson(map.pay_json, DEFAULT_PAY),
     faqs: parseJson(map.faqs_json, []),
