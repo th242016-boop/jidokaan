@@ -43,7 +43,7 @@ function ProductPage() {
       </SiteShell>
     );
   }
-  if (!product) {
+  if (!product || product.visible === false) {
     return (
       <SiteShell>
         <div className="container-page flex min-h-[40vh] flex-col items-center justify-center gap-4 py-20 text-center">
@@ -93,6 +93,7 @@ function ProductDetail({
         .filter(
           (p) =>
             p.id !== product.id &&
+            p.visible !== false &&
             (p.category === product.category || p.category === "ready"),
         )
         .slice(0, 3),
