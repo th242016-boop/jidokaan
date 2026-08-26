@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -6,6 +7,13 @@ import {
   type ProductOptions,
 } from "@/lib/product-options";
 
+function parseValues(raw: string) {
+  return raw
+    .split(/[,，]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export function OptionEditor({
   value,
   onChange,
@@ -13,40 +21,65 @@ export function OptionEditor({
   value: ProductOptions;
   onChange: (next: ProductOptions) => void;
 }) {
+  const groups = value.groups.length ? value.groups : [{ name: "", values: [] as string[] }];
   const count = Math.max(1, value.groups.length || 2);
+  const [drafts, setDrafts] = useState<string[]>(() =>
+    groups.map((g) => g.values.join(",")),
+  );
+
+  useEffect(() => {
+    setDrafts((cur) => {
+      const next = groups.map((g, i) => (cur[i] !== undefined ? cur[i]! : g.values.join(",")));
+      return next;
+    });
+  }, [groups.length]);
 
   function setGroupCount(n: number) {
-    const groups: OptionGroup[] = [];
+    const nextGroups: OptionGroup[] = [];
+    const nextDrafts: string[] = [];
     for (let i = 0; i < n; i++) {
-      groups.push(value.groups[i] ?? { name: i === 0 ? "옵션" : "사이즈", values: [] });
+      nextGroups.push(value.groups[i] ?? { name: i === 0 ? "옵션" : "사이즈", values: [] });
+      nextDrafts.push(drafts[i] ?? nextGroups[i]!.values.join(","));
     }
+    setDrafts(nextDrafts);
     onChange({
       ...value,
       enabled: true,
       type: "combo",
-      groups,
-      skus: buildSkus(groups, value.skus),
+      groups: nextGroups,
+      skus: buildSkus(nextGroups, value.skus),
     });
   }
 
   function patchGroup(i: number, patch: Partial<OptionGroup>) {
-    const groups = value.groups.map((g, idx) => (idx === i ? { ...g, ...patch } : g));
-    onChange({ ...value, groups });
+    const next = value.groups.map((g, idx) => (idx === i ? { ...g, ...patch } : g));
+    onChange({ ...value, groups: next.length ? next : [{ name: "", values: [] }] });
+  }
+
+  function setDraft(i: number, text: string) {
+    setDrafts((cur) => {
+      const next = cur.slice();
+      while (next.length <= i) next.push("");
+      next[i] = text;
+      return next;
+    });
+    patchGroup(i, { values: parseValues(text) });
   }
 
   function applyList() {
-    const groups = value.groups
-      .map((g) => ({
+    const nextGroups = groups
+      .map((g, i) => ({
         name: g.name.trim(),
-        values: g.values.map((v) => v.trim()).filter(Boolean),
+        values: parseValues(drafts[i] ?? g.values.join(",")),
       }))
       .filter((g) => g.name && g.values.length);
     onChange({
       ...value,
       enabled: true,
-      groups,
-      skus: buildSkus(groups, value.skus),
+      groups: nextGroups,
+      skus: buildSkus(nextGroups, value.skus),
     });
+    setDrafts(nextGroups.map((g) => g.values.join(",")));
   }
 
   return (
@@ -130,7 +163,7 @@ export function OptionEditor({
           </label>
 
           <div className="space-y-2">
-            {(value.groups.length ? value.groups : [{ name: "", values: [] }]).map((g, i) => (
+            {groups.map((g, i) => (
               <div key={i} className="grid gap-2 sm:grid-cols-[8rem_1fr]">
                 <Input
                   value={g.name}
@@ -138,12 +171,8 @@ export function OptionEditor({
                   placeholder={i === 0 ? "옵션명 예: 옵션" : "옵션명 예: 사이즈"}
                 />
                 <Input
-                  value={g.values.join(",")}
-                  onChange={(e) =>
-                    patchGroup(i, {
-                      values: e.target.value.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
-                    })
-                  }
+                  value={drafts[i] ?? g.values.join(",")}
+                  onChange={(e) => setDraft(i, e.target.value)}
                   placeholder="옵션값 쉼표로 구분  예: 여성225,여성230,남성240"
                 />
               </div>
