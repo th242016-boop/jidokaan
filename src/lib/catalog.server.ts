@@ -138,7 +138,7 @@ export async function seedIfEmpty() {
     await sql`
       insert into site_settings (key, value)
       values (${"notice_json"}, ${JSON.stringify(DEFAULT_NOTICE)})
-      on conflict (key) do update set value = excluded.value
+      on conflict (key) do nothing
     `;
     await sql`
       insert into site_settings (key, value)
