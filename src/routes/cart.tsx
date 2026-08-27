@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { SiteShell } from "@/components/store/site-shell";
+import { KrOrderPanel } from "@/components/store/kr-order-panel";
 import { Button } from "@/components/ui/button";
-import { formatMoney, formatProductPrice, pickLocalized, t } from "@/lib/i18n";
-import { getProduct } from "@/lib/products";
+import { formatMoney, formatProductPrice, isDomesticCustomer, pickLocalized, t } from "@/lib/i18n";
+import { getProduct, naverProductUrl, SMARTSTORE_HOME } from "@/lib/products";
 import { useCatalog } from "@/lib/use-catalog";
 import { useStore } from "@/lib/store";
 
@@ -18,6 +20,8 @@ function CartPage() {
   const subtotalKrw = useStore((s) => s.cartSubtotalKrw());
   const dict = t(locale);
   const { catalog } = useCatalog();
+  const [krOrder, setKrOrder] = useState(false);
+  const domestic = isDomesticCustomer(currency);
   const subtotalLabel =
     currency === "KRW"
       ? new Intl.NumberFormat("ko-KR", {
@@ -76,9 +80,28 @@ function CartPage() {
                 <span>{dict.cart.subtotal}</span>
                 <span className="price-num font-semibold">{subtotalLabel}</span>
               </p>
-              <Button className="w-full" asChild>
-                <Link to="/checkout">{dict.cart.checkout}</Link>
-              </Button>
+              {krOrder ? (
+                <KrOrderPanel
+                  naverUrl={(() => {
+                    const p = cart[0]
+                      ? catalog.products.find((x) => x.id === cart[0].productId) ??
+                        getProduct(cart[0].productId)
+                      : undefined;
+                    return p ? naverProductUrl(p) : SMARTSTORE_HOME;
+                  })()}
+                  onOverseas={() => {
+                    window.location.assign("/checkout");
+                  }}
+                />
+              ) : domestic ? (
+                <Button className="w-full" type="button" onClick={() => setKrOrder(true)}>
+                  {dict.cart.checkout}
+                </Button>
+              ) : (
+                <Button className="w-full" asChild>
+                  <Link to="/checkout">{dict.cart.checkout}</Link>
+                </Button>
+              )}
             </div>
           </div>
         )}

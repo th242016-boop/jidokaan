@@ -21,6 +21,21 @@ export function currencyForCountry(code: string): Currency {
   return code.toUpperCase() === "KR" ? "KRW" : "USD";
 }
 
+export function shipCountryCode(fallback = "KR") {
+  try {
+    const saved = sessionStorage.getItem("jidokaan-ship-country");
+    if (saved) return saved.toUpperCase();
+  } catch {
+    /* ignore */
+  }
+  return fallback.toUpperCase();
+}
+
+export function isDomesticCustomer(currency?: Currency) {
+  const code = shipCountryCode(currency === "USD" ? "US" : "KR");
+  return code === "KR";
+}
+
 export const LOCALES: { id: Locale; label: string; native: string }[] = [
   { id: "ko", label: "Korean", native: "한국어" },
   { id: "en", label: "English", native: "English" },

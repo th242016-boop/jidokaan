@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +9,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { DesignThumb } from "@/components/store/design-thumb";
+import { KrOrderPanel } from "@/components/store/kr-order-panel";
 import {
   formatMoney,
   formatProductPrice,
@@ -15,7 +17,7 @@ import {
   pickLocalized,
   t,
 } from "@/lib/i18n";
-import { getProduct } from "@/lib/products";
+import { getProduct, naverProductUrl, SMARTSTORE_HOME } from "@/lib/products";
 import { quoteShipping, shipCopy } from "@/lib/shipping";
 import { formatCartSize, useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
@@ -32,6 +34,7 @@ export function CartDrawer() {
   const subtotalKrw = useStore((s) => s.cartSubtotalKrw());
   const dict = t(locale);
   const { catalog } = useCatalog();
+  const [krOrder, setKrOrder] = useState(false);
   let country = currency === "KRW" ? "KR" : "US";
   if (typeof window !== "undefined") {
     try {
@@ -231,9 +234,33 @@ export function CartDrawer() {
                     : formatMoney(subtotalUsd + quote.usd * 100, currency)}
                 </span>
               </div>
-              <Button className="w-full" asChild onClick={() => setCartOpen(false)}>
-                <Link to="/checkout">{dict.cart.checkout}</Link>
-              </Button>
+              {krOrder ? (
+                <KrOrderPanel
+                  naverUrl={(() => {
+                    const p = cart[0] ? getProduct(cart[0].productId) : undefined;
+                    return p ? naverProductUrl(p) : SMARTSTORE_HOME;
+                  })()}
+                  onOverseas={() => {
+                    setCartOpen(false);
+                    window.location.assign("/checkout");
+                  }}
+                />
+              ) : (
+                <Button
+                  className="w-full"
+                  asChild={country !== "KR"}
+                  onClick={() => {
+                    if (country === "KR") setKrOrder(true);
+                    else setCartOpen(false);
+                  }}
+                >
+                  {country === "KR" ? (
+                    dict.cart.checkout
+                  ) : (
+                    <Link to="/checkout">{dict.cart.checkout}</Link>
+                  )}
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 className="w-full"

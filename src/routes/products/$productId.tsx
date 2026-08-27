@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Check, Minus, Plus, Truck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -6,11 +6,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/store/product-card";
 import { ProductDetailStory } from "@/components/store/product-detail-story";
+import { KrOrderPanel } from "@/components/store/kr-order-panel";
 import { ProductVisual } from "@/components/store/product-visual";
 import { SiteShell } from "@/components/store/site-shell";
 import {
   formatProductCompare,
   formatProductPrice,
+  isDomesticCustomer,
   pickLocalized,
   t,
 } from "@/lib/i18n";
@@ -18,6 +20,7 @@ import { findSku } from "@/lib/product-options";
 import {
   closestBootSize,
   MEN_BOOT_SIZES,
+  naverProductUrl,
   productGallery,
   WOMEN_BOOT_SIZES,
   type Product,
@@ -77,6 +80,8 @@ function ProductDetail({
   const dict = t(locale);
 
   const [qty, setQty] = useState(1);
+  const [krOrder, setKrOrder] = useState(false);
+  const navigate = useNavigate();
   const [size, setSize] = useState(
     product.sizes?.[5] ?? product.sizes?.[0] ?? "",
   );
@@ -128,6 +133,19 @@ function ProductDetail({
     setJustAdded(true);
     toast.success(dict.product.added);
     window.setTimeout(() => setJustAdded(false), 1600);
+  }
+
+  function handleOrder() {
+    if (optionOn && !optionOk) {
+      toast.error(locale === "ko" ? "품절이거나 없는 옵션입니다." : "Option unavailable");
+      return;
+    }
+    if (isDomesticCustomer(currency)) {
+      setKrOrder(true);
+      return;
+    }
+    handleAdd();
+    navigate({ to: "/checkout" });
   }
 
   return (
@@ -398,10 +416,20 @@ function ProductDetail({
               </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
+                {krOrder ? (
+                  <KrOrderPanel
+                    naverUrl={naverProductUrl(product)}
+                    onOverseas={() => {
+                      setKrOrder(false);
+                      handleAdd();
+                      navigate({ to: "/checkout" });
+                    }}
+                  />
+                ) : (
                 <Button
                   size="lg"
                   className="flex-1"
-                  onClick={handleAdd}
+                  onClick={handleOrder}
                   disabled={!optionOk}
                 >
                   {justAdded ? (
@@ -409,9 +437,10 @@ function ProductDetail({
                       <Check className="size-4" /> {dict.product.added}
                     </>
                   ) : (
-                    dict.product.addToCart
+                    dict.cart.checkout
                   )}
                 </Button>
+                )}
             </div>
 
             <div className="space-y-3">
