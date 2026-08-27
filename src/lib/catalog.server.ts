@@ -120,16 +120,6 @@ export async function seedIfEmpty() {
     `;
   }
   await applySmartstoreCatalog(sql);
-  const pin = await sql<{ value: string }>`
-    select value from site_settings where key = ${"admin_pin"}
-  `;
-  if (pin.length === 0) {
-    await sql`
-      insert into site_settings (key, value)
-      values (${"admin_pin"}, ${""})
-      on conflict (key) do nothing
-    `;
-  }
   await migratePlainPin();
   const noticeFlag = await sql<{ value: string }>`
     select value from site_settings where key = ${"notice_closed_banner_v1"}

@@ -43,6 +43,7 @@ async function setting(key: string) {
 }
 
 async function putSetting(key: string, value: string) {
+  if (key === "admin_pin" && !value.trim()) return;
   const sql = await db();
   await sql`
     insert into site_settings (key, value)
