@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LOCALES, t } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { UserButton } from "@/lib/auth/gates";
+import { authEnabled, signOut } from "@/lib/auth/client";
 import { useCatalog } from "@/lib/use-catalog";
 import { cn } from "@/lib/utils";
 
@@ -122,17 +122,28 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
             ) : null}
           </Button>
 
-          <div className="hidden md:block">
-            {isPending ? (
-              <div className="size-10 animate-pulse rounded-full bg-white/10" />
-            ) : user ? (
-              <UserButton />
-            ) : (
-              <Button variant="secondary" size="sm" className="h-9 px-3 sm:h-10 sm:px-4" asChild>
-                <Link to="/login">{dict.nav.signIn}</Link>
-              </Button>
-            )}
-          </div>
+          {isPending ? (
+            <div className="size-9 animate-pulse rounded-full bg-white/10 sm:size-10" />
+          ) : user && authEnabled ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-9 shrink-0 px-2.5 text-xs sm:h-10 sm:px-4 sm:text-sm"
+              type="button"
+              onClick={() => void signOut()}
+            >
+              {locale === "ko" ? "로그아웃" : "Log out"}
+            </Button>
+          ) : !user ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-9 shrink-0 px-2.5 text-xs sm:h-10 sm:px-4 sm:text-sm"
+              asChild
+            >
+              <Link to="/login">{dict.nav.signIn}</Link>
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -186,6 +197,17 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
               >
                 {dict.nav.signIn}
               </Link>
+            ) : authEnabled ? (
+              <button
+                type="button"
+                className="rounded-xl px-3 py-3 text-left text-sm font-medium hover:bg-white/[0.05]"
+                onClick={() => {
+                  setMobileOpen(false);
+                  void signOut();
+                }}
+              >
+                {locale === "ko" ? "로그아웃" : "Log out"}
+              </button>
             ) : null}
           </nav>
         </div>
