@@ -200,6 +200,8 @@ const socialProviders = {
         kakao: {
           clientId: kakaoId,
           clientSecret: kakaoSecret,
+          disableDefaultScope: true,
+          scope: ["profile_nickname", "profile_image"],
           mapProfileToUser: (profile: unknown) => kakaoProfile(asRecord(profile)),
         },
       }
