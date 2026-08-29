@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SiteShell } from "@/components/store/site-shell";
 import { authClient, authEnabled, signIn, signInSocial } from "@/lib/auth/client";
-import { t } from "@/lib/i18n";
+import { shipCountryCode, t } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +50,7 @@ function explainError(raw: string, failed: string) {
 function LoginPage() {
   const locale = useStore((s) => s.locale);
   const dict = t(locale);
+  const [domesticLogin, setDomesticLogin] = useState(true);
   const navigate = useNavigate();
   const { next } = Route.useSearch();
   const dest = safeNext(next);
@@ -62,6 +63,10 @@ function LoginPage() {
     null,
   );
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDomesticLogin(shipCountryCode() === "KR");
+  }, []);
 
   async function onGoogle() {
     setError(null);
@@ -163,7 +168,11 @@ function LoginPage() {
           <h1 className="mt-6 text-2xl font-semibold tracking-tight">
             {dict.login.title}
           </h1>
-          <p className="mt-2 text-sm text-muted">{dict.login.body}</p>
+          <p className="mt-2 text-sm text-muted">
+            {domesticLogin
+              ? dict.login.body
+              : "Google is recommended for international orders. You can also use email."}
+          </p>
 
           <div className="mt-6 space-y-3">
             {authEnabled ? (
@@ -177,6 +186,8 @@ function LoginPage() {
                   <GoogleMark />
                   {busy === "google" ? dict.common.loading : dict.login.google}
                 </button>
+                {domesticLogin ? (
+                  <>
                 <button
                   type="button"
                   onClick={onKakao}
@@ -195,6 +206,8 @@ function LoginPage() {
                   <NaverMark />
                   {busy === "naver" ? dict.common.loading : dict.login.naver}
                 </button>
+                  </>
+                ) : null}
               </>
             ) : (
               <p className="text-sm text-muted">{dict.login.disabled}</p>

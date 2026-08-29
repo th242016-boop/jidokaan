@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DesignThumb } from "@/components/store/design-thumb";
+import { IgHelp } from "@/components/store/ig-help";
+import { KrOrderPanel } from "@/components/store/kr-order-panel";
 import { SiteShell } from "@/components/store/site-shell";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import {
@@ -15,7 +17,7 @@ import {
   pickLocalized,
   t,
 } from "@/lib/i18n";
-import { getProduct } from "@/lib/products";
+import { getProduct, naverProductUrl, SMARTSTORE_HOME } from "@/lib/products";
 import { quoteShipping, shipCopy } from "@/lib/shipping";
 import { formatCartSize, useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
@@ -236,6 +238,7 @@ function CheckoutPage() {
     e.preventDefault();
     if (cart.length === 0) return;
     if (pay === "paypal") return;
+    if (isDomestic) return;
     await placeStoreOrder();
   }
 
@@ -361,14 +364,34 @@ function CheckoutPage() {
           {dict.checkout.title}
         </h1>
 
-        {!isPending && !user ? (
+        {!isPending && !user && !isDomestic ? (
           <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted">{dict.checkout.signInFirst}</p>
+            <p className="text-sm text-muted">
+              {locale === "ko"
+                ? "구글 로그인하면 이메일·이름이 채워집니다. 이메일만으로도 주문할 수 있습니다."
+                : "Google sign-in fills your email and name. You can also order with just an email."}
+            </p>
             <Button size="sm" asChild>
               <Link to="/login" search={{ next: "/checkout" }}>
-                {dict.nav.signIn}
+                {locale === "ko" ? "구글로 계속" : "Continue with Google"}
               </Link>
             </Button>
+          </div>
+        ) : null}
+
+        {isDomestic ? (
+          <div className="mb-8 max-w-lg rounded-3xl border border-border bg-surface p-5 sm:p-6">
+            <KrOrderPanel
+              naverUrl={(() => {
+                const p = cart[0] ? getProduct(cart[0].productId) : undefined;
+                return p ? naverProductUrl(p) : SMARTSTORE_HOME;
+              })()}
+            />
+            <p className="mt-3 text-xs text-muted">
+              {locale === "ko"
+                ? "해외 주문은 위에서 국가를 한국 이외로 바꾸면 이 사이트에서 USD 결제됩니다."
+                : "Ordering from outside Korea? Change the country below to pay in USD on this site."}
+            </p>
           </div>
         ) : null}
 
@@ -554,6 +577,14 @@ function CheckoutPage() {
               <h2 className="mb-4 text-base font-semibold">
                 {dict.checkout.payment}
               </h2>
+              {isDomestic ? (
+                <p className="text-sm leading-relaxed text-muted">
+                  {locale === "ko"
+                    ? "한국 주문은 네이버 스토어에서 결제합니다. 이 사이트 PayPal은 해외 전용입니다."
+                    : "Korean orders check out on Naver Store. PayPal on this site is for international orders only."}
+                </p>
+              ) : (
+                <>
               <div className="grid gap-2 sm:grid-cols-2">
                 {payOptions.map((opt) => (
                   <button
@@ -581,7 +612,14 @@ function CheckoutPage() {
                   onDepositor={setDepositor}
                 />
               ) : null}
-              <p className="mt-4 text-xs text-subtle">{dict.checkout.payNote}</p>
+              <ul className="mt-4 space-y-1.5 text-xs leading-relaxed text-muted">
+                <li>Prices are in USD.</li>
+                <li>Shipping is calculated and shown in the order summary.</li>
+                <li>Import duties and VAT in the destination country are paid by the recipient (DAP).</li>
+                <li>{dict.checkout.noPobox}</li>
+              </ul>
+                </>
+              )}
             </section>
           </div>
 
@@ -712,7 +750,7 @@ function CheckoutPage() {
                   onPaid={(orderID) => placeStoreOrder(orderID)}
                 />
               </div>
-            ) : (
+            ) : !isDomestic ? (
             <Button
               type="submit"
               size="lg"
@@ -721,8 +759,9 @@ function CheckoutPage() {
             >
               {placing ? dict.checkout.placing : dict.checkout.placeOrder}
             </Button>
-            )}
+            ) : null}
             <p className="mt-3 text-center text-xs text-subtle">jidokaan.com</p>
+            <IgHelp className="mt-3 text-center text-sm text-muted" />
           </aside>
         </form>
       </div>

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   currencyForCountry,
   formatProductPrice,
+  shipCountryCode,
   t,
 } from "@/lib/i18n";
 import { getProduct, MEN_BOOT_SIZES, WOMEN_BOOT_SIZES, closestBootSize, naverProductUrl } from "@/lib/products";
@@ -82,7 +83,7 @@ function CustomizePage() {
     setConfirming(true);
     addCustomBoot(1, false);
     setCartOpen(false);
-    if (locale === "ko") {
+    if (shipCountryCode() === "KR") {
       setShowKrOrder(true);
       setConfirming(false);
       return;
@@ -293,15 +294,6 @@ function CustomizePage() {
                 >
                   네이버 스토어에서 주문
                 </a>
-              </Button>
-              <Button
-                size="lg"
-                variant="secondary"
-                className="h-11 w-full rounded-[6px] border border-[#ddd] bg-white text-sm text-black hover:bg-neutral-50"
-                type="button"
-                onClick={() => navigate({ to: "/checkout" })}
-              >
-                해외 고객은 이 사이트에서 결제
               </Button>
             </div>
           ) : (

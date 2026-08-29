@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { SiteShell } from "@/components/store/site-shell";
+import { IgHelp } from "@/components/store/ig-help";
 import { t } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
@@ -94,6 +95,7 @@ function OrderSuccessPage() {
             ) : null}
           </div>
         ) : null}
+        <IgHelp className="mt-6 text-sm text-muted" />
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Button size="lg" asChild>
             <Link to="/shop">{dict.success.continue}</Link>
