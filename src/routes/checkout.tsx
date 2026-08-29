@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -146,6 +146,13 @@ function CheckoutPage() {
 
   const isKrw = currency === "KRW";
   const isDomestic = country === "KR";
+
+  useEffect(() => {
+    if (isDomestic) return;
+    setPay((cur) =>
+      cur === "card" || cur === "kakao" || cur === "naver" ? "paypal" : cur,
+    );
+  }, [isDomestic]);
   const regionRequired = ["US", "CA", "AU", "MX", "CN", "IN", "BR", "JP"].includes(
     country,
   );
@@ -221,13 +228,18 @@ function CheckoutPage() {
         { id: "transfer", label: dict.checkout.payTransfer },
       ]
     : [
-        { id: "card", label: dict.checkout.payCard },
         { id: "paypal", label: dict.checkout.payPaypal },
         { id: "transfer", label: locale === "ko" ? "해외송금 / 계좌이체" : "Bank / wire transfer" },
       ];
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (cart.length === 0) return;
+    if (pay === "paypal") return;
+    await placeStoreOrder();
+  }
+
+  async function placeStoreOrder(paypalOrderId?: string) {
     if (cart.length === 0) return;
     setPlacing(true);
     const fullAddress = [address.trim(), address2.trim()].filter(Boolean).join(", ");
@@ -285,9 +297,14 @@ function CheckoutPage() {
           couponCode: appliedCode || undefined,
           discountKrw,
           discountUsd: Math.round(discountUsd / 100),
+          paypalOrderId,
         }),
       });
-      const data = (await res.json()) as { order?: { id: string } };
+      const data = (await res.json()) as { order?: { id: string }; error?: string };
+      if (!res.ok && paypalOrderId) {
+        setPlacing(false);
+        return;
+      }
       if (data.order?.id) orderId = data.order.id;
     } catch {
       /* still show success with local id */
@@ -504,7 +521,7 @@ function CheckoutPage() {
                       const next = e.target.value;
                       setCountry(next);
                       setCurrency(currencyForCountry(next));
-                      setPay("card");
+                      setPay(next === "KR" ? "card" : "paypal");
                     }}
                     required
                   >
@@ -687,6 +704,15 @@ function CheckoutPage() {
               </div>
             </div>
 
+            {!isDomestic && pay === "paypal" ? (
+              <div className="mt-6">
+                <PaypalButtons
+                  valueUsd={(totalUsd / 100).toFixed(2)}
+                  disabled={placing}
+                  onPaid={(orderID) => placeStoreOrder(orderID)}
+                />
+              </div>
+            ) : (
             <Button
               type="submit"
               size="lg"
@@ -695,6 +721,7 @@ function CheckoutPage() {
             >
               {placing ? dict.checkout.placing : dict.checkout.placeOrder}
             </Button>
+            )}
             <p className="mt-3 text-center text-xs text-subtle">jidokaan.com</p>
           </aside>
         </form>
@@ -779,6 +806,114 @@ function BankBox({
           placeholder={ko ? "통장에 찍힐 이름" : "Name on the transfer"}
         />
       </div>
+    </div>
+  );
+}
+
+type PaypalButtonsApi = {
+  Buttons: (opts: Record<string, unknown>) => {
+    render: (el: HTMLElement) => Promise<void>;
+    close?: () => void;
+  };
+};
+
+function PaypalButtons({
+  valueUsd,
+  disabled,
+  onPaid,
+}: {
+  valueUsd: string;
+  disabled: boolean;
+  onPaid: (orderID: string) => Promise<void>;
+}) {
+  const slot = useRef<HTMLDivElement>(null);
+  const paidRef = useRef(onPaid);
+  paidRef.current = onPaid;
+  const [clientId, setClientId] = useState("");
+  const [ready, setReady] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    void fetch("/api/paypal")
+      .then((r) => r.json())
+      .then((d: { enabled?: boolean; clientId?: string }) => {
+        if (d.enabled && d.clientId) setClientId(d.clientId);
+      })
+      .catch(() => setErr("PayPal"));
+  }, []);
+
+  useEffect(() => {
+    if (!clientId) return;
+    const w = window as Window & { paypal?: PaypalButtonsApi };
+    if (w.paypal) {
+      setReady(true);
+      return;
+    }
+    const prev = document.querySelector("script[data-jidokaan-paypal]");
+    if (prev) {
+      prev.addEventListener("load", () => setReady(true));
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD&intent=capture`;
+    script.async = true;
+    script.dataset.jidokaanPaypal = "1";
+    script.onload = () => setReady(true);
+    script.onerror = () => setErr("PayPal SDK");
+    document.body.appendChild(script);
+  }, [clientId]);
+
+  useEffect(() => {
+    const w = window as Window & { paypal?: PaypalButtonsApi };
+    if (!ready || !w.paypal || !slot.current || disabled) return;
+    const host = slot.current;
+    host.innerHTML = "";
+    const buttons = w.paypal.Buttons({
+      style: { layout: "vertical", color: "gold", label: "paypal" },
+      createOrder: async () => {
+        const form = host.closest("form");
+        if (form && !form.reportValidity()) throw new Error("form");
+        const res = await fetch("/api/paypal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "create", value: valueUsd }),
+        });
+        const data = (await res.json()) as { id?: string };
+        if (!data.id) throw new Error("create");
+        return data.id;
+      },
+      onApprove: async (data: { orderID: string }) => {
+        const res = await fetch("/api/paypal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "capture", orderID: data.orderID }),
+        });
+        if (!res.ok) throw new Error("capture");
+        await paidRef.current(data.orderID);
+      },
+      onError: () => setErr("PayPal"),
+    });
+    void buttons.render(host);
+    return () => {
+      try {
+        buttons.close?.();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [ready, valueUsd, disabled]);
+
+  if (!clientId) {
+    return (
+      <p className="text-sm text-muted">
+        PayPal is not configured. Use bank transfer or add PAYPAL_CLIENT_ID on the server.
+      </p>
+    );
+  }
+  return (
+    <div>
+      {err ? <p className="mb-2 text-sm text-danger">{err}</p> : null}
+      <div ref={slot} />
     </div>
   );
 }

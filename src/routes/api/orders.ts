@@ -15,6 +15,7 @@ import {
 import { proxyToLive, shouldProxyToLive } from "@/lib/live-proxy.server";
 import { readCatalog } from "@/lib/catalog.server";
 import { couponRejectReason, findCoupon } from "@/lib/coupon";
+import { paypalCaptureOk } from "@/lib/paypal.server";
 import type { ClaimKind } from "@/lib/order-types";
 
 function json(data: unknown, status = 200) {
@@ -108,6 +109,15 @@ export const Route = createFileRoute("/api/orders")({
               note: body.note,
             });
             return json({ order });
+          }
+          if ((body.pay ?? "") === "paypal") {
+            if ((body.country ?? "KR") === "KR") {
+              return json({ error: "PAYPAL_OVERSEAS_ONLY" }, 400);
+            }
+            const paid = await paypalCaptureOk(
+              String((body as { paypalOrderId?: string }).paypalOrderId ?? ""),
+            );
+            if (!paid) return json({ error: "PAYPAL_UNPAID" }, 400);
           }
           const order = await placeOrder({
             email: body.email ?? "",
