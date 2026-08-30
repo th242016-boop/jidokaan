@@ -174,6 +174,9 @@ export type Dictionary = {
     allParts: string;
     shipTo: string;
     lockOrder: string;
+    krOrderHint: string;
+    naverOrder: string;
+    overseasPay: string;
     rotateHint: string;
     added: string;
     colorNote: string;
@@ -418,6 +421,10 @@ const EN: Dictionary = {
     allParts: "All parts",
     shipTo: "Ship to",
     lockOrder: "Lock design · Order",
+    krOrderHint:
+      "If you are ordering from Korea, please order on Naver Store and save a screenshot of this design. International customers can pay on this site.",
+    naverOrder: "Order on Naver Store",
+    overseasPay: "International customers: pay on this site",
     rotateHint: "Drag to rotate · preview mesh",
     added: "Design locked — added to cart",
     colorNote: "Simulator colors may differ from the actual product",
@@ -700,6 +707,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "전체 부위",
       shipTo: "배송 국가",
       lockOrder: "디자인 확정 · 주문",
+      krOrderHint:
+        "국내 결제 고객은 네이버 스토어에서 주문을 해주시고, 지금 조합해 주신 화면 속 제품을 캡쳐만 해 두시면 됩니다.",
+      naverOrder: "네이버 스토어에서 주문",
+      overseasPay: "해외 고객은 이 사이트에서 결제",
       rotateHint: "드래그하여 회전 · 미리보기 메시",
       added: "디자인이 확정되어 장바구니에 담겼습니다",
       colorNote: "시뮬레이터의 색상과 실제와는 차이가 있습니다",
@@ -933,6 +944,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "全パーツ",
       shipTo: "配送国",
       lockOrder: "デザイン確定 · 注文",
+      krOrderHint:
+        "韓国国内の方はNaverストアでご注文ください。この画面のデザインはスクリーンショットで保存してください。海外のお客様はこのサイトでお支払いできます。",
+      naverOrder: "Naverストアで注文",
+      overseasPay: "海外のお客様はこのサイトで決済",
       rotateHint: "ドラッグで回転 · プレビュー",
       added: "デザインを確定してカートに追加しました",
       colorNote: "シミュレーターの色と実物は異なる場合があります",
@@ -988,6 +1003,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "Todas las piezas",
       shipTo: "Enviar a",
       lockOrder: "Confirmar diseño · Pedir",
+      krOrderHint:
+        "Si pides desde Corea, pide en Naver Store y guarda una captura de este diseño. Los clientes internacionales pueden pagar en este sitio.",
+      naverOrder: "Pedir en Naver Store",
+      overseasPay: "Clientes internacionales: pagar en este sitio",
       rotateHint: "Arrastra para girar",
       added: "Diseño guardado en el carrito",
       colorNote: "Los colores del simulador pueden diferir del producto real",
@@ -1154,6 +1173,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "ทุกชิ้นส่วน",
       shipTo: "ส่งไปที่",
       lockOrder: "ยืนยันดีไซน์ · สั่งซื้อ",
+      krOrderHint:
+        "หากสั่งจากเกาหลี ให้สั่งที่ Naver Store และถ่ายภาพหน้าจอดีไซน์นี้ไว้ ลูกค้าต่างประเทศชำระเงินบนเว็บไซต์นี้ได้",
+      naverOrder: "สั่งซื้อที่ Naver Store",
+      overseasPay: "ลูกค้าต่างประเทศ: ชำระเงินบนเว็บไซต์นี้",
       rotateHint: "ลากเพื่อหมุน",
       added: "ล็อกดีไซน์แล้ว ใส่ตะกร้าแล้ว",
       colorNote: "สีในเครื่องจำลองอาจต่างจากสินค้าจริง",
@@ -1312,6 +1335,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "Toutes les pièces",
       shipTo: "Livrer vers",
       lockOrder: "Valider le design · Commander",
+      krOrderHint:
+        "Depuis la Corée, commandez sur Naver Store et enregistrez une capture de ce design. Les clients internationaux peuvent payer sur ce site.",
+      naverOrder: "Commander sur Naver Store",
+      overseasPay: "Clients internationaux : payer sur ce site",
       rotateHint: "Glisser pour tourner",
       added: "Design validé — ajouté au panier",
       colorNote: "Les couleurs du simulateur peuvent différer du produit réel",
@@ -1474,6 +1501,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "Alle Teile",
       shipTo: "Liefern nach",
       lockOrder: "Design sichern · Bestellen",
+      krOrderHint:
+        "Bei Bestellung aus Korea bitte über den Naver Store bestellen und einen Screenshot dieses Designs speichern. Internationale Kunden zahlen auf dieser Website.",
+      naverOrder: "Im Naver Store bestellen",
+      overseasPay: "Internationale Kunden: auf dieser Website zahlen",
       rotateHint: "Ziehen zum Drehen",
       added: "Design gesichert — im Warenkorb",
       colorNote: "Die Simulatorfarben können vom Original abweichen",
@@ -1636,6 +1667,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "كل الأجزاء",
       shipTo: "الشحن إلى",
       lockOrder: "تثبيت التصميم · اطلب",
+      krOrderHint:
+        "إذا كنت تطلب من كوريا، اطلب من متجر Naver واحفظ لقطة لهذا التصميم. العملاء الدوليون يمكنهم الدفع على هذا الموقع.",
+      naverOrder: "اطلب من متجر Naver",
+      overseasPay: "العملاء الدوليون: ادفع على هذا الموقع",
       rotateHint: "اسحب للتدوير",
       added: "تم تثبيت التصميم وإضافته للسلة",
       colorNote: "قد تختلف ألوان المحاكي عن المنتج الفعلي",
@@ -1798,6 +1833,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "Все детали",
       shipTo: "Доставка в",
       lockOrder: "Зафиксировать дизайн · Заказать",
+      krOrderHint:
+        "Если вы заказываете из Кореи, оформите заказ в Naver Store и сохраните скриншот этого дизайна. Международные клиенты могут оплатить на этом сайте.",
+      naverOrder: "Заказать в Naver Store",
+      overseasPay: "Международные клиенты: оплата на этом сайте",
       rotateHint: "Тяните, чтобы вращать",
       added: "Дизайн сохранён в корзине",
       colorNote: "Цвета симулятора могут отличаться от реального изделия",
@@ -1947,6 +1986,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "Tutte le parti",
       shipTo: "Spedisci in",
       lockOrder: "Blocca design · Ordina",
+      krOrderHint:
+        "Se ordini dalla Corea, ordina su Naver Store e salva uno screenshot di questo design. I clienti internazionali possono pagare su questo sito.",
+      naverOrder: "Ordina su Naver Store",
+      overseasPay: "Clienti internazionali: paga su questo sito",
       rotateHint: "Trascina per ruotare",
       added: "Design salvato nel carrello",
       colorNote: "I colori del simulatore possono differire dal prodotto reale",
@@ -2096,6 +2139,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "Todas as peças",
       shipTo: "Enviar para",
       lockOrder: "Travar design · Pedir",
+      krOrderHint:
+        "Se estiver pedindo da Coreia, peça na Naver Store e salve uma captura deste design. Clientes internacionais podem pagar neste site.",
+      naverOrder: "Pedir na Naver Store",
+      overseasPay: "Clientes internacionais: pagar neste site",
       rotateHint: "Arraste para girar",
       added: "Design salvo no carrinho",
       colorNote: "As cores do simulador podem diferir do produto real",
@@ -2245,6 +2292,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "Tüm parçalar",
       shipTo: "Gönderim",
       lockOrder: "Tasarımı kilitle · Sipariş",
+      krOrderHint:
+        "Kore’den sipariş veriyorsanız Naver Store’dan sipariş verin ve bu tasarımın ekran görüntüsünü kaydedin. Uluslararası müşteriler bu siteden ödeyebilir.",
+      naverOrder: "Naver Store’dan sipariş ver",
+      overseasPay: "Uluslararası müşteriler: bu siteden öde",
       rotateHint: "Döndürmek için sürükleyin",
       added: "Tasarım sepete eklendi",
       colorNote: "Simülatör renkleri gerçek üründen farklı olabilir",
@@ -2394,6 +2445,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "Barcha qismlar",
       shipTo: "Yetkazish",
       lockOrder: "Dizaynni belgilash · Buyurtma",
+      krOrderHint:
+        "Koreyadan buyurtma bersangiz, Naver Store orqali buyurtma bering va ushbu dizayn skrinshotini saqlang. Xalqaro mijozlar shu saytda to‘lashlari mumkin.",
+      naverOrder: "Naver Store’da buyurtma",
+      overseasPay: "Xalqaro mijozlar: shu saytda to‘lash",
       rotateHint: "Aylantirish uchun torting",
       added: "Dizayn savatga qo‘shildi",
       colorNote: "Simulyator ranglari haqiqiy mahsulotdan farq qilishi mumkin",
@@ -2541,6 +2596,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "全部部位",
       shipTo: "配送至",
       lockOrder: "锁定设计 · 下单",
+      krOrderHint:
+        "如从韩国下单，请在 Naver 商店购买，并截图保存此设计。国际客户可在本网站付款。",
+      naverOrder: "在 Naver 商店下单",
+      overseasPay: "国际客户：在本网站付款",
       rotateHint: "拖动旋转",
       added: "设计已加入购物车",
       colorNote: "模拟器颜色可能与实物存在差异",
@@ -2690,6 +2749,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "सभी पार्ट्स",
       shipTo: "भेजें",
       lockOrder: "डिज़ाइन लॉक · ऑर्डर",
+      krOrderHint:
+        "अगर आप कोरिया से ऑर्डर कर रहे हैं तो Naver Store पर ऑर्डर करें और इस डिज़ाइन का स्क्रीनशॉट सेव करें। अंतरराष्ट्रीय ग्राहक इस साइट पर भुगतान कर सकते हैं।",
+      naverOrder: "Naver Store पर ऑर्डर",
+      overseasPay: "अंतरराष्ट्रीय ग्राहक: इस साइट पर भुगतान",
       rotateHint: "घुमाने के लिए खींचें",
       added: "डिज़ाइन कार्ट में जोड़ दिया",
       colorNote: "सिम्युलेटर के रंग वास्तविक उत्पाद से भिन्न हो सकते हैं",
@@ -2839,6 +2902,10 @@ export const DICT: Record<Locale, Dictionary> = {
       allParts: "Lahat ng parts",
       shipTo: "Ipadala sa",
       lockOrder: "I-lock ang design · Order",
+      krOrderHint:
+        "Kung mag-o-order mula sa Korea, mag-order sa Naver Store at mag-save ng screenshot ng design na ito. Puwedeng magbayad sa site na ito ang international customers.",
+      naverOrder: "Mag-order sa Naver Store",
+      overseasPay: "International customers: magbayad sa site na ito",
       rotateHint: "I-drag para i-rotate",
       added: "Nasa cart na ang design",
       colorNote: "Maaaring magkaiba ang kulay ng simulator sa aktwal na produkto",

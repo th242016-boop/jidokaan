@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import {
   currencyForCountry,
   formatProductPrice,
-  shipCountryCode,
   t,
 } from "@/lib/i18n";
 import { getProduct, MEN_BOOT_SIZES, WOMEN_BOOT_SIZES, closestBootSize, naverProductUrl } from "@/lib/products";
@@ -83,13 +82,8 @@ function CustomizePage() {
     setConfirming(true);
     addCustomBoot(1, false);
     setCartOpen(false);
-    if (shipCountryCode() === "KR") {
-      setShowKrOrder(true);
-      setConfirming(false);
-      return;
-    }
-    toast.success(dict.custom.added);
-    setTimeout(() => navigate({ to: "/checkout" }), 400);
+    setShowKrOrder(true);
+    setConfirming(false);
   }
 
   return (
@@ -279,8 +273,7 @@ function CustomizePage() {
           {showKrOrder ? (
             <div className="space-y-3 py-1">
               <p className="text-[13px] leading-relaxed text-[#222] md:text-sm">
-                국내 결제 고객은 네이버 스토어에서 주문을 해주시고,
-                지금 조합해 주신 화면 속 제품을 캡쳐만 해 두시면 됩니다.
+                {dict.custom.krOrderHint}
               </p>
               <Button
                 size="lg"
@@ -292,8 +285,17 @@ function CustomizePage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  네이버 스토어에서 주문
+                  {dict.custom.naverOrder}
                 </a>
+              </Button>
+              <Button
+                size="lg"
+                variant="secondary"
+                className="h-11 w-full rounded-[6px] border border-[#ddd] bg-white text-sm text-black hover:bg-neutral-50"
+                type="button"
+                onClick={() => navigate({ to: "/checkout" })}
+              >
+                {dict.custom.overseasPay}
               </Button>
             </div>
           ) : (
