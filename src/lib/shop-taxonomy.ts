@@ -29,12 +29,17 @@ export function migrateCategories(cats: ShopCategory[]): ShopCategory[] {
 
 export const DEFAULT_SEO: SiteSeo = {
   title: "지도칸 JIDOKAAN — Custom Boxing Shoes",
-  description:
-    "지도칸은 성수 공방에서 한 켤레씩 손으로 만드는 커스텀 복싱화입니다. 전 세계 배송. jidokaan.com",
+  description: "대한민국에서 수제로 제작하는 커스텀 전문 스포츠화 브랜드",
   keywords: "지도칸, JIDOKAAN, 복싱화, 커스텀 복싱화, 수제 복싱화, boxing shoes, custom boxing",
 };
 
-export function majorsOf(cats: ShopCategory[]) {
+export function migrateSeo(seo: SiteSeo | null | undefined): SiteSeo {
+  const next = seo?.title ? seo : DEFAULT_SEO;
+  if (!next.description?.trim() || next.description.includes("성수 공방에서 한 켤레씩")) {
+    return { ...next, description: DEFAULT_SEO.description };
+  }
+  return next;
+}
   return cats.filter((c) => !c.parentId);
 }
 

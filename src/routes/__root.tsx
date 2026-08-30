@@ -30,6 +30,7 @@ const NAV_JSON_LD = {
   ],
 };
 const APP_NAME = "지도칸 JIDOKAAN — Custom Boxing Shoes";
+const APP_DESCRIPTION = "대한민국에서 수제로 제작하는 커스텀 전문 스포츠화 브랜드";
 const host = import.meta.env.VITE_PUBLIC_HOSTNAME;
 const ogImage = host
   ? `https://og.grok.me/v1/card.png?host=${encodeURIComponent(host)}&title=${encodeURIComponent(APP_NAME)}`
@@ -42,9 +43,10 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       {
         name: "description",
-        content:
-          "지도칸 JIDOKAAN — Korea's first custom handmade boxing shoes. Global shipping from Seoul. jidokaan.com",
+        content: APP_DESCRIPTION,
       },
+      { property: "og:title", content: APP_NAME },
+      { property: "og:description", content: APP_DESCRIPTION },
       {
         name: "naver-site-verification",
         content: "3a0f4b678fd89f329dd163a4c4edee0853e21567",

@@ -421,7 +421,7 @@ const EN: Dictionary = {
     originItems: ["Handcrafted in Seongsu", "Made to order", "100% Made in Korea"],
     storyTitle: "Korea’s first\nmade-to-order custom boxing shoes.",
     storyBody:
-      "JIDOKAAN makes every pair by hand, one at a time, in our Seongsu workshop. Combine the colors you love — we build them for you.",
+      "JIDOKAAN is a Korea-made custom sports footwear brand. Combine the colors you love — we build them for you.",
     craftKicker: "CRAFT",
     craftTitle: "No compromise on fit.",
     craftBody:
@@ -709,7 +709,7 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["성수 공방 수제", "주문 제작", "100% Made in Korea"],
       storyTitle: "대한민국 최초,\n주문제작 커스텀 복싱화.",
       storyBody:
-        "지도칸은 성수 공방에서 한 켤레씩 손으로 만듭니다.\n당신이 좋아하는 컬러를 조합하여 제작할 수 있습니다.",
+        "지도칸은 대한민국에서 수제로 제작하는 커스텀 전문 스포츠화 브랜드입니다.\n당신이 좋아하는 컬러를 조합하여 제작할 수 있습니다.",
       craftTitle: "착화감은 타협하지 않습니다.",
       craftBody:
         "넓은 발볼, 안정적인 지지, 링 위 그립. 프로 장비의 감각을 유지하면서 원하는 디자인을 입힐 수 있게 설계했습니다. 수제 제작 평균 20~30일.",

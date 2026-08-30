@@ -8,6 +8,7 @@ import {
   DEFAULT_SEO,
   fillProductSeo,
   migrateCategories,
+  migrateSeo,
   normalizeProduct,
   applyDisplayOrder,
   sortForDisplay,
@@ -199,7 +200,7 @@ export async function readCatalog(): Promise<CatalogPayload> {
     company: parseRows(map.company_json, DEFAULT_COMPANY),
     support: parseRows(map.support_json, DEFAULT_SUPPORT),
     categories: categories.length ? categories : DEFAULT_CATEGORIES,
-    seo: seo?.title ? seo : DEFAULT_SEO,
+    seo: migrateSeo(seo),
     shipping: parseJson(map.shipping_json, DEFAULT_SHIPPING),
     notice: (() => {
       const n = parseJson(map.notice_json, DEFAULT_NOTICE);
