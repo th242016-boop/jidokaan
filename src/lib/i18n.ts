@@ -36,6 +36,27 @@ export function isDomesticCustomer(currency?: Currency) {
   return code === "KR";
 }
 
+/** 커스텀/장바구니에서「해외 결제」를 누른 뒤 checkout이 한국으로 남으면 PayPal이 숨겨집니다. */
+export function startOverseasCheckout() {
+  try {
+    sessionStorage.setItem("jidokaan-order-market", "intl");
+    const ship = (sessionStorage.getItem("jidokaan-ship-country") || "").toUpperCase();
+    if (!ship || ship === "KR") {
+      sessionStorage.removeItem("jidokaan-ship-country");
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+export function overseasCheckoutIntent() {
+  try {
+    return sessionStorage.getItem("jidokaan-order-market") === "intl";
+  } catch {
+    return false;
+  }
+}
+
 export const LOCALES: { id: Locale; label: string; native: string }[] = [
   { id: "ko", label: "Korean", native: "한국어" },
   { id: "en", label: "English", native: "English" },

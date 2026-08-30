@@ -15,6 +15,7 @@ import {
   formatProductPrice,
   lineTotal,
   pickLocalized,
+  startOverseasCheckout,
   t,
 } from "@/lib/i18n";
 import { getProduct, naverProductUrl, SMARTSTORE_HOME } from "@/lib/products";
@@ -28,6 +29,7 @@ export function CartDrawer() {
   const cart = useStore((s) => s.cart);
   const cartOpen = useStore((s) => s.cartOpen);
   const setCartOpen = useStore((s) => s.setCartOpen);
+  const setCurrency = useStore((s) => s.setCurrency);
   const setQty = useStore((s) => s.setQty);
   const removeFromCart = useStore((s) => s.removeFromCart);
   const subtotalUsd = useStore((s) => s.cartSubtotalUsdCents());
@@ -241,6 +243,8 @@ export function CartDrawer() {
                     return p ? naverProductUrl(p) : SMARTSTORE_HOME;
                   })()}
                   onOverseas={() => {
+                    startOverseasCheckout();
+                    setCurrency("USD");
                     setCartOpen(false);
                     window.location.assign("/checkout");
                   }}

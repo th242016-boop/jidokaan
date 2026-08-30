@@ -14,6 +14,7 @@ import {
   currencyForCountry,
   formatMoney,
   lineTotal,
+  overseasCheckoutIntent,
   pickLocalized,
   t,
 } from "@/lib/i18n";
@@ -105,8 +106,18 @@ function CheckoutPage() {
     setCartOpen(false);
     const saved = readProfile();
     try {
+      const overseas = overseasCheckoutIntent();
       const shipCountry = sessionStorage.getItem("jidokaan-ship-country");
-      if (shipCountry) {
+      if (overseas) {
+        if (shipCountry && shipCountry.toUpperCase() !== "KR") {
+          setCountry(shipCountry);
+          setCurrency(currencyForCountry(shipCountry));
+        } else {
+          setCountry("");
+          setCurrency("USD");
+        }
+        setPay("paypal");
+      } else if (shipCountry) {
         setCountry(shipCountry);
         setCurrency(currencyForCountry(shipCountry));
       } else if (saved.country) {
@@ -543,11 +554,24 @@ function CheckoutPage() {
                     onChange={(e) => {
                       const next = e.target.value;
                       setCountry(next);
-                      setCurrency(currencyForCountry(next));
+                      setCurrency(currencyForCountry(next || "US"));
                       setPay(next === "KR" ? "card" : "paypal");
+                      try {
+                        if (next) sessionStorage.setItem("jidokaan-ship-country", next);
+                        if (next && next !== "KR") {
+                          sessionStorage.setItem("jidokaan-order-market", "intl");
+                        }
+                      } catch {
+                        /* ignore */
+                      }
                     }}
                     required
                   >
+                    {!country ? (
+                      <option value="">
+                        {locale === "ko" ? "국가 선택" : "Select country"}
+                      </option>
+                    ) : null}
                     {COUNTRIES.map((c) => (
                       <option key={c.code} value={c.code}>
                         {countryName(c, locale)}
