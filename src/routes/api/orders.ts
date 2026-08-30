@@ -3,6 +3,7 @@ import { AUTH_HEADERS } from "@/lib/admin-auth.server";
 import {
   countOrdersByEmail,
   decideClaim,
+  deleteCancelledOrders,
   listOrders,
   lookupOrder,
   placeOrder,
@@ -54,7 +55,7 @@ export const Route = createFileRoute("/api/orders")({
             tracking?: string;
             courier?: string;
             note?: string;
-            kind?: ClaimKind;
+            ids?: string[];
             reason?: string;
             decision?: "accept" | "reject" | "cancel";
           } & Partial<StoreOrder>;
@@ -109,6 +110,11 @@ export const Route = createFileRoute("/api/orders")({
               note: body.note,
             });
             return json({ order });
+          }
+          if (body.action === "delete" && body.token) {
+            const ids = Array.isArray(body.ids) ? body.ids : body.id ? [body.id] : [];
+            const deleted = await deleteCancelledOrders(body.token, ids);
+            return json({ deleted });
           }
           if ((body.pay ?? "") === "paypal") {
             if ((body.country ?? "KR") === "KR") {

@@ -33,9 +33,13 @@ export function OrderBoard({ token }: { token: string }) {
     void load();
   }, [token]);
 
+  const active = useMemo(
+    () => orders.filter((o) => o.status !== "cancel"),
+    [orders],
+  );
   const rows = useMemo(
-    () => (filter === "all" ? orders : orders.filter((o) => o.status === filter)),
-    [orders, filter],
+    () => (filter === "all" ? active : orders.filter((o) => o.status === filter)),
+    [orders, active, filter],
   );
 
   const allOnPage = rows.length > 0 && rows.every((o) => picked.includes(o.id));
@@ -66,7 +70,31 @@ export function OrderBoard({ token }: { token: string }) {
     }
     setBusy(false);
     setPicked([]);
-    setMsg(`${ok}건 취소했습니다.`);
+    setMsg(`${ok}건 취소했습니다. 취소 탭에서 확인할 수 있습니다.`);
+    setFilter("cancel");
+    await load();
+  }
+
+  async function deleteIds(ids: string[]) {
+    if (!ids.length) {
+      setMsg("삭제할 주문을 선택하세요.");
+      return;
+    }
+    if (!window.confirm(`${ids.length}건을 목록에서 완전히 삭제할까요? 복구할 수 없습니다.`)) return;
+    setBusy(true);
+    const res = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", token, ids }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setMsg("삭제에 실패했습니다.");
+      return;
+    }
+    const data = (await res.json()) as { deleted?: number };
+    setPicked([]);
+    setMsg(`${data.deleted ?? 0}건 삭제했습니다.`);
     await load();
   }
 
@@ -101,23 +129,36 @@ export function OrderBoard({ token }: { token: string }) {
             {s.label}{" "}
             <b>
               {s.id === "all"
-                ? orders.length
+                ? active.length
                 : orders.filter((o) => o.status === s.id).length}
             </b>
           </button>
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={busy || picked.length === 0}
-          onClick={() => void cancelIds(picked)}
-        >
-          선택 {picked.length}건 취소처리
-        </Button>
+        {filter === "cancel" ? (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy || picked.length === 0}
+            onClick={() => void deleteIds(picked)}
+          >
+            선택 {picked.length}건 삭제
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy || picked.length === 0}
+            onClick={() => void cancelIds(picked)}
+          >
+            선택 {picked.length}건 취소처리
+          </Button>
+        )}
         <p className="text-xs text-[#666]">
-          입금대기 테스트 주문은 체크한 뒤 취소하면 됩니다. 목록에서 지우지 않고 취소 탭으로 이동합니다.
+          {filter === "cancel"
+            ? "취소된 주문은 여기서만 보입니다. 선택 후 삭제하면 목록에서 사라집니다."
+            : "취소하면 전체 목록에서 빠지고 취소 탭으로 이동합니다."}
         </p>
       </div>
       {msg ? <p className="text-sm text-[#333]">{msg}</p> : null}

@@ -238,6 +238,22 @@ export async function placeOrder(
   return order;
 }
 
+export async function deleteCancelledOrders(token: string, ids: string[]) {
+  await assertSession(token);
+  await ensureOrderTables();
+  const sql = await db();
+  let deleted = 0;
+  for (const raw of ids) {
+    const id = String(raw || "").trim();
+    if (!id) continue;
+    const order = await findOrderById(id);
+    if (!order || order.status !== "cancel") continue;
+    await sql.query("delete from store_orders where id = $1", [order.id]);
+    deleted += 1;
+  }
+  return deleted;
+}
+
 export async function listOrders(token: string): Promise<StoreOrder[]> {
   await assertSession(token);
   await ensureOrderTables();
