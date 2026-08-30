@@ -136,6 +136,27 @@ export async function seedIfEmpty() {
       on conflict (key) do nothing
     `;
   }
+  const cannedClear = await sql<{ value: string }>`
+    select value from site_settings where key = ${"notice_canned_cleared_v1"}
+  `;
+  if (!cannedClear.length) {
+    const current = await sql<{ value: string }>`
+      select value from site_settings where key = ${"notice_json"}
+    `;
+    const raw = current[0]?.value ?? "";
+    if (!raw.trim() || raw.includes("임시사이트로 현재 주문 불가")) {
+      await sql`
+        insert into site_settings (key, value)
+        values (${"notice_json"}, ${JSON.stringify({ enabled: false, text: "" })})
+        on conflict (key) do update set value = excluded.value
+      `;
+    }
+    await sql`
+      insert into site_settings (key, value)
+      values (${"notice_canned_cleared_v1"}, ${"1"})
+      on conflict (key) do nothing
+    `;
+  }
   const cats = await sql<{ value: string }>`
     select value from site_settings where key = ${"categories_json"}
   `;
@@ -182,7 +203,11 @@ export async function readCatalog(): Promise<CatalogPayload> {
     shipping: parseJson(map.shipping_json, DEFAULT_SHIPPING),
     notice: (() => {
       const n = parseJson(map.notice_json, DEFAULT_NOTICE);
-      return n?.text ? n : DEFAULT_NOTICE;
+      const text = String(n?.text ?? "").trim();
+      return {
+        enabled: Boolean(n?.enabled) && Boolean(text),
+        text,
+      };
     })(),
     coupons: parseJson(map.coupons_json, []),
     pay: parseJson(map.pay_json, DEFAULT_PAY),

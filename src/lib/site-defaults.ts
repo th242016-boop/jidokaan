@@ -2,8 +2,8 @@ export type InfoRow = { label: string; value: string; href?: string };
 export type StoreNotice = { enabled: boolean; text: string };
 
 export const DEFAULT_NOTICE: StoreNotice = {
-  enabled: true,
-  text: "임시사이트로 현재 주문 불가합니다. 시뮬레이터는 이용 가능합니다",
+  enabled: false,
+  text: "",
 };
 
 export const DEFAULT_COMPANY: InfoRow[] = [
