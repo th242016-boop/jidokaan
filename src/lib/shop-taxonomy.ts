@@ -40,6 +40,8 @@ export function migrateSeo(seo: SiteSeo | null | undefined): SiteSeo {
   }
   return next;
 }
+
+export function majorsOf(cats: ShopCategory[]) {
   return cats.filter((c) => !c.parentId);
 }
 
