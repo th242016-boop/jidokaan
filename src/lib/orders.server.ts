@@ -258,10 +258,19 @@ export async function listOrders(token: string): Promise<StoreOrder[]> {
   await assertSession(token);
   await ensureOrderTables();
   const sql = await db();
-  const rows = await sql.query<{ data: unknown }>(
-    "select data from store_orders order by created_at desc limit 200",
+  const rows = await sql.query<{ data: unknown; status: string }>(
+    "select data, status from store_orders order by created_at desc limit 200",
   );
-  return rows.map((r) => asJson<StoreOrder>(r.data)).filter((o) => o?.id);
+  return rows
+    .map((r) => {
+      const o = asJson<StoreOrder>(r.data);
+      if (!o?.id) return null;
+      if (r.status && o.status !== r.status) {
+        o.status = r.status as StoreOrder["status"];
+      }
+      return o;
+    })
+    .filter((o): o is StoreOrder => Boolean(o?.id));
 }
 
 export async function updateOrder(

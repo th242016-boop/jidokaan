@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { type OrderStatus, type StoreOrder } from "@/lib/order-types";
+import { isCancelledOrder, type OrderStatus, type StoreOrder } from "@/lib/order-types";
 
 const STATUSES: { id: OrderStatus | "all"; label: string }[] = [
   { id: "all", label: "전체" },
@@ -34,13 +34,14 @@ export function OrderBoard({ token }: { token: string }) {
   }, [token]);
 
   const active = useMemo(
-    () => orders.filter((o) => o.status !== "cancel"),
+    () => orders.filter((o) => !isCancelledOrder(o)),
     [orders],
   );
-  const rows = useMemo(
-    () => (filter === "all" ? active : orders.filter((o) => o.status === filter)),
-    [orders, active, filter],
-  );
+  const rows = useMemo(() => {
+    if (filter === "all") return active;
+    if (filter === "cancel") return orders.filter((o) => isCancelledOrder(o));
+    return orders.filter((o) => o.status === filter && !isCancelledOrder(o));
+  }, [orders, active, filter]);
 
   const allOnPage = rows.length > 0 && rows.every((o) => picked.includes(o.id));
 
@@ -130,7 +131,9 @@ export function OrderBoard({ token }: { token: string }) {
             <b>
               {s.id === "all"
                 ? active.length
-                : orders.filter((o) => o.status === s.id).length}
+                : s.id === "cancel"
+                  ? orders.filter((o) => isCancelledOrder(o)).length
+                  : orders.filter((o) => o.status === s.id && !isCancelledOrder(o)).length}
             </b>
           </button>
         ))}

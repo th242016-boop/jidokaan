@@ -9,6 +9,12 @@ export type OrderStatus =
   | "return"
   | "exchange";
 
+export function isCancelledOrder(order: { status?: string; claim?: string } | null | undefined) {
+  const status = String(order?.status ?? "").toLowerCase();
+  const claim = String(order?.claim ?? "").toLowerCase();
+  return status === "cancel" || status === "cancelled" || status === "canceled" || claim === "cancel";
+}
+
 export type ClaimKind = "cancel" | "return" | "exchange";
 export type ClaimStatus = "requested" | "accepted" | "rejected" | "cancelled";
 
