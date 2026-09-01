@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { BrandLogo } from "@/components/brand-logo";
-import { t } from "@/lib/i18n";
+import { t, type Locale } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
+import type { InfoRow } from "@/lib/site-defaults";
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -45,6 +46,156 @@ function InfoLine({
   );
 }
 
+const COMPANY_LABELS: Record<
+  Locale,
+  { brand: string; ceo: string; address: string; phone: string; biz: string; mail: string }
+> = {
+  ko: {
+    brand: "상호명",
+    ceo: "대표자명",
+    address: "사업장 주소",
+    phone: "대표전화",
+    biz: "사업자 등록번호",
+    mail: "통신판매업 신고번호",
+  },
+  en: {
+    brand: "Brand",
+    ceo: "CEO",
+    address: "Address",
+    phone: "Phone",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  ja: {
+    brand: "商号",
+    ceo: "代表者",
+    address: "住所",
+    phone: "電話",
+    biz: "事業者登録番号",
+    mail: "通信販売業届出番号",
+  },
+  es: {
+    brand: "Marca",
+    ceo: "CEO",
+    address: "Dirección",
+    phone: "Teléfono",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  th: {
+    brand: "แบรนด์",
+    ceo: "CEO",
+    address: "ที่อยู่",
+    phone: "โทร",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  fr: {
+    brand: "Marque",
+    ceo: "CEO",
+    address: "Adresse",
+    phone: "Téléphone",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  de: {
+    brand: "Marke",
+    ceo: "CEO",
+    address: "Adresse",
+    phone: "Telefon",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  ar: {
+    brand: "العلامة",
+    ceo: "CEO",
+    address: "العنوان",
+    phone: "الهاتف",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  ru: {
+    brand: "Бренд",
+    ceo: "CEO",
+    address: "Адрес",
+    phone: "Телефон",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  it: {
+    brand: "Marchio",
+    ceo: "CEO",
+    address: "Indirizzo",
+    phone: "Telefono",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  pt: {
+    brand: "Marca",
+    ceo: "CEO",
+    address: "Endereço",
+    phone: "Telefone",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  tr: {
+    brand: "Marka",
+    ceo: "CEO",
+    address: "Adres",
+    phone: "Telefon",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  uz: {
+    brand: "Brend",
+    ceo: "CEO",
+    address: "Manzil",
+    phone: "Telefon",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  zh: {
+    brand: "品牌",
+    ceo: "代表人",
+    address: "地址",
+    phone: "电话",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  hi: {
+    brand: "ब्रांड",
+    ceo: "CEO",
+    address: "पता",
+    phone: "फ़ोन",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+  tl: {
+    brand: "Brand",
+    ceo: "CEO",
+    address: "Address",
+    phone: "Phone",
+    biz: "Business Reg. No.",
+    mail: "Mail-order report",
+  },
+};
+
+function companyLines(locale: Locale, rows: InfoRow[]): InfoRow[] {
+  if (locale === "ko") return rows;
+  const L = COMPANY_LABELS[locale] ?? COMPANY_LABELS.en;
+  return [
+    { label: L.brand, value: "JIDOKAAN" },
+    { label: L.ceo, value: "Taehoon Choi (최태훈)" },
+    {
+      label: L.address,
+      value: "36, Seongsuil-ro 18-gil, Seongdong-gu, Seoul, Republic of Korea",
+    },
+    { label: L.phone, value: "+82 10-3481-5598", href: "tel:+821034815598" },
+    { label: L.biz, value: "207-18-73695" },
+    { label: L.mail, value: "2018-서울성동-0927" },
+  ];
+}
+
 const COMPANY = [
   { label: "상호명", value: "지도칸" },
   { label: "대표자명", value: "최태훈" },
@@ -66,7 +217,10 @@ export function SiteFooter() {
   const dict = t(locale);
   const year = new Date().getFullYear();
   const { catalog } = useCatalog();
-  const company = catalog.company.length ? catalog.company : COMPANY;
+  const company = companyLines(
+    locale,
+    catalog.company.length ? catalog.company : COMPANY,
+  );
   const support = catalog.support.length ? catalog.support : SUPPORT;
 
   return (

@@ -65,6 +65,21 @@ export function OrderCountriesBar() {
     return FLAG_MARKETS.find((m) => m.locale === locale)?.code ?? "kr";
   }, [picked, locale]);
 
+  useEffect(() => {
+    try {
+      const stored = sessionStorage
+        .getItem("jidokaan-ship-country")
+        ?.toLowerCase();
+      if (stored && FLAG_MARKETS.some((m) => m.code === stored)) {
+        setPicked(stored);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    setPicked(FLAG_MARKETS.find((m) => m.locale === locale)?.code ?? "kr");
+  }, [locale]);
+
   function updateArrows() {
     const el = scrollerRef.current;
     if (!el) return;

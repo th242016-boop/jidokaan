@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 import { OrderCountriesBar } from "@/components/hero/order-countries";
 import { Button } from "@/components/ui/button";
-import { LOCALES, t } from "@/lib/i18n";
+import { LOCALES, FLAG_MARKETS, t, type Locale } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { authEnabled, signOut } from "@/lib/auth/client";
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const locale = useStore((s) => s.locale);
-  const setLocale = useStore((s) => s.setLocale);
+  const applyMarket = useStore((s) => s.applyMarket);
   const setCartOpen = useStore((s) => s.setCartOpen);
   const cartCount = useStore((s) => s.cartCount());
   const dict = t(locale);
@@ -21,6 +21,19 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const notice = catalog.notice;
   const { user, isPending } = useCurrentUserState();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  function pickLocale(next: Locale) {
+    const market = FLAG_MARKETS.find((m) => m.locale === next);
+    applyMarket(next, next === "ko" ? "KRW" : "USD", true);
+    try {
+      sessionStorage.setItem(
+        "jidokaan-ship-country",
+        (next === "ko" ? "KR" : (market?.code ?? "us")).toUpperCase(),
+      );
+    } catch {
+      /* ignore */
+    }
+  }
 
   const nav = [
     { to: "/customize" as const, label: dict.nav.custom },
@@ -96,7 +109,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
             <select
               className="max-w-[4.6rem] bg-transparent text-fg outline-none sm:max-w-[5.5rem]"
               value={locale}
-              onChange={(e) => setLocale(e.target.value as typeof locale)}
+              onChange={(e) => pickLocale(e.target.value as Locale)}
               aria-label={dict.common.language}
             >
               {LOCALES.map((l) => (

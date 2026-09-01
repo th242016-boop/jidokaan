@@ -24,6 +24,7 @@ import { formatCartSize, useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
 import { trackStoreEvent } from "@/components/analytics-tracker";
 import { couponDiscount } from "@/lib/coupon";
+import { dialCode, fullPhoneNumber, localPhoneNumber } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/checkout")({
@@ -105,11 +106,13 @@ function CheckoutPage() {
   useEffect(() => {
     setCartOpen(false);
     const saved = readProfile();
+    let nextCountry = "";
     try {
       const overseas = overseasCheckoutIntent();
       const shipCountry = sessionStorage.getItem("jidokaan-ship-country");
       if (overseas) {
         if (shipCountry && shipCountry.toUpperCase() !== "KR") {
+          nextCountry = shipCountry;
           setCountry(shipCountry);
           setCurrency(currencyForCountry(shipCountry));
         } else {
@@ -118,14 +121,17 @@ function CheckoutPage() {
         }
         setPay("paypal");
       } else if (shipCountry) {
+        nextCountry = shipCountry;
         setCountry(shipCountry);
         setCurrency(currencyForCountry(shipCountry));
       } else if (saved.country) {
+        nextCountry = saved.country;
         setCountry(saved.country);
         setCurrency(currencyForCountry(saved.country));
       }
     } catch {
       if (saved.country) {
+        nextCountry = saved.country;
         setCountry(saved.country);
         setCurrency(currencyForCountry(saved.country));
       }
@@ -133,7 +139,13 @@ function CheckoutPage() {
     if (saved.email) setEmail(saved.email);
     if (saved.firstName) setFirstName(saved.firstName);
     if (saved.lastName) setLastName(saved.lastName);
-    if (saved.phone) setPhone(saved.phone);
+    if (saved.phone) {
+      setPhone(
+        nextCountry && nextCountry !== "KR"
+          ? localPhoneNumber(saved.phone, nextCountry)
+          : saved.phone,
+      );
+    }
     if (saved.address) setAddress(saved.address);
     if (saved.city) setCity(saved.city);
     if (saved.region) setRegion(saved.region);
@@ -261,7 +273,7 @@ function CheckoutPage() {
       email,
       firstName,
       lastName,
-      phone,
+      phone: isDomestic ? phone.trim() : fullPhoneNumber(phone, country),
       address,
       city,
       region,
@@ -292,7 +304,7 @@ function CheckoutPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          phone: phone.trim(),
+          phone: isDomestic ? phone.trim() : fullPhoneNumber(phone, country),
           name: `${lastName} ${firstName}`.trim(),
           address: fullAddress,
           city: city.trim(),
@@ -434,17 +446,43 @@ function CheckoutPage() {
                   <Label htmlFor="phone">
                     {dict.checkout.phone} <span className="text-accent">*</span>
                   </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    required
-                    autoComplete="tel"
-                    inputMode="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder={isDomestic ? "010-0000-0000" : "+1 555 000 0000"}
-                  />
-                  <p className="text-xs text-muted">{dict.checkout.phoneHint}</p>
+                  <div className="flex gap-2">
+                    {!isDomestic && country ? (
+                      <span className="inline-flex h-11 shrink-0 items-center rounded-xl border border-border bg-surface-muted px-3 text-sm font-medium text-fg">
+                        {dialCode(country) || "+"}
+                      </span>
+                    ) : null}
+                    <Input
+                      id="phone"
+                      type="tel"
+                      required
+                      autoComplete="tel"
+                      inputMode="tel"
+                      className="flex-1"
+                      value={phone}
+                      onChange={(e) =>
+                        setPhone(
+                          !isDomestic && country
+                            ? localPhoneNumber(e.target.value, country)
+                            : e.target.value,
+                        )
+                      }
+                      placeholder={
+                        isDomestic
+                          ? "010-0000-0000"
+                          : locale === "ko"
+                            ? "휴대폰 번호만 입력"
+                            : "Mobile number only"
+                      }
+                    />
+                  </div>
+                  <p className="text-xs text-muted">
+                    {isDomestic
+                      ? dict.checkout.phoneHint
+                      : locale === "ko"
+                        ? "국가번호는 배송 국가에 따라 자동으로 붙습니다. 휴대폰 번호만 입력하세요."
+                        : "Country code is added from the shipping country. Enter your mobile number only."}
+                  </p>
                 </div>
               </div>
             </section>
@@ -553,6 +591,11 @@ function CheckoutPage() {
                     value={country}
                     onChange={(e) => {
                       const next = e.target.value;
+                      setPhone((p) => {
+                        const stripped = country ? localPhoneNumber(p, country) : p;
+                        if (!next || next === "KR") return stripped;
+                        return localPhoneNumber(stripped, next);
+                      });
                       setCountry(next);
                       setCurrency(currencyForCountry(next || "US"));
                       setPay(next === "KR" ? "card" : "paypal");
