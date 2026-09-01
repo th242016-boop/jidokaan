@@ -289,6 +289,13 @@ export const useStore = create<StoreState>()(
         return {
           ...current,
           ...p,
+          locale: p.locale === "ar" ? "en" : p.locale ?? current.locale,
+          currency:
+            p.locale === "ar"
+              ? "USD"
+              : p.currency === "KRW"
+                ? "KRW"
+                : p.currency ?? current.currency,
           draftParts: { ...defaultPartColors(), ...parts },
           draftPartNames: { ...defaultPartNames(), ...names },
           draftFit: p.draftFit === "women" ? "women" : "men",

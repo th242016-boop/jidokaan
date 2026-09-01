@@ -8,6 +8,10 @@ export function LocaleSync() {
   const applyMarket = useStore((s) => s.applyMarket);
 
   useEffect(() => {
+    if (locale === "ar") {
+      applyMarket("en", "USD", true);
+      return;
+    }
     if (localePicked) return;
     const market = detectVisitorMarket();
     if (!market) return;
@@ -17,11 +21,11 @@ export function LocaleSync() {
     } catch {
       /* ignore */
     }
-  }, [localePicked, applyMarket]);
+  }, [locale, localePicked, applyMarket]);
 
   useEffect(() => {
-    document.documentElement.lang = HTML_LANG[locale] ?? "ko";
-    document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
+    document.documentElement.lang = locale === "ar" ? "en" : (HTML_LANG[locale] ?? "ko");
+    document.documentElement.dir = "ltr";
   }, [locale]);
 
   return null;

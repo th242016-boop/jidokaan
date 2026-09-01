@@ -64,7 +64,6 @@ export const LOCALES: { id: Locale; label: string; native: string }[] = [
   { id: "th", label: "Thai", native: "ไทย" },
   { id: "fr", label: "French", native: "Français" },
   { id: "de", label: "German", native: "Deutsch" },
-  { id: "ar", label: "Arabic", native: "العربية" },
   { id: "ja", label: "Japanese", native: "日本語" },
   { id: "zh", label: "Chinese", native: "中文" },
   { id: "ru", label: "Russian", native: "Русский" },
@@ -3112,8 +3111,8 @@ export const FLAG_MARKETS: {
   { code: "it", locale: "it", currency: "USD", name: "Italy" },
   { code: "es", locale: "es", currency: "USD", name: "Spain" },
   { code: "tr", locale: "tr", currency: "USD", name: "Turkey" },
-  { code: "ae", locale: "ar", currency: "USD", name: "United Arab Emirates" },
-  { code: "sa", locale: "ar", currency: "USD", name: "Saudi Arabia" },
+  { code: "ae", locale: "en", currency: "USD", name: "United Arab Emirates" },
+  { code: "sa", locale: "en", currency: "USD", name: "Saudi Arabia" },
   { code: "br", locale: "pt", currency: "USD", name: "Brazil" },
   { code: "ar", locale: "es", currency: "USD", name: "Argentina" },
   { code: "ch", locale: "de", currency: "USD", name: "Switzerland" },
@@ -3121,7 +3120,7 @@ export const FLAG_MARKETS: {
   { code: "jp", locale: "ja", currency: "USD", name: "Japan" },
   { code: "in", locale: "hi", currency: "USD", name: "India" },
   { code: "za", locale: "en", currency: "USD", name: "South Africa" },
-  { code: "eg", locale: "ar", currency: "USD", name: "Egypt" },
+  { code: "eg", locale: "en", currency: "USD", name: "Egypt" },
 ];
 
 
