@@ -38,7 +38,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const nav = [
     { to: "/customize" as const, label: dict.nav.custom },
     { to: "/shop" as const, label: dict.nav.shop },
-    { to: "/about" as const, label: dict.nav.about },
+    { to: "/brand" as const, label: dict.nav.about },
     { to: "/shipping" as const, label: dict.nav.shipping },
     { to: "/orders" as const, label: dict.nav.orders },
   ];

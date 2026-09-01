@@ -22,7 +22,7 @@ const NAV_JSON_LD = {
       itemListElement: [
         { "@type": "SiteNavigationElement", position: 1, name: "커스텀주문", url: "https://jidokaan.com/customize" },
         { "@type": "SiteNavigationElement", position: 2, name: "샵", url: "https://jidokaan.com/shop" },
-        { "@type": "SiteNavigationElement", position: 3, name: "브랜드", url: "https://jidokaan.com/about" },
+        { "@type": "SiteNavigationElement", position: 3, name: "브랜드", url: "https://jidokaan.com/brand" },
         { "@type": "SiteNavigationElement", position: 4, name: "배송·글로벌", url: "https://jidokaan.com/shipping" },
         { "@type": "SiteNavigationElement", position: 5, name: "주문조회", url: "https://jidokaan.com/orders" },
       ],
