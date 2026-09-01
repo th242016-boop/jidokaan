@@ -600,6 +600,26 @@ JDKL A2 / 200cm × 6mm / 폴리에스터 로프`,
   },
 ];
 
+const HANGUL = /[가-힣]/;
+
+export function productDisplayName(
+  product: Pick<Product, "id" | "name" | "shape" | "customizable">,
+  locale: string,
+) {
+  if (locale === "ko") return product.name.ko || product.name.en || "지도칸";
+  const preferred =
+    locale === "ja" ? product.name.ja || product.name.en : product.name.en;
+  if (preferred && !HANGUL.test(preferred)) return preferred;
+  if (product.name.en && !HANGUL.test(product.name.en)) return product.name.en;
+  if (product.id.includes("mid") || product.shape === "classic") {
+    return "JIDOKAAN DRONE Mid-Cut Custom Boxing Shoes";
+  }
+  if (product.customizable || product.shape === "drone") {
+    return "JIDOKAAN DRONE Custom Boxing Shoes";
+  }
+  return product.name.en || product.name.ja || "JIDOKAAN";
+}
+
 export function getProduct(id: string) {
   const live = getCatalogCache();
   return (live ?? PRODUCTS).find((p) => p.id === id);

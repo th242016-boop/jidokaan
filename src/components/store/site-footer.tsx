@@ -212,6 +212,17 @@ const SUPPORT = [
   { label: "토요일 및 공휴일", value: "상담불가" },
 ];
 
+function supportLines(locale: Locale, rows: InfoRow[]): InfoRow[] {
+  if (locale === "ko") return rows;
+  const labels: Record<string, string> = {
+    "상담 이메일": "Email",
+    "상담전화": "Phone",
+    "CS운영시간": "Hours",
+    "토요일 및 공휴일": "Weekends & holidays",
+  };
+  return rows.map((row) => ({ ...row, label: labels[row.label] || row.label }));
+}
+
 export function SiteFooter() {
   const locale = useStore((s) => s.locale);
   const dict = t(locale);
@@ -221,7 +232,10 @@ export function SiteFooter() {
     locale,
     catalog.company.length ? catalog.company : COMPANY,
   );
-  const support = catalog.support.length ? catalog.support : SUPPORT;
+  const support = supportLines(
+    locale,
+    catalog.support.length ? catalog.support : SUPPORT,
+  );
 
   return (
     <footer className="mt-auto border-t border-white/[0.05] bg-black">
@@ -242,7 +256,9 @@ export function SiteFooter() {
 
         <div className="space-y-8 md:justify-self-end md:text-left">
           <div>
-            <p className="mb-3 text-sm font-semibold tracking-wide">상담</p>
+            <p className="mb-3 text-sm font-semibold tracking-wide">
+              {locale === "ko" ? "상담" : "Support"}
+            </p>
             <ul className="space-y-2">
               {support.map((row) => (
                 <InfoLine key={row.label} {...row} />
@@ -296,13 +312,13 @@ export function SiteFooter() {
               to="/contact"
               className="text-[11px] text-subtle/70 hover:text-muted"
             >
-              문의
+              {locale === "ko" ? "문의" : dict.footer.contact}
             </Link>
             <Link
               to="/admin"
               className="text-[11px] text-subtle/70 hover:text-muted"
             >
-              관리자
+              {locale === "ko" ? "관리자" : "Admin"}
             </Link>
             <BrandLogo
               variant="word"

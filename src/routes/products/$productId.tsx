@@ -21,6 +21,7 @@ import {
   closestBootSize,
   MEN_BOOT_SIZES,
   naverProductUrl,
+  productDisplayName,
   productGallery,
   WOMEN_BOOT_SIZES,
   type Product,
@@ -199,7 +200,7 @@ function ProductDetail({
           <div className="flex flex-col">
             <div className="space-y-3">
               <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                {pickLocalized(product.name, locale)}
+                {productDisplayName(product, locale)}
               </h1>
               <p className="text-base text-muted">
                 {pickLocalized(product.tagline, locale)}

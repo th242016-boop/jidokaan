@@ -18,7 +18,7 @@ import {
   pickLocalized,
   t,
 } from "@/lib/i18n";
-import { getProduct, naverProductUrl, SMARTSTORE_HOME } from "@/lib/products";
+import { getProduct, naverProductUrl, productDisplayName, SMARTSTORE_HOME } from "@/lib/products";
 import { quoteShipping, shipCopy } from "@/lib/shipping";
 import { formatCartSize, useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
@@ -717,7 +717,7 @@ function CheckoutPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
-                        {pickLocalized(product.name, locale)}
+                        {productDisplayName(product, locale)}
                       </p>
                       <p className="text-xs text-muted">
                         {dict.cart.qty} {item.qty}

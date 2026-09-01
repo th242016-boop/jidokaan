@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SiteShell } from "@/components/store/site-shell";
+import { DEFAULT_FAQS, DEFAULT_FAQS_EN } from "@/lib/store-extras";
 import { useCatalog } from "@/lib/use-catalog";
 import { useStore } from "@/lib/store";
 
@@ -10,7 +11,12 @@ export const Route = createFileRoute("/faq")({
 function FaqPage() {
   const locale = useStore((s) => s.locale);
   const { catalog } = useCatalog();
-  const faqs = (catalog.faqs ?? []).filter((f) => f.enabled !== false);
+  const saved = (catalog.faqs ?? []).filter((f) => f.enabled !== false);
+  const faqs = saved.length
+    ? saved
+    : locale === "ko"
+      ? DEFAULT_FAQS
+      : DEFAULT_FAQS_EN;
   return (
     <SiteShell>
       <div className="container-page py-12">
@@ -22,11 +28,6 @@ function FaqPage() {
               <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{f.a}</p>
             </article>
           ))}
-          {faqs.length === 0 ? (
-            <p className="text-muted">
-              {locale === "ko" ? "등록된 질문이 없습니다." : "No FAQ yet."}
-            </p>
-          ) : null}
         </div>
       </div>
     </SiteShell>

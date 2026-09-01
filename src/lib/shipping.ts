@@ -127,11 +127,8 @@ export function quoteShipping(opts: {
   const days = opts.method === "express" ? rate.daysExpress : rate.daysStandard;
 
   let free = false;
-  if (opts.method === "standard") {
-    if (zone === "kr" && opts.subtotalKrw >= KR_LOCAL_FREE) free = true;
-    if (zone !== "kr" && (opts.subtotalUsd >= s.freeUsd || opts.subtotalKrw >= s.freeKrw)) {
-      free = true;
-    }
+  if (opts.method === "standard" && zone === "kr" && opts.subtotalKrw >= KR_LOCAL_FREE) {
+    free = true;
   }
   if (free) {
     krw = 0;

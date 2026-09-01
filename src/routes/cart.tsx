@@ -4,7 +4,7 @@ import { SiteShell } from "@/components/store/site-shell";
 import { KrOrderPanel } from "@/components/store/kr-order-panel";
 import { Button } from "@/components/ui/button";
 import { formatMoney, formatProductPrice, isDomesticCustomer, pickLocalized, t } from "@/lib/i18n";
-import { getProduct, naverProductUrl, SMARTSTORE_HOME } from "@/lib/products";
+import { getProduct, naverProductUrl, productDisplayName, SMARTSTORE_HOME } from "@/lib/products";
 import { useCatalog } from "@/lib/use-catalog";
 import { useStore } from "@/lib/store";
 
@@ -50,7 +50,7 @@ function CartPage() {
                   catalog.products.find((p) => p.id === item.productId) ??
                   getProduct(item.productId);
                 const name = product
-                  ? pickLocalized(product.name, locale)
+                  ? productDisplayName(product, locale)
                   : item.productId;
                 return (
                   <li

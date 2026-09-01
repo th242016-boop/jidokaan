@@ -3,6 +3,7 @@ import { Star } from "lucide-react";
 import { ProductVisual } from "@/components/store/product-visual";
 import { formatProductCompare, formatProductPrice, pickLocalized } from "@/lib/i18n";
 import type { Product } from "@/lib/products";
+import { productDisplayName } from "@/lib/products";
 import { useStore } from "@/lib/store";
 
 export function ProductCard({ product }: { product: Product }) {
@@ -22,7 +23,7 @@ export function ProductCard({ product }: { product: Product }) {
       <div className="flex flex-col gap-1.5 px-0.5">
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-[0.95rem] font-medium leading-snug text-fg">
-            {pickLocalized(product.name, locale)}
+            {productDisplayName(product, locale)}
           </h3>
           <div className="shrink-0 text-right">
             <p className="price-num text-sm font-semibold text-fg">

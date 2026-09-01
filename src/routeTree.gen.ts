@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as BrandRouteImport } from './routes/brand'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -32,6 +33,7 @@ import { Route as ApiLoginProvidersRouteImport } from './routes/api/login-provid
 import { Route as ApiMediaRouteImport } from './routes/api/media'
 import { Route as ApiMembersRouteImport } from './routes/api/members'
 import { Route as ApiOrdersRouteImport } from './routes/api/orders'
+import { Route as ApiPaypalRouteImport } from './routes/api/paypal'
 import { Route as ApiProfileRouteImport } from './routes/api/profile'
 import { Route as ApiReviewsRouteImport } from './routes/api/reviews'
 import { Route as ProductsProductIdRouteImport } from './routes/products/$productId'
@@ -52,6 +54,11 @@ const AboutRoute = AboutRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrandRoute = BrandRouteImport.update({
+  id: '/brand',
+  path: '/brand',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CartRoute = CartRouteImport.update({
@@ -154,6 +161,11 @@ const ApiOrdersRoute = ApiOrdersRouteImport.update({
   path: '/api/orders',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPaypalRoute = ApiPaypalRouteImport.update({
+  id: '/api/paypal',
+  path: '/api/paypal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiProfileRoute = ApiProfileRouteImport.update({
   id: '/api/profile',
   path: '/api/profile',
@@ -189,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
+  '/brand': typeof BrandRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
@@ -209,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/api/media': typeof ApiMediaRoute
   '/api/members': typeof ApiMembersRoute
   '/api/orders': typeof ApiOrdersRoute
+  '/api/paypal': typeof ApiPaypalRoute
   '/api/profile': typeof ApiProfileRoute
   '/api/reviews': typeof ApiReviewsRoute
   '/products/$productId': typeof ProductsProductIdRoute
@@ -220,6 +234,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
+  '/brand': typeof BrandRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
@@ -240,6 +255,7 @@ export interface FileRoutesByTo {
   '/api/media': typeof ApiMediaRoute
   '/api/members': typeof ApiMembersRoute
   '/api/orders': typeof ApiOrdersRoute
+  '/api/paypal': typeof ApiPaypalRoute
   '/api/profile': typeof ApiProfileRoute
   '/api/reviews': typeof ApiReviewsRoute
   '/products/$productId': typeof ProductsProductIdRoute
@@ -252,6 +268,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
+  '/brand': typeof BrandRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
@@ -272,6 +289,7 @@ export interface FileRoutesById {
   '/api/media': typeof ApiMediaRoute
   '/api/members': typeof ApiMembersRoute
   '/api/orders': typeof ApiOrdersRoute
+  '/api/paypal': typeof ApiPaypalRoute
   '/api/profile': typeof ApiProfileRoute
   '/api/reviews': typeof ApiReviewsRoute
   '/products/$productId': typeof ProductsProductIdRoute
@@ -285,6 +303,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/admin'
+    | '/brand'
     | '/cart'
     | '/checkout'
     | '/contact'
@@ -305,6 +324,7 @@ export interface FileRouteTypes {
     | '/api/media'
     | '/api/members'
     | '/api/orders'
+    | '/api/paypal'
     | '/api/profile'
     | '/api/reviews'
     | '/products/$productId'
@@ -316,6 +336,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/admin'
+    | '/brand'
     | '/cart'
     | '/checkout'
     | '/contact'
@@ -336,6 +357,7 @@ export interface FileRouteTypes {
     | '/api/media'
     | '/api/members'
     | '/api/orders'
+    | '/api/paypal'
     | '/api/profile'
     | '/api/reviews'
     | '/products/$productId'
@@ -347,6 +369,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/admin'
+    | '/brand'
     | '/cart'
     | '/checkout'
     | '/contact'
@@ -367,6 +390,7 @@ export interface FileRouteTypes {
     | '/api/media'
     | '/api/members'
     | '/api/orders'
+    | '/api/paypal'
     | '/api/profile'
     | '/api/reviews'
     | '/products/$productId'
@@ -379,6 +403,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
+  BrandRoute: typeof BrandRoute
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
@@ -399,6 +424,7 @@ export interface RootRouteChildren {
   ApiMediaRoute: typeof ApiMediaRoute
   ApiMembersRoute: typeof ApiMembersRoute
   ApiOrdersRoute: typeof ApiOrdersRoute
+  ApiPaypalRoute: typeof ApiPaypalRoute
   ApiProfileRoute: typeof ApiProfileRoute
   ApiReviewsRoute: typeof ApiReviewsRoute
   ProductsProductIdRoute: typeof ProductsProductIdRoute
@@ -428,6 +454,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/brand': {
+      id: '/brand'
+      path: '/brand'
+      fullPath: '/brand'
+      preLoaderRoute: typeof BrandRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cart': {
@@ -570,6 +603,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOrdersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/paypal': {
+      id: '/api/paypal'
+      path: '/api/paypal'
+      fullPath: '/api/paypal'
+      preLoaderRoute: typeof ApiPaypalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/profile': {
       id: '/api/profile'
       path: '/api/profile'
@@ -619,6 +659,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
+  BrandRoute: BrandRoute,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
@@ -639,6 +680,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaRoute: ApiMediaRoute,
   ApiMembersRoute: ApiMembersRoute,
   ApiOrdersRoute: ApiOrdersRoute,
+  ApiPaypalRoute: ApiPaypalRoute,
   ApiProfileRoute: ApiProfileRoute,
   ApiReviewsRoute: ApiReviewsRoute,
   ProductsProductIdRoute: ProductsProductIdRoute,

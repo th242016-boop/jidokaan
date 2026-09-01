@@ -125,7 +125,7 @@ function CustomizePage() {
           </p>
           <p className="mt-1.5 mb-0 flex items-center text-[11px] font-semibold tracking-[0.5px] text-[#d0021b]">
             <span className="mr-1.5 text-sm">ⓘ</span>
-            Click GUIDE ON/OFF to check the parts.
+            {dict.custom.guide2d}
           </p>
         </div>
 

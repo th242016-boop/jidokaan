@@ -18,7 +18,7 @@ import {
   startOverseasCheckout,
   t,
 } from "@/lib/i18n";
-import { getProduct, naverProductUrl, SMARTSTORE_HOME } from "@/lib/products";
+import { getProduct, naverProductUrl, productDisplayName, SMARTSTORE_HOME } from "@/lib/products";
 import { quoteShipping, shipCopy } from "@/lib/shipping";
 import { formatCartSize, useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
@@ -112,7 +112,7 @@ export function CartDrawer() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">
-                            {pickLocalized(product.name, locale)}
+                            {productDisplayName(product, locale)}
                           </p>
                           {item.optionLabel ? (
                             <p className="text-xs text-subtle">{item.optionLabel}</p>
