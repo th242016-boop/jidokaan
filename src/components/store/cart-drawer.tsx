@@ -217,13 +217,11 @@ export function CartDrawer() {
                       : `$${quote.usd}`}
                 </span>
               </div>
-              {quote.free ? (
-                <p className="rounded-xl bg-accent-soft px-3 py-2 text-xs text-accent">
-                  {country === "KR" ? copy.freeKr : copy.freeIntl}
+              {country === "KR" ? (
+                <p className="rounded-xl bg-surface-muted px-3 py-2 text-xs text-muted">
+                  {copy.freeKr}
                 </p>
-              ) : (
-                <p className="text-xs text-muted">{copy.freeIntl}</p>
-              )}
+              ) : null}
               <div className="flex items-center justify-between border-t border-border pt-3">
                 <span className="font-medium">{dict.cart.total}</span>
                 <span className="price-num text-lg font-semibold">

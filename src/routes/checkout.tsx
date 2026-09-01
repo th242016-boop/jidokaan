@@ -583,9 +583,6 @@ function CheckoutPage() {
                   <p className="text-sm font-medium">{copy.autoShip}</p>
                   <p className="text-xs text-muted">
                     {copy.makeDays} {quote.days} {copy.days}
-                    {quote.free
-                      ? ` · ${locale === "ko" ? "배송비 무료" : "shipping free"}`
-                      : ""}
                   </p>
                   <p className="text-xs text-muted">{copy.production}</p>
                   {!isDomestic ? (
@@ -739,19 +736,11 @@ function CheckoutPage() {
                       : formatMoney(shippingUsd, currency)}
                 </span>
               </div>
-              {quote.free ? (
-                <p className="rounded-xl bg-accent-soft px-3 py-2 text-xs text-accent">
-                  {isDomestic ? copy.freeKr : copy.freeIntl}
-                </p>
-              ) : isDomestic ? (
+              {isDomestic ? (
                 <p className="rounded-xl bg-surface-muted px-3 py-2 text-xs text-muted">
                   {copy.freeKr}
                 </p>
-              ) : (
-                <p className="rounded-xl bg-surface-muted px-3 py-2 text-xs text-muted">
-                  {copy.freeIntl}
-                </p>
-              )}
+              ) : null}
               {!isDomestic ? (
                 <p className="text-xs leading-relaxed text-muted">
                   <span className="font-medium text-fg">{copy.dutyTitle}. </span>

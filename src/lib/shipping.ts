@@ -158,11 +158,11 @@ export function shipCopy(locale: string) {
     makeDays: ko ? "제작 평균 20~30일 +" : "Handmade typically 20–30 days +",
     dutyTitle: ko ? "관세·부가세" : "Duties & tax",
     dutyBody: ko
-      ? "해외 배송은 Winning Boxing·TITLE Boxing과 같이 DAP입니다. 배송비는 결제 시 나오고, 도착국 관세·부가세가 있으면 수령인이 따로 냅니다. PO Box·택배 대행지는 받을 수 없습니다."
-      : "Like Winning Boxing and TITLE Boxing, we ship DAP. Shipping is paid at checkout. Import duty/VAT, if charged, is paid by the recipient — not added here. PO Boxes and freight-forwarding addresses are not accepted.",
+      ? "해외 배송은 DAP입니다. 배송비는 결제 시 나오고, 도착국 관세·부가세가 있으면 수령인이 따로 냅니다. PO Box·택배 대행지는 받을 수 없습니다."
+      : "We ship DAP. Shipping is paid at checkout. Import duty/VAT, if charged, is paid by the recipient. PO Boxes and freight-forwarding addresses are not accepted.",
     freeIntl: ko
-      ? "커스텀 1켤레(₩288,000 / $230)부터 전 세계 배송비 무료"
-      : "Free worldwide shipping from one custom pair ($230 / ₩288,000)",
+      ? "해외는 DHL 또는 EMS 추적 택배로 보냅니다."
+      : "International orders ship by tracked DHL or EMS.",
     freeKr: ko ? "국내는 택배로 발송합니다." : "Korea: domestic courier.",
     extra: ko
       ? "추가 켤레는 배송비의 40%만 더해집니다."
