@@ -377,4 +377,4 @@ export function defaultPartNames(): PartColorNames {
 
 export const SIM_ASSET = (file: string) => `/simulator/${file}`;
 export const PHOTO_ASSET = (file: string) => `/simulator/photo/${file}?v=c1`;
-export const PHOTO_BASE = "/simulator/photo/base.jpg?v=c4";
+export const PHOTO_BASE = "/simulator/photo/base.jpg?v=c6";
