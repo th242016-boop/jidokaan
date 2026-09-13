@@ -100,7 +100,7 @@ export const SIM_PARTS: PartDef[] = [
     id: "g",
     file: "g.png",
     label: "G",
-    hint: { ko: "텅", en: "Tongue", ja: "タン" },
+    hint: { ko: "팅", en: "Tongue", ja: "タン" },
     type: "full",
   },
   {
@@ -377,4 +377,4 @@ export function defaultPartNames(): PartColorNames {
 
 export const SIM_ASSET = (file: string) => `/simulator/${file}`;
 export const PHOTO_ASSET = (file: string) => `/simulator/photo/${file}?v=c1`;
-export const PHOTO_BASE = "/simulator/photo/base.jpg?v=c3";
+export const PHOTO_BASE = "/simulator/photo/base.jpg?v=c4";
