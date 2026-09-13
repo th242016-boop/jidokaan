@@ -1,0 +1,47 @@
+name: import-base-photo
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/import-base-photo.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch bright studio JPEG
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -H 'Accept: application/octet-stream' \
+            -o /tmp/base.jpg \
+            'https://filebin.net/jidokaanbase20260913/base.jpg'
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          b = Path("/tmp/base.jpg").read_bytes()
+          h = hashlib.md5(b).hexdigest()
+          print("bytes", len(b), "md5", h, "magic", b[:3].hex())
+          if b[:2] != b"\xff\xd8":
+              raise SystemExit("not jpeg")
+          if len(b) != 509457 or h != "2920dc14b46c302cc9c1905ff504512a":
+              raise SystemExit("checksum mismatch")
+          PY
+          mkdir -p public/simulator/photo
+          cp /tmp/base.jpg public/simulator/photo/base.jpg
+      - name: Commit photo only
+        run: |
+          set -euo pipefail
+          git config user.name "th242016-boop"
+          git config user.email "th242016@users.noreply.github.com"
+          git add public/simulator/photo/base.jpg
+          if git diff --cached --quiet; then
+            echo "base.jpg already current"
+            exit 0
+          fi
+          git commit -m "chore: brighter gray studio base photo (background only)"
+          git push
