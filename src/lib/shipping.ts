@@ -1,3 +1,5 @@
+import { EMS_POLICY, EMS_RATES_KRW, EMS_FX_KRW_PER_USD, emsUsd } from "./ems-rates";
+import { checkoutCopy } from "./checkout-copy";
 export type ShipZone = "kr" | "asia" | "pacific" | "europe" | "world";
 export type ShipMethod = "standard" | "express";
 
@@ -11,13 +13,16 @@ export type ZoneRate = {
 };
 
 export type ShippingSettings = {
+  policyVersion?: string;
+  exchangeKrwPerUsd?: number;
   freeKrw: number;
   freeUsd: number;
   extraPct: number;
   zones: Record<ShipZone, ZoneRate>;
+  countryRates?: Record<string, { usd: number; krw?: number; note?: string }>;
 };
 
-export const DEFAULT_SHIPPING: ShippingSettings = {
+const LEGACY_SHIPPING: ShippingSettings = {
   freeKrw: 288000,
   freeUsd: 230,
   extraPct: 40,
@@ -65,6 +70,28 @@ export const DEFAULT_SHIPPING: ShippingSettings = {
   },
 };
 
+/** Apply the owner-approved EMS policy to old settings without mutating old orders. */
+export function applyEmsPolicy(settings: ShippingSettings): ShippingSettings {
+  if (settings.policyVersion === EMS_POLICY) return settings;
+  return {
+    ...settings,
+    policyVersion: EMS_POLICY,
+    exchangeKrwPerUsd: EMS_FX_KRW_PER_USD,
+    extraPct: 100,
+    countryRates: Object.fromEntries(
+      Object.entries(EMS_RATES_KRW).map(([code, krw]) => [
+        code,
+        {
+          usd: emsUsd(krw),
+          krw,
+          note: `우체국 EMS · 410×310×150mm · 3.5kg 구간 · ${krw.toLocaleString("en-US")}원 · 2026-07-01 시행`,
+        },
+      ]),
+    ),
+  };
+}
+export const DEFAULT_SHIPPING = applyEmsPolicy(LEGACY_SHIPPING);
+
 /** Korea local free-ship threshold (accessories). Custom pair uses freeKrw. */
 export const KR_LOCAL_FREE = 50000;
 
@@ -103,6 +130,7 @@ export type ShipQuote = {
   free: boolean;
   days: string;
   label: string;
+  available: boolean;
 };
 
 export function quoteShipping(opts: {
@@ -113,7 +141,7 @@ export function quoteShipping(opts: {
   qty: number;
   settings?: ShippingSettings;
 }): ShipQuote {
-  const s = opts.settings ?? DEFAULT_SHIPPING;
+  const s = applyEmsPolicy(opts.settings ?? DEFAULT_SHIPPING);
   const zone = zoneForCountry(opts.country);
   const rate = s.zones[zone];
   const pairs = Math.max(1, opts.qty);
@@ -121,8 +149,25 @@ export function quoteShipping(opts: {
 
   let krw = (opts.method === "express" ? rate.expressKrw : rate.standardKrw) * extraMul;
   let usd = (opts.method === "express" ? rate.expressUsd : rate.standardUsd) * extraMul;
+  const countryRate = s.countryRates?.[opts.country.toUpperCase()];
+  if (
+    opts.method === "standard" &&
+    countryRate &&
+    Number.isFinite(countryRate.usd) &&
+    countryRate.usd >= 0
+  )
+    usd = countryRate.usd * extraMul;
+  const available = zone === "kr" || Boolean(countryRate);
+  if (zone !== "kr") {
+    // One unchanged box per pair, not a fictitious combined-box discount.
+    usd = countryRate ? countryRate.usd * pairs : 0;
+    krw = countryRate
+      ? (countryRate.krw ??
+          Math.round(countryRate.usd * (s.exchangeKrwPerUsd ?? EMS_FX_KRW_PER_USD))) * pairs
+      : 0;
+  }
   krw = Math.round(krw);
-  usd = Math.round(usd);
+  usd = Math.round(usd * 100) / 100;
 
   const days = opts.method === "express" ? rate.daysExpress : rate.daysStandard;
 
@@ -137,6 +182,7 @@ export function quoteShipping(opts: {
 
   return {
     zone,
+    available,
     method: opts.method,
     krw,
     usd,
@@ -146,7 +192,8 @@ export function quoteShipping(opts: {
   };
 }
 
-export function shipCopy(locale: string) {
+export function shipCopy(locale: string, country?: string) {
+  const copy = checkoutCopy(locale);
   const ko = locale === "ko";
   return {
     standard: ko ? "택배 (추적)" : "Tracked courier",
@@ -154,21 +201,13 @@ export function shipCopy(locale: string) {
     days: ko ? "배송" : "transit",
     makeDays: ko ? "제작 평균 20~30일 +" : "Handmade typically 20–30 days +",
     dutyTitle: ko ? "관세·부가세" : "Duties & tax",
-    dutyBody: ko
-      ? "해외 배송은 DAP입니다. 배송비는 결제 시 나오고, 도착국 관세·부가세가 있으면 수령인이 따로 냅니다. PO Box·택배 대행지는 받을 수 없습니다."
-      : "We ship DAP. Shipping is paid at checkout. Import duty/VAT, if charged, is paid by the recipient. PO Boxes and freight-forwarding addresses are not accepted.",
-    freeIntl: ko
-      ? "해외는 DHL 또는 EMS 추적 택배로 보냅니다."
-      : "International orders ship by tracked DHL or EMS.",
+    dutyBody: country === "US" ? copy.usDuty : copy.duty,
+    freeIntl: copy.shipping,
     freeKr: ko ? "국내는 택배로 발송합니다." : "Korea: domestic courier.",
-    extra: ko
-      ? "추가 켤레는 배송비의 40%만 더해집니다."
-      : "Each extra pair adds 40% of the first-pair rate.",
-    production: ko
-      ? "주문 후 제작 상품으로 평균적으로 20~30일 정도 소요됩니다."
-      : "Made-to-order items typically take about 20–30 days after you order.",
+    extra: copy.shipping,
+    production: copy.production,
     autoShip: ko
-      ? "배송 방법은 고르지 않습니다. 한국은 국내 택배, 해외는 DHL 또는 EMS 추적 택배로 보냅니다."
-      : "No shipping-method choice. Korea: domestic courier. International: tracked DHL or EMS.",
+      ? "한국은 국내 택배, 해외는 우체국 EMS로 발송합니다."
+      : "Korea: domestic courier. International: Korea Post EMS.",
   };
 }

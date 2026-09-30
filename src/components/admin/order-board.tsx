@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { OrderDetail, countryLabel, orderTime } from "./order-detail";
 import { Input } from "@/components/ui/input";
 import { isCancelledOrder, type OrderStatus, type StoreOrder } from "@/lib/order-types";
 
@@ -22,21 +23,46 @@ export function OrderBoard({ token }: { token: string }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState<
+    { paypalOrderId: string; createdAt: string; name: string; country: string; totalUsd: number }[]
+  >([]);
+  const [pendingError, setPendingError] = useState("");
 
   async function load() {
-    const res = await fetch(`/api/orders?token=${encodeURIComponent(token)}`);
-    const data = (await res.json()) as { orders?: StoreOrder[] };
-    setOrders(data.orders ?? []);
+    setLoading(true);
+    setLoadError("");
+    try {
+      const res = await fetch(`/api/orders?token=${encodeURIComponent(token)}`);
+      if (!res.ok) throw new Error("LOAD_FAILED");
+      const data = (await res.json()) as { orders?: StoreOrder[] };
+      if (!Array.isArray(data.orders)) throw new Error("LOAD_FAILED");
+      setOrders(data.orders);
+      setPendingError("");
+      try {
+        const paymentResponse = await fetch(`/api/paypal?token=${encodeURIComponent(token)}`);
+        if (!paymentResponse.ok) throw new Error("PAYMENT_QUEUE");
+        const queue = await paymentResponse.json();
+        setPending(queue.pending ?? []);
+      } catch {
+        setPendingError("PayPal 저장 확인 대기 목록을 불러오지 못했습니다.");
+      }
+    } catch {
+      setLoadError(
+        "주문을 불러오지 못했습니다. 연결 상태 또는 관리자 로그인을 확인하고 새로고침해 주세요.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     void load();
   }, [token]);
 
-  const active = useMemo(
-    () => orders.filter((o) => !isCancelledOrder(o)),
-    [orders],
-  );
+  const active = useMemo(() => orders.filter((o) => !isCancelledOrder(o)), [orders]);
   const rows = useMemo(() => {
     if (filter === "all") return active;
     if (filter === "cancel") return orders.filter((o) => isCancelledOrder(o));
@@ -46,16 +72,26 @@ export function OrderBoard({ token }: { token: string }) {
   const allOnPage = rows.length > 0 && rows.every((o) => picked.includes(o.id));
 
   async function patch(id: string, body: Record<string, unknown>) {
-    const res = await fetch("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "update", token, id, ...body }),
-    });
-    if (!res.ok) {
-      setMsg("주문 수정에 실패했습니다.");
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", token, id, ...body }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setMsg(
+          data.error === "TRACKING_REQUIRED"
+            ? "송장번호를 먼저 저장한 후 발송 처리해 주세요."
+            : "주문 수정에 실패했습니다.",
+        );
+        return false;
+      }
+      return true;
+    } catch {
+      setMsg("연결 오류로 주문을 수정하지 못했습니다.");
       return false;
     }
-    return true;
   }
 
   async function cancelIds(ids: string[]) {
@@ -63,7 +99,8 @@ export function OrderBoard({ token }: { token: string }) {
       setMsg("취소할 주문을 선택하세요.");
       return;
     }
-    if (!window.confirm(`${ids.length}건을 취소 처리할까요?`)) return;
+    if (!window.confirm(`${ids.length}건을 취소 처리할까요? PayPal 환불은 자동 실행되지 않습니다.`))
+      return;
     setBusy(true);
     let ok = 0;
     for (const id of ids) {
@@ -81,7 +118,8 @@ export function OrderBoard({ token }: { token: string }) {
       setMsg("삭제할 주문을 선택하세요.");
       return;
     }
-    if (!window.confirm(`${ids.length}건을 목록에서 완전히 삭제할까요? 복구할 수 없습니다.`)) return;
+    if (!window.confirm(`${ids.length}건을 목록에서 완전히 삭제할까요? 복구할 수 없습니다.`))
+      return;
     setBusy(true);
     const res = await fetch("/api/orders", {
       method: "POST",
@@ -97,6 +135,30 @@ export function OrderBoard({ token }: { token: string }) {
     setPicked([]);
     setMsg(`${data.deleted ?? 0}건 삭제했습니다.`);
     await load();
+  }
+
+  async function recover(id: string) {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/paypal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "recover", token, orderID: id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.order?.id) throw new Error("NOT_CONFIRMED");
+      await load();
+      setSelectedId(data.order.id);
+      setMsg(
+        "PayPal 결제 완료를 확인하고 저장된 주문을 불러왔습니다. 추가 결제는 하지 않았습니다.",
+      );
+    } catch {
+      setMsg(
+        "결제 완료를 확인하지 못했습니다. 미결제·대기 상태일 수 있으므로 PayPal 거래 상세에서 확인해 주세요. 이 기능은 결제를 실행하지 않습니다.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   function toggle(id: string) {
@@ -164,7 +226,51 @@ export function OrderBoard({ token }: { token: string }) {
             : "취소하면 전체 목록에서 빠지고 취소 탭으로 이동합니다."}
         </p>
       </div>
+      <Button type="button" variant="secondary" disabled={loading} onClick={() => void load()}>
+        {loading ? "불러오는 중…" : "주문 새로고침"}
+      </Button>
+      {loadError ? (
+        <p role="alert" className="text-sm text-red-700">
+          {loadError}
+        </p>
+      ) : null}
       {msg ? <p className="text-sm text-[#333]">{msg}</p> : null}
+      {pendingError ? (
+        <p role="alert" className="text-sm text-red-700">
+          {pendingError}
+        </p>
+      ) : null}
+      {pending.length ? (
+        <section className="rounded border border-amber-300 bg-amber-50 p-4">
+          <h3 className="font-semibold">
+            PayPal 결제 시도 / 주문 저장 확인 대기 · {pending.length}건
+          </h3>
+          <p className="my-2 text-sm">
+            이 목록은 미결제 시도도 포함합니다. 결제 완료 주문으로 간주하지 마세요. 재확인은 실제
+            결제를 실행하지 않고, 이미 완료된 결제의 주문만 복구합니다.
+          </p>
+          {pending.map((p) => (
+            <div
+              key={p.paypalOrderId}
+              className="flex flex-wrap items-center justify-between gap-2 border-t border-amber-200 py-2 text-sm"
+            >
+              <span>
+                {orderTime(p.createdAt)} KST · {p.name} · {countryLabel(p.country)} · $
+                {p.totalUsd.toFixed(2)}
+                <small className="block">PayPal {p.paypalOrderId}</small>
+              </span>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy}
+                onClick={() => void recover(p.paypalOrderId)}
+              >
+                결제 확인·주문 복구
+              </Button>
+            </div>
+          ))}
+        </section>
+      ) : null}
       <div className="overflow-x-auto rounded border border-[#d5d7dc] bg-white">
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-[#f6f7f8] text-xs">
@@ -187,7 +293,14 @@ export function OrderBoard({ token }: { token: string }) {
           </thead>
           <tbody>
             {rows.map((o) => (
-              <tr key={o.id} className="border-t border-[#eee] align-top">
+              <tr
+                key={o.id}
+                className="cursor-pointer border-t border-[#eee] align-top hover:bg-slate-50"
+                onClick={(e) => {
+                  if (!(e.target as HTMLElement).closest("button,a,input,select,textarea,label"))
+                    setSelectedId(o.id);
+                }}
+              >
                 <td className="px-3 py-2">
                   <input
                     type="checkbox"
@@ -197,16 +310,29 @@ export function OrderBoard({ token }: { token: string }) {
                   />
                 </td>
                 <td className="px-3 py-2">
-                  <p className="font-medium">{o.id}</p>
-                  <p className="text-[11px] text-[#666]">
-                    {o.createdAt.slice(0, 16).replace("T", " ")}
-                  </p>
+                  <button
+                    type="button"
+                    className="font-medium underline underline-offset-4"
+                    onClick={() => setSelectedId(o.id)}
+                  >
+                    {o.id}
+                  </button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="my-2"
+                    type="button"
+                    onClick={() => setSelectedId(o.id)}
+                  >
+                    상세보기
+                  </Button>
+                  <p className="text-[11px] text-[#666]">{orderTime(o.createdAt)} KST</p>
                 </td>
                 <td className="px-3 py-2">
                   <p>{o.name}</p>
                   <p className="text-[11px] text-[#555]">{o.email}</p>
                   <p className="text-[11px] text-[#555]">
-                    {o.country} · {o.address}
+                    {countryLabel(o.country)} · {o.address}
                   </p>
                 </td>
                 <td className="px-3 py-2">
@@ -218,9 +344,7 @@ export function OrderBoard({ token }: { token: string }) {
                   ))}
                 </td>
                 <td className="px-3 py-2">
-                  {o.currency === "KRW"
-                    ? `₩${o.totalKrw.toLocaleString()}`
-                    : `$${o.totalUsd}`}
+                  {o.currency === "KRW" ? `₩${o.totalKrw.toLocaleString()}` : `$${o.totalUsd}`}
                 </td>
                 <td className="px-3 py-2">
                   <select
@@ -312,13 +436,25 @@ export function OrderBoard({ token }: { token: string }) {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-[#555]">
-                  주문이 없습니다.
+                  {loading ? "불러오는 중…" : loadError ? "주문 조회 실패" : "주문이 없습니다."}
                 </td>
               </tr>
             ) : null}
           </tbody>
         </table>
       </div>
+      {selectedId && orders.find((o) => o.id === selectedId) ? (
+        <OrderDetail
+          key={selectedId}
+          order={orders.find((o) => o.id === selectedId)!}
+          onClose={() => setSelectedId(null)}
+          onSave={async (id, body) => {
+            const ok = await patch(id, body);
+            if (ok) await load();
+            return ok;
+          }}
+        />
+      ) : null}
     </div>
   );
 }

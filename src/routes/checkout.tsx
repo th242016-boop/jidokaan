@@ -1,3 +1,11 @@
+import { checkoutCopy } from "@/lib/checkout-copy";
+import {
+  captureDesign,
+  completeDesign,
+  designKey,
+  DESIGN_VERSION,
+  ORDER_TERMS_VERSION,
+} from "@/lib/design-order";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +33,9 @@ import { useCatalog } from "@/lib/use-catalog";
 import { trackStoreEvent } from "@/components/analytics-tracker";
 import { couponDiscount } from "@/lib/coupon";
 import { dialCode, fullPhoneNumber, localPhoneNumber } from "@/lib/phone";
+import type { StoreOrder } from "@/lib/order-types";
+import { submitOrder } from "@/lib/submit-order";
+import { normalizeInstagram } from "@/lib/order-contact";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/checkout")({
@@ -34,6 +45,8 @@ export const Route = createFileRoute("/checkout")({
 type PayMethod = "card" | "kakao" | "naver" | "transfer" | "paypal";
 
 type SavedCheckout = {
+  instagram?: string;
+  contactMethod?: "instagram" | "email";
   email?: string;
   firstName?: string;
   lastName?: string;
@@ -79,6 +92,44 @@ function CheckoutPage() {
   const { user, isPending } = useCurrentUserState();
   const { catalog } = useCatalog();
   const [placing, setPlacing] = useState(false);
+  const [instagram, setInstagram] = useState("");
+  const [contactMethod, setContactMethod] = useState<"instagram" | "email">("instagram");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [designPreviews, setDesignPreviews] = useState<Record<string, string>>({});
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [previewAttempt, setPreviewAttempt] = useState(0);
+  const review = checkoutCopy(locale);
+  const customItems = cart.filter((item) => getProduct(item.productId)?.customizable);
+  const designSignature = JSON.stringify(
+    cart.map((item) => [item.productId, item.size, item.sizeFit, item.qty, item.partNames]),
+  );
+  const validDesigns = customItems.every((item) => Boolean(completeDesign(item.partNames)));
+  const previewsReady =
+    validDesigns && customItems.every((item) => Boolean(designPreviews[designKey(item.partNames)]));
+  useEffect(() => {
+    let active = true;
+    setTermsAccepted(false);
+    setDesignPreviews({});
+    setPreviewFailed(false);
+    if (!validDesigns) return;
+    const unique = [
+      ...new Map(
+        customItems.map((item) => [designKey(item.partNames), completeDesign(item.partNames)!]),
+      ).entries(),
+    ];
+    void Promise.all(unique.map(async ([key, names]) => [key, await captureDesign(names)] as const))
+      .then((entries) => {
+        if (active) setDesignPreviews(Object.fromEntries(entries));
+      })
+      .catch(() => {
+        if (active) setPreviewFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [designSignature, previewAttempt]);
+  const [orderError, setOrderError] = useState("");
+  const [pendingOrder, setPendingOrder] = useState<Record<string, unknown> | null>(null);
   const [country, setCountry] = useState("KR");
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -106,6 +157,14 @@ function CheckoutPage() {
   useEffect(() => {
     setCartOpen(false);
     const saved = readProfile();
+    if (saved.instagram) setInstagram(saved.instagram);
+    if (saved.contactMethod) setContactMethod(saved.contactMethod);
+    try {
+      const pending = sessionStorage.getItem("jidokaan-pending-paid-order");
+      if (pending) setPendingOrder(JSON.parse(pending));
+    } catch {
+      /* storage may be unavailable */
+    }
     let nextCountry = "";
     try {
       const overseas = overseasCheckoutIntent();
@@ -174,19 +233,15 @@ function CheckoutPage() {
 
   useEffect(() => {
     if (isDomestic) return;
-    setPay((cur) =>
-      cur === "card" || cur === "kakao" || cur === "naver" ? "paypal" : cur,
-    );
+    setPay((cur) => (cur === "card" || cur === "kakao" || cur === "naver" ? "paypal" : cur));
   }, [isDomestic]);
-  const regionRequired = ["US", "CA", "AU", "MX", "CN", "IN", "BR", "JP"].includes(
-    country,
-  );
+  const regionRequired = ["US", "CA", "AU", "MX", "CN", "IN", "BR", "JP"].includes(country);
   const qty = cart.reduce((n, i) => n + i.qty, 0);
   const quote = quoteShipping({
     country,
     method: "standard",
     subtotalKrw,
-    subtotalUsd: Math.round(subtotalUsd / 100),
+    subtotalUsd: subtotalUsd / 100,
     qty,
     settings: catalog.shipping,
   });
@@ -194,7 +249,12 @@ function CheckoutPage() {
   const shippingKrw = quote.krw;
   const totalUsd = Math.max(0, subtotalUsd - discountUsd) + shippingUsd;
   const totalKrw = Math.max(0, subtotalKrw - discountKrw) + shippingKrw;
-  const copy = shipCopy(locale);
+  const copy = shipCopy(locale, country);
+  const dutyText = country === "US" ? review.usDuty : review.duty;
+  const canPay = termsAccepted && previewsReady && quote.available && Boolean(country);
+  useEffect(() => {
+    setTermsAccepted(false);
+  }, [country, locale, totalUsd]);
 
   async function applyCoupon() {
     const code = couponCode.trim().toUpperCase();
@@ -265,11 +325,24 @@ function CheckoutPage() {
     await placeStoreOrder();
   }
 
-  async function placeStoreOrder(paypalOrderId?: string) {
+  function buildOrderPayload(paypalOrderId?: string) {
     if (cart.length === 0) return;
-    setPlacing(true);
+    setOrderError("");
+    if (!canPay || !email.trim() || (contactMethod === "instagram" && !instagram.trim())) {
+      setOrderError(review.confirmError);
+      return;
+    }
+    let handle: string;
+    try {
+      handle = contactMethod === "instagram" ? normalizeInstagram(instagram) : "";
+    } catch {
+      setOrderError(review.confirmError);
+      return;
+    }
     const fullAddress = [address.trim(), address2.trim()].filter(Boolean).join(", ");
     writeProfile({
+      instagram: handle,
+      contactMethod,
       email,
       firstName,
       lastName,
@@ -288,81 +361,112 @@ function CheckoutPage() {
           productId: item.productId,
           name: `${product.name.ko || product.name.en}${item.optionLabel ? ` (${item.optionLabel})` : ""}`,
           qty: item.qty,
-          size: item.size
-            ? formatCartSize(item, "ko")
-            : undefined,
+          size: item.size ? formatCartSize(item, "ko") : undefined,
           priceKrw: product.priceKrw + (item.extraKrw ?? 0),
-          priceUsd: Math.round((product.priceUsd + (item.extraUsd ?? 0)) / 100),
+          priceUsd: (product.priceUsd + (item.extraUsd ?? 0)) / 100,
+          sizeFit: item.sizeFit,
+          optionKey: item.optionKey,
+          optionLabel: item.optionLabel,
+          color: item.color,
+          partColors: item.partColors,
           partNames: item.partNames,
+          ...(product.customizable
+            ? {
+                designPreview: designPreviews[designKey(item.partNames)],
+                designKey: designKey(item.partNames),
+                designVersion: DESIGN_VERSION,
+              }
+            : {}),
         };
       })
       .filter(Boolean);
-    let orderId = `JDK-${Date.now().toString(36).toUpperCase()}`;
+    const payload = {
+      email,
+      contactMethod,
+      checkoutLocale: locale,
+      termsAccepted,
+      termsVersion: ORDER_TERMS_VERSION,
+      instagram: handle,
+      phone: isDomestic ? phone.trim() : fullPhoneNumber(phone, country),
+      name: `${lastName} ${firstName}`.trim(),
+      address: fullAddress,
+      city: city.trim(),
+      region: region.trim(),
+      postal: postal.trim(),
+      country,
+      pay,
+      depositor,
+      shipMethod: "standard",
+      shippingKrw,
+      shippingUsd: quote.usd,
+      totalKrw,
+      totalUsd: totalUsd / 100,
+      currency,
+      items,
+      couponCode: appliedCode || undefined,
+      discountKrw,
+      discountUsd: discountUsd / 100,
+      paypalOrderId,
+    };
+    return payload;
+  }
+
+  function markPending(payload: Record<string, unknown>) {
+    setPendingOrder(payload);
     try {
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          phone: isDomestic ? phone.trim() : fullPhoneNumber(phone, country),
-          name: `${lastName} ${firstName}`.trim(),
-          address: fullAddress,
-          city: city.trim(),
-          region: region.trim(),
-          postal: postal.trim(),
-          country,
-          pay,
-          depositor,
-          shipMethod: "standard",
-          shippingKrw,
-          shippingUsd: quote.usd,
-          totalKrw,
-          totalUsd: Math.round(totalUsd / 100),
-          currency,
-          items,
-          couponCode: appliedCode || undefined,
-          discountKrw,
-          discountUsd: Math.round(discountUsd / 100),
-          paypalOrderId,
-        }),
-      });
-      const data = (await res.json()) as { order?: { id: string }; error?: string };
-      if (!res.ok && paypalOrderId) {
-        setPlacing(false);
-        return;
-      }
-      if (data.order?.id) orderId = data.order.id;
+      sessionStorage.setItem("jidokaan-pending-paid-order", JSON.stringify(payload));
     } catch {
-      /* still show success with local id */
+      /* retain in component state */
     }
+  }
+
+  async function placeStoreOrder(paypalOrderId?: string) {
+    const payload = buildOrderPayload(paypalOrderId);
+    if (!payload) return;
+    if (paypalOrderId) markPending(payload);
+    await saveOrderPayload(payload);
+  }
+
+  function finishOrder(order: StoreOrder) {
     try {
       sessionStorage.setItem(
         "jidokaan-last-order",
         JSON.stringify({
-          orderId,
-          email,
-          country,
-          pay,
-          depositor,
-          currency,
-          shipMethod: "standard",
-          shipping: isKrw ? shippingKrw : shippingUsd,
-          total: isKrw ? totalKrw : totalUsd,
+          orderId: order.id,
+          email: order.email,
+          country: order.country,
+          pay: order.pay,
+          depositor: order.depositor,
+          currency: order.currency,
+          shipMethod: order.shipMethod,
+          shipping: order.currency === "KRW" ? order.shippingKrw : order.shippingUsd * 100,
+          total: order.currency === "KRW" ? order.totalKrw : order.totalUsd * 100,
         }),
       );
+      sessionStorage.removeItem("jidokaan-pending-paid-order");
     } catch {
-      /* ignore */
+      /* server order is already saved */
     }
+    setPendingOrder(null);
     clearCart();
-    setPlacing(false);
     trackStoreEvent("order");
-    navigate({
-      to: "/order-success",
-      search: { order: orderId },
-    });
+    navigate({ to: "/order-success", search: { order: order.id } });
   }
 
-  if (cart.length === 0) {
+  async function saveOrderPayload(payload: Record<string, unknown>) {
+    setPlacing(true);
+    setOrderError("");
+    try {
+      const order = await submitOrder(payload);
+      finishOrder(order);
+    } catch {
+      setOrderError(payload.paypalOrderId ? review.paymentError : review.saveError);
+    } finally {
+      setPlacing(false);
+    }
+  }
+
+  if (cart.length === 0 && !pendingOrder) {
     return (
       <SiteShell>
         <div className="container-page flex min-h-[50vh] flex-col items-center justify-center gap-4 py-16 text-center">
@@ -383,9 +487,7 @@ function CheckoutPage() {
   return (
     <SiteShell>
       <div className="container-page py-8 sm:py-12">
-        <h1 className="mb-8 text-3xl font-semibold tracking-tight">
-          {dict.checkout.title}
-        </h1>
+        <h1 className="mb-8 text-3xl font-semibold tracking-tight">{dict.checkout.title}</h1>
 
         {!isPending && !user && !isDomestic ? (
           <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -418,19 +520,14 @@ function CheckoutPage() {
           </div>
         ) : null}
 
-        <form
-          onSubmit={onSubmit}
-          className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]"
-        >
+        <form onSubmit={onSubmit} className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-8">
             <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
-              <h2 className="mb-4 text-base font-semibold">
-                {dict.checkout.contact}
-              </h2>
+              <h2 className="mb-4 text-base font-semibold">{dict.checkout.contact}</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2 space-y-2">
                   <Label htmlFor="email">
-                    {dict.checkout.email} <span className="text-accent">*</span>
+                    {review.email} <span className="text-accent">*</span>
                   </Label>
                   <Input
                     id="email"
@@ -442,6 +539,53 @@ function CheckoutPage() {
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
+                <fieldset
+                  className="sm:col-span-2 space-y-3"
+                  lang={locale}
+                  dir={locale === "ar" ? "rtl" : undefined}
+                >
+                  <legend className="mb-2 text-sm font-semibold">{review.contact}</legend>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="contactMethod"
+                      checked={contactMethod === "instagram"}
+                      onChange={() => setContactMethod("instagram")}
+                      className="mt-1"
+                    />
+                    <span>{review.instagram}</span>
+                  </label>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="contactMethod"
+                      checked={contactMethod === "email"}
+                      onChange={() => setContactMethod("email")}
+                      className="mt-1"
+                    />
+                    <span>{review.emailOption}</span>
+                  </label>
+                  {contactMethod === "instagram" ? (
+                    <Input
+                      id="instagram"
+                      name="instagram"
+                      aria-label={review.instagram}
+                      required
+                      value={instagram}
+                      onChange={(e) => setInstagram(e.target.value)}
+                      placeholder="@your_username"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      maxLength={31}
+                      pattern="@?[A-Za-z0-9._]{1,30}"
+                      aria-describedby="instagram-help"
+                    />
+                  ) : null}
+                  <p id="instagram-help" className="text-xs leading-relaxed text-muted">
+                    {review.contactHelp}
+                  </p>
+                </fieldset>
                 <div className="sm:col-span-2 space-y-2">
                   <Label htmlFor="phone">
                     {dict.checkout.phone} <span className="text-accent">*</span>
@@ -488,9 +632,7 @@ function CheckoutPage() {
             </section>
 
             <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
-              <h2 className="mb-4 text-base font-semibold">
-                {dict.checkout.shipping}
-              </h2>
+              <h2 className="mb-4 text-base font-semibold">{dict.checkout.shipping}</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">
@@ -611,9 +753,7 @@ function CheckoutPage() {
                     required
                   >
                     {!country ? (
-                      <option value="">
-                        {locale === "ko" ? "국가 선택" : "Select country"}
-                      </option>
+                      <option value="">{locale === "ko" ? "국가 선택" : "Select country"}</option>
                     ) : null}
                     {COUNTRIES.map((c) => (
                       <option key={c.code} value={c.code}>
@@ -622,25 +762,21 @@ function CheckoutPage() {
                     ))}
                   </select>
                 </div>
-                <div className="sm:col-span-2 space-y-2 rounded-xl border border-border bg-surface-muted/60 px-4 py-3">
-                  <p className="text-sm font-medium">{copy.autoShip}</p>
-                  <p className="text-xs text-muted">
-                    {copy.makeDays} {quote.days} {copy.days}
-                  </p>
-                  <p className="text-xs text-muted">{copy.production}</p>
+                <div
+                  className="sm:col-span-2 space-y-3 rounded-xl border border-border bg-surface-muted/60 px-4 py-3"
+                  lang={locale}
+                >
+                  <p className="text-sm">{isDomestic ? copy.freeKr : review.shipping}</p>
+                  <p className="text-xs leading-relaxed text-muted">{review.production}</p>
                   {!isDomestic ? (
-                    <p className="text-xs text-muted">
-                      {copy.dutyTitle}. {copy.dutyBody} {dict.checkout.noPobox}
-                    </p>
+                    <p className="text-xs leading-relaxed text-muted">{dutyText}</p>
                   ) : null}
                 </div>
               </div>
             </section>
 
             <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
-              <h2 className="mb-4 text-base font-semibold">
-                {dict.checkout.payment}
-              </h2>
+              <h2 className="mb-4 text-base font-semibold">{dict.checkout.payment}</h2>
               {isDomestic ? (
                 <p className="text-sm leading-relaxed text-muted">
                   {locale === "ko"
@@ -649,67 +785,48 @@ function CheckoutPage() {
                 </p>
               ) : (
                 <>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {payOptions.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setPay(opt.id)}
-                    className={cn(
-                      "h-12 rounded-xl border px-4 text-sm font-semibold transition",
-                      pay === opt.id
-                        ? "border-fg bg-fg text-primary-fg"
-                        : "border-border bg-surface-muted text-fg hover:border-border-strong",
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              {pay === "transfer" ? (
-                <BankBox
-                  locale={locale}
-                  domestic={isDomestic}
-                  pay={paySettings}
-                  amount={isKrw ? fmtKrw(totalKrw) : formatMoney(totalUsd, currency)}
-                  depositor={depositor}
-                  onDepositor={setDepositor}
-                />
-              ) : null}
-              <ul className="mt-4 space-y-1.5 text-xs leading-relaxed text-muted">
-                <li>Prices are in USD.</li>
-                <li>Shipping is calculated and shown in the order summary.</li>
-                <li>Import duties and VAT in the destination country are paid by the recipient (DAP).</li>
-                <li>{dict.checkout.noPobox}</li>
-              </ul>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {payOptions.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setPay(opt.id)}
+                        className={cn(
+                          "h-12 rounded-xl border px-4 text-sm font-semibold transition",
+                          pay === opt.id
+                            ? "border-fg bg-fg text-primary-fg"
+                            : "border-border bg-surface-muted text-fg hover:border-border-strong",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  {pay === "transfer" ? (
+                    <BankBox
+                      locale={locale}
+                      domestic={isDomestic}
+                      pay={paySettings}
+                      amount={isKrw ? fmtKrw(totalKrw) : formatMoney(totalUsd, currency)}
+                      depositor={depositor}
+                      onDepositor={setDepositor}
+                    />
+                  ) : null}
+                  <p className="mt-4 text-xs text-muted">{review.price}</p>
                 </>
               )}
             </section>
           </div>
 
           <aside className="h-fit rounded-3xl border border-border bg-surface p-5 sm:p-6 lg:sticky lg:top-24">
-            <h2 className="mb-4 text-base font-semibold">
-              {dict.checkout.summary}
-            </h2>
-            {cart.some((i) => i.partNames || i.partColors) ? (
-              <div className="mb-5 overflow-hidden rounded-2xl border border-border bg-[#111]">
-                <div className="aspect-square w-full">
-                  <DesignThumb
-                    item={
-                      cart.find((i) => i.partNames || i.partColors) ?? cart[0]
-                    }
-                    className="h-full w-full"
-                  />
-                </div>
-              </div>
-            ) : null}
+            <h2 className="mb-4 text-base font-semibold">{dict.checkout.summary}</h2>
             <div className="space-y-3">
               {cart.map((item) => {
                 const product = getProduct(item.productId);
                 if (!product) return null;
                 return (
                   <div
-                    key={`${item.productId}-${item.size ?? ""}-${item.sizeFit ?? ""}-${item.color ?? ""}`}
+                    key={`${item.productId}-${item.size}-${item.optionKey}-${item.sizeFit}-${designKey(item.partNames)}`}
                     className="flex gap-3"
                   >
                     <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-[#111]">
@@ -770,13 +887,19 @@ function CheckoutPage() {
               <div className="flex justify-between">
                 <span className="text-muted">{dict.cart.shipping}</span>
                 <span className="price-num">
-                  {quote.free
+                  {!country
                     ? locale === "ko"
-                      ? "무료"
-                      : "Free"
-                    : isKrw
-                      ? fmtKrw(shippingKrw)
-                      : formatMoney(shippingUsd, currency)}
+                      ? "배송 국가 선택 후 계산"
+                      : "Select a shipping country"
+                    : !quote.available
+                      ? review.unavailable
+                      : quote.free
+                        ? locale === "ko"
+                          ? "무료"
+                          : "Free"
+                        : isKrw
+                          ? fmtKrw(shippingKrw)
+                          : formatMoney(shippingUsd, currency)}
                 </span>
               </div>
               {isDomestic ? (
@@ -785,36 +908,157 @@ function CheckoutPage() {
                 </p>
               ) : null}
               {!isDomestic ? (
-                <p className="text-xs leading-relaxed text-muted">
-                  <span className="font-medium text-fg">{copy.dutyTitle}. </span>
-                  {copy.dutyBody}
-                </p>
+                <p className="text-xs leading-relaxed text-muted">{review.notIncluded}</p>
               ) : null}
               <div className="flex justify-between border-t border-border pt-3 text-base font-semibold">
                 <span>{dict.cart.total}</span>
                 <span className="price-num">
-                  {isKrw ? fmtKrw(totalKrw) : formatMoney(totalUsd, currency)}
+                  {!country || !quote.available
+                    ? "—"
+                    : isKrw
+                      ? fmtKrw(totalKrw)
+                      : formatMoney(totalUsd, currency)}
                 </span>
               </div>
             </div>
 
-            {!isDomestic && pay === "paypal" ? (
+            {!isDomestic && !pendingOrder ? (
+              <section
+                className="mt-6 space-y-4 border-t border-border pt-5"
+                lang={locale}
+                dir={locale === "ar" ? "rtl" : undefined}
+              >
+                <h3 className="text-lg font-semibold">{review.title}</h3>
+                {customItems.length ? (
+                  <>
+                    <h4 className="font-medium">{review.designTitle}</h4>
+                    <p className="text-sm leading-relaxed text-muted">{review.design}</p>
+                    {!validDesigns ? (
+                      <div role="alert" className="rounded border border-red-400 p-3 text-sm">
+                        <p>{review.missing}</p>
+                        <Link to="/customize" className="mt-2 block underline">
+                          {review.simulator}
+                        </Link>
+                      </div>
+                    ) : null}
+                    {validDesigns && !previewsReady ? (
+                      <div role="status" className="text-sm">
+                        <p>{previewFailed ? review.imageError : review.loading}</p>
+                        {previewFailed ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setPreviewAttempt((n) => n + 1)}
+                          >
+                            {review.retry}
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {customItems.map((item, i) => (
+                      <figure
+                        key={`${i}-${designKey(item.partNames)}`}
+                        className="overflow-hidden rounded-xl border border-border"
+                      >
+                        {designPreviews[designKey(item.partNames)] ? (
+                          <img
+                            src={designPreviews[designKey(item.partNames)]}
+                            alt={review.designTitle}
+                            className="aspect-square w-full object-contain"
+                          />
+                        ) : null}
+                        <figcaption className="space-y-2 p-3 text-sm">
+                          <p className="font-semibold">
+                            {formatCartSize(item, locale)} · {dict.cart.qty} {item.qty}
+                          </p>
+                          <p className="text-xs leading-relaxed">
+                            {Object.entries(item.partNames ?? {})
+                              .map(([part, color]) => `${part.toUpperCase()}: ${color}`)
+                              .join(" · ")}
+                          </p>
+                        </figcaption>
+                      </figure>
+                    ))}
+                  </>
+                ) : null}
+                <p className="text-sm leading-relaxed">{review.shipping}</p>
+                <p className="rounded-xl border border-amber-500/40 p-3 text-sm leading-relaxed">
+                  {dutyText}
+                </p>
+                <p className="text-sm leading-relaxed text-muted">{review.production}</p>
+                {!quote.available && country ? (
+                  <p role="alert" className="text-sm text-red-600">
+                    {review.unavailable}{" "}
+                    <a
+                      href="https://www.instagram.com/jidokaan/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      {review.contactLink}
+                    </a>
+                  </p>
+                ) : null}
+                <label className="flex items-start gap-3 rounded-xl bg-surface-muted p-4 text-sm leading-relaxed">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={termsAccepted}
+                    disabled={!previewsReady || !quote.available}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-1 size-4 shrink-0"
+                  />
+                  <span>{review.agree}</span>
+                </label>
+              </section>
+            ) : null}
+
+            {orderError ? (
+              <p
+                role="alert"
+                className="mt-4 rounded border border-red-400 p-3 text-sm text-red-600"
+              >
+                {orderError}
+              </p>
+            ) : null}
+            {pendingOrder ? (
+              <div className="mt-4 rounded border border-amber-500 p-4">
+                <p className="text-sm">
+                  {locale === "ko"
+                    ? "PayPal 결제 결과와 주문 저장 확인이 필요합니다. 추가 결제를 하지 마세요."
+                    : "Your PayPal payment and order need confirmation. Do not make another payment."}
+                </p>
+                <p className="mt-2 break-all text-xs">
+                  PayPal Order ID: {String(pendingOrder.paypalOrderId ?? "")}
+                </p>
+                <Button
+                  className="mt-3"
+                  type="button"
+                  disabled={placing}
+                  onClick={() => void saveOrderPayload(pendingOrder)}
+                >
+                  {locale === "ko"
+                    ? "주문 저장 재시도 (추가 결제 없음)"
+                    : "Retry saving order (no extra payment)"}
+                </Button>
+              </div>
+            ) : null}
+            {!isDomestic && pay === "paypal" && !pendingOrder ? (
               <div className="mt-6">
                 <PaypalButtons
                   valueUsd={(totalUsd / 100).toFixed(2)}
-                  disabled={placing}
+                  disabled={placing || !canPay}
+                  locale={locale}
                   onPaid={(orderID) => placeStoreOrder(orderID)}
+                  getOrder={() => buildOrderPayload()}
+                  onPending={markPending}
+                  onSaved={finishOrder}
                 />
               </div>
-            ) : !isDomestic ? (
-            <Button
-              type="submit"
-              size="lg"
-              className="mt-6 w-full"
-              disabled={placing}
-            >
-              {placing ? dict.checkout.placing : dict.checkout.placeOrder}
-            </Button>
+            ) : !isDomestic && !pendingOrder ? (
+              <Button type="submit" size="lg" className="mt-6 w-full" disabled={placing || !canPay}>
+                {placing ? dict.checkout.placing : dict.checkout.placeOrder}
+              </Button>
             ) : null}
             <p className="mt-3 text-center text-xs text-subtle">jidokaan.com</p>
             <IgHelp className="mt-3 text-center text-sm text-muted" />
@@ -835,17 +1079,19 @@ function BankBox({
 }: {
   locale: string;
   domestic: boolean;
-  pay: {
-    krBank?: string;
-    krAccount?: string;
-    krHolder?: string;
-    krMemo?: string;
-    intlBank?: string;
-    intlAccount?: string;
-    intlSwift?: string;
-    intlHolder?: string;
-    intlPaypal?: string;
-  } | undefined;
+  pay:
+    | {
+        krBank?: string;
+        krAccount?: string;
+        krHolder?: string;
+        krMemo?: string;
+        intlBank?: string;
+        intlAccount?: string;
+        intlSwift?: string;
+        intlHolder?: string;
+        intlPaypal?: string;
+      }
+    | undefined;
   amount: string;
   depositor: string;
   onDepositor: (v: string) => void;
@@ -862,26 +1108,48 @@ function BankBox({
       {ready ? (
         domestic ? (
           <ul className="space-y-1 text-muted">
-            <li>{ko ? "은행" : "Bank"}: <b className="text-fg">{pay?.krBank}</b></li>
-            <li>{ko ? "계좌" : "Account"}: <b className="text-fg">{pay?.krAccount}</b></li>
-            <li>{ko ? "예금주" : "Holder"}: <b className="text-fg">{pay?.krHolder}</b></li>
+            <li>
+              {ko ? "은행" : "Bank"}: <b className="text-fg">{pay?.krBank}</b>
+            </li>
+            <li>
+              {ko ? "계좌" : "Account"}: <b className="text-fg">{pay?.krAccount}</b>
+            </li>
+            <li>
+              {ko ? "예금주" : "Holder"}: <b className="text-fg">{pay?.krHolder}</b>
+            </li>
             {pay?.krMemo ? (
-              <li>
-                {pay.krMemo.includes("주문번호")
-                  ? "주문자명으로 입금해 주세요"
-                  : pay.krMemo}
-              </li>
+              <li>{pay.krMemo.includes("주문번호") ? "주문자명으로 입금해 주세요" : pay.krMemo}</li>
             ) : (
               <li>{ko ? "주문자명으로 입금해 주세요" : "Transfer under the orderer's name"}</li>
             )}
           </ul>
         ) : (
           <ul className="space-y-1 text-muted">
-            {pay?.intlBank ? <li>Bank: <b className="text-fg">{pay.intlBank}</b></li> : null}
-            {pay?.intlAccount ? <li>Account / IBAN: <b className="text-fg">{pay.intlAccount}</b></li> : null}
-            {pay?.intlSwift ? <li>SWIFT: <b className="text-fg">{pay.intlSwift}</b></li> : null}
-            {pay?.intlHolder ? <li>Name: <b className="text-fg">{pay.intlHolder}</b></li> : null}
-            {pay?.intlPaypal ? <li>PayPal: <b className="text-fg">{pay.intlPaypal}</b></li> : null}
+            {pay?.intlBank ? (
+              <li>
+                Bank: <b className="text-fg">{pay.intlBank}</b>
+              </li>
+            ) : null}
+            {pay?.intlAccount ? (
+              <li>
+                Account / IBAN: <b className="text-fg">{pay.intlAccount}</b>
+              </li>
+            ) : null}
+            {pay?.intlSwift ? (
+              <li>
+                SWIFT: <b className="text-fg">{pay.intlSwift}</b>
+              </li>
+            ) : null}
+            {pay?.intlHolder ? (
+              <li>
+                Name: <b className="text-fg">{pay.intlHolder}</b>
+              </li>
+            ) : null}
+            {pay?.intlPaypal ? (
+              <li>
+                PayPal: <b className="text-fg">{pay.intlPaypal}</b>
+              </li>
+            ) : null}
           </ul>
         )
       ) : (
@@ -913,17 +1181,32 @@ type PaypalButtonsApi = {
 };
 
 function PaypalButtons({
+  locale,
   valueUsd,
   disabled,
   onPaid,
+  getOrder,
+  onPending,
+  onSaved,
 }: {
+  locale: string;
   valueUsd: string;
   disabled: boolean;
   onPaid: (orderID: string) => Promise<void>;
+  getOrder: () => Record<string, unknown> | undefined;
+  onPending: (payload: Record<string, unknown>) => void;
+  onSaved: (order: StoreOrder) => void;
 }) {
+  const review = checkoutCopy(locale);
+  const copyRef = useRef(review);
+  copyRef.current = review;
   const slot = useRef<HTMLDivElement>(null);
   const paidRef = useRef(onPaid);
   paidRef.current = onPaid;
+  const callbacks = useRef({ getOrder, onPending, onSaved });
+  callbacks.current = { getOrder, onPending, onSaved };
+  const submitted = useRef<Record<string, unknown> | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [clientId, setClientId] = useState("");
   const [ready, setReady] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -934,7 +1217,8 @@ function PaypalButtons({
       .then((d: { enabled?: boolean; clientId?: string }) => {
         if (d.enabled && d.clientId) setClientId(d.clientId);
       })
-      .catch(() => setErr("PayPal"));
+      .catch(() => setErr(copyRef.current.paymentUnavailable))
+      .finally(() => setLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -954,13 +1238,16 @@ function PaypalButtons({
     script.async = true;
     script.dataset.jidokaanPaypal = "1";
     script.onload = () => setReady(true);
-    script.onerror = () => setErr("PayPal SDK");
+    script.onerror = () => setErr(copyRef.current.paymentUnavailable);
     document.body.appendChild(script);
   }, [clientId]);
 
   useEffect(() => {
     const w = window as Window & { paypal?: PaypalButtonsApi };
-    if (!ready || !w.paypal || !slot.current || disabled) return;
+    if (!ready || !w.paypal || !slot.current || disabled) {
+      if (slot.current) slot.current.innerHTML = "";
+      return;
+    }
     const host = slot.current;
     host.innerHTML = "";
     const buttons = w.paypal.Buttons({
@@ -968,25 +1255,35 @@ function PaypalButtons({
       createOrder: async () => {
         const form = host.closest("form");
         if (form && !form.reportValidity()) throw new Error("form");
+        const order = callbacks.current.getOrder();
+        if (!order) throw new Error(copyRef.current.confirmError);
+        submitted.current = order;
         const res = await fetch("/api/paypal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "create", value: valueUsd }),
+          body: JSON.stringify({ action: "create", value: valueUsd, order }),
         });
-        const data = (await res.json()) as { id?: string };
-        if (!data.id) throw new Error("create");
+        const data = (await res.json()) as { id?: string; error?: string };
+        if (!res.ok || !data.id) {
+          setErr(copyRef.current.refresh);
+          throw new Error("create");
+        }
         return data.id;
       },
       onApprove: async (data: { orderID: string }) => {
+        if (submitted.current)
+          callbacks.current.onPending({ ...submitted.current, paypalOrderId: data.orderID });
         const res = await fetch("/api/paypal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "capture", orderID: data.orderID }),
         });
         if (!res.ok) throw new Error("capture");
-        await paidRef.current(data.orderID);
+        const result = (await res.json()) as { order?: StoreOrder };
+        if (result.order?.id) callbacks.current.onSaved(result.order);
+        else await paidRef.current(data.orderID);
       },
-      onError: () => setErr("PayPal"),
+      onError: () => setErr((current) => current || copyRef.current.paymentError),
     });
     void buttons.render(host);
     return () => {
@@ -1001,7 +1298,7 @@ function PaypalButtons({
   if (!clientId) {
     return (
       <p className="text-sm text-muted">
-        PayPal is not configured. Use bank transfer or add PAYPAL_CLIENT_ID on the server.
+        {loaded ? review.paymentUnavailable : review.paymentLoading}
       </p>
     );
   }

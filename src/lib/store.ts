@@ -1,3 +1,4 @@
+import { designKey } from "./design-order";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Currency, Locale } from "@/lib/i18n";
@@ -84,12 +85,14 @@ type StoreState = {
     size?: string,
     optionKey?: string,
     sizeFit?: SizeFit,
+    partNames?: PartColorNames,
   ) => void;
   removeFromCart: (
     productId: string,
     size?: string,
     optionKey?: string,
     sizeFit?: SizeFit,
+    partNames?: PartColorNames,
   ) => void;
   clearCart: () => void;
   cartCount: () => number;
@@ -103,8 +106,9 @@ function itemKey(
   size?: string,
   optionKey?: string,
   sizeFit?: string,
+  partNames?: PartColorNames,
 ) {
-  return `${productId}::${size ?? ""}::${optionKey ?? ""}::${sizeFit ?? ""}`;
+  return `${productId}::${size ?? ""}::${optionKey ?? ""}::${sizeFit ?? ""}::${designKey(partNames)}`;
 }
 
 export const useStore = create<StoreState>()(
@@ -120,8 +124,7 @@ export const useStore = create<StoreState>()(
       draftSize: "265",
       draftFit: "men" as SizeFit,
       setLocale: (locale) => set({ locale, localePicked: true }),
-      setCurrency: (currency) =>
-        set({ currency: currency === "KRW" ? "KRW" : "USD" }),
+      setCurrency: (currency) => set({ currency: currency === "KRW" ? "KRW" : "USD" }),
       applyMarket: (locale, currency, picked = true) =>
         set({
           locale,
@@ -173,14 +176,15 @@ export const useStore = create<StoreState>()(
             itemOpts.size,
             itemOpts.optionKey,
             itemOpts.sizeFit,
+            itemOpts.partNames,
           );
           const existing = state.cart.find(
-            (i) => itemKey(i.productId, i.size, i.optionKey, i.sizeFit) === key,
+            (i) => itemKey(i.productId, i.size, i.optionKey, i.sizeFit, i.partNames) === key,
           );
           if (existing) {
             return {
               cart: state.cart.map((i) =>
-                itemKey(i.productId, i.size, i.optionKey, i.sizeFit) === key
+                itemKey(i.productId, i.size, i.optionKey, i.sizeFit, i.partNames) === key
                   ? {
                       ...i,
                       qty: i.qty + qty,
@@ -205,8 +209,7 @@ export const useStore = create<StoreState>()(
         });
       },
       addCustomBoot: (qty = 1, openCart = true) => {
-        const { draftParts, draftPartNames, draftSize, draftFit, addToCart } =
-          get();
+        const { draftParts, draftPartNames, draftSize, draftFit, addToCart } = get();
         const linked = linkedLColor(
           draftPartNames.d,
           draftParts.d,
@@ -224,26 +227,26 @@ export const useStore = create<StoreState>()(
           openCart,
         });
       },
-      setQty: (productId, qty, size, optionKey, sizeFit) => {
+      setQty: (productId, qty, size, optionKey, sizeFit, partNames) => {
         if (qty <= 0) {
-          get().removeFromCart(productId, size, optionKey, sizeFit);
+          get().removeFromCart(productId, size, optionKey, sizeFit, partNames);
           return;
         }
         set((state) => ({
           cart: state.cart.map((i) =>
-            itemKey(i.productId, i.size, i.optionKey, i.sizeFit) ===
-            itemKey(productId, size, optionKey, sizeFit)
+            itemKey(i.productId, i.size, i.optionKey, i.sizeFit, i.partNames) ===
+            itemKey(productId, size, optionKey, sizeFit, partNames)
               ? { ...i, qty }
               : i,
           ),
         }));
       },
-      removeFromCart: (productId, size, optionKey, sizeFit) =>
+      removeFromCart: (productId, size, optionKey, sizeFit, partNames) =>
         set((state) => ({
           cart: state.cart.filter(
             (i) =>
-              itemKey(i.productId, i.size, i.optionKey, i.sizeFit) !==
-              itemKey(productId, size, optionKey, sizeFit),
+              itemKey(i.productId, i.size, i.optionKey, i.sizeFit, i.partNames) !==
+              itemKey(productId, size, optionKey, sizeFit, partNames),
           ),
         })),
       clearCart: () => set({ cart: [] }),
@@ -280,22 +283,19 @@ export const useStore = create<StoreState>()(
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<StoreState>;
-        const parts =
-          p.draftParts && typeof p.draftParts === "object" ? p.draftParts : {};
+        const parts = p.draftParts && typeof p.draftParts === "object" ? p.draftParts : {};
         const names =
-          p.draftPartNames && typeof p.draftPartNames === "object"
-            ? p.draftPartNames
-            : {};
+          p.draftPartNames && typeof p.draftPartNames === "object" ? p.draftPartNames : {};
         return {
           ...current,
           ...p,
-          locale: p.locale === "ar" ? "en" : p.locale ?? current.locale,
+          locale: p.locale === "ar" ? "en" : (p.locale ?? current.locale),
           currency:
             p.locale === "ar"
               ? "USD"
               : p.currency === "KRW"
                 ? "KRW"
-                : p.currency ?? current.currency,
+                : (p.currency ?? current.currency),
           draftParts: { ...defaultPartColors(), ...parts },
           draftPartNames: { ...defaultPartNames(), ...names },
           draftFit: p.draftFit === "women" ? "women" : "men",

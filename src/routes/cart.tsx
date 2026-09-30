@@ -49,19 +49,15 @@ function CartPage() {
                 const product =
                   catalog.products.find((p) => p.id === item.productId) ??
                   getProduct(item.productId);
-                const name = product
-                  ? productDisplayName(product, locale)
-                  : item.productId;
+                const name = product ? productDisplayName(product, locale) : item.productId;
                 return (
                   <li
-                    key={`${item.productId}-${item.size ?? ""}-${item.optionKey ?? ""}`}
+                    key={`${item.productId}-${item.size}-${item.optionKey}-${item.sizeFit}-${JSON.stringify(item.partNames)}`}
                     className="flex justify-between gap-4 rounded-2xl border border-border bg-surface p-4"
                   >
                     <div>
                       <p className="font-medium">{name}</p>
-                      {item.size ? (
-                        <p className="text-sm text-muted">{item.size}</p>
-                      ) : null}
+                      {item.size ? <p className="text-sm text-muted">{item.size}</p> : null}
                       <p className="mt-1 text-sm text-muted">
                         {dict.cart.qty} {item.qty}
                       </p>
@@ -84,8 +80,8 @@ function CartPage() {
                 <KrOrderPanel
                   naverUrl={(() => {
                     const p = cart[0]
-                      ? catalog.products.find((x) => x.id === cart[0].productId) ??
-                        getProduct(cart[0].productId)
+                      ? (catalog.products.find((x) => x.id === cart[0].productId) ??
+                        getProduct(cart[0].productId))
                       : undefined;
                     return p ? naverProductUrl(p) : SMARTSTORE_HOME;
                   })()}

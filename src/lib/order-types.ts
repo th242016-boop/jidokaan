@@ -1,18 +1,12 @@
 export type OrderStatus =
-  | "wait"
-  | "paid"
-  | "ready"
-  | "shipped"
-  | "done"
-  | "confirmed"
-  | "cancel"
-  | "return"
-  | "exchange";
+  "wait" | "paid" | "ready" | "shipped" | "done" | "confirmed" | "cancel" | "return" | "exchange";
 
 export function isCancelledOrder(order: { status?: string; claim?: string } | null | undefined) {
   const status = String(order?.status ?? "").toLowerCase();
   const claim = String(order?.claim ?? "").toLowerCase();
-  return status === "cancel" || status === "cancelled" || status === "canceled" || claim === "cancel";
+  return (
+    status === "cancel" || status === "cancelled" || status === "canceled" || claim === "cancel"
+  );
 }
 
 export type ClaimKind = "cancel" | "return" | "exchange";
@@ -23,6 +17,15 @@ export type OrderItem = {
   name: string;
   qty: number;
   size?: string;
+  sizeFit?: string;
+  optionKey?: string;
+  optionLabel?: string;
+  color?: string;
+  designPreview?: string;
+  designVersion?: string;
+  designKey?: string;
+  partNames?: Record<string, string>;
+  partColors?: Record<string, string>;
   priceKrw: number;
   priceUsd: number;
 };
@@ -32,6 +35,19 @@ export type StoreOrder = {
   createdAt: string;
   email: string;
   phone: string;
+  instagram?: string;
+  contactMethod?: "instagram" | "email";
+  checkoutLocale?: string;
+  termsVersion?: string;
+  termsAccepted?: boolean;
+  termsAcceptedAt?: string;
+  acknowledgedTerms?: {
+    shipping: string;
+    duty: string;
+    design: string;
+    production: string;
+    agree: string;
+  };
   name: string;
   address: string;
   city: string;
@@ -39,8 +55,24 @@ export type StoreOrder = {
   postal: string;
   country: string;
   pay: string;
+  paypalOrderId?: string;
+  paypalCaptureId?: string;
+  paypalGrossUsd?: number;
+  paypalFeeUsd?: number;
+  paypalNetUsd?: number;
+  paypalShipping?: {
+    name?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    region?: string;
+    postal?: string;
+    country?: string;
+  };
   depositor?: string;
   shipMethod: string;
+  shippingBasis?: string;
+  dutyTerms?: "DAP" | "DESTINATION_RULES" | "PREPAID_BEFORE_DISPATCH";
   shippingKrw: number;
   shippingUsd: number;
   totalKrw: number;
@@ -140,4 +172,10 @@ export function isPendingClaim(order: StoreOrder, kind?: ClaimKind) {
   if (order.claimStatus === "requested") return true;
   if (!order.claimStatus && order.status !== order.claim) return true;
   return false;
+}
+
+/** Public order projection; never expose merchant-only notes/settlement data. */
+export function customerOrder(order: StoreOrder): StoreOrder {
+  const { note, paypalFeeUsd, paypalNetUsd, ...publicOrder } = order;
+  return publicOrder;
 }
