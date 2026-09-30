@@ -23,8 +23,8 @@ function PrivacyPage() {
         <h1 className="text-3xl font-semibold">{dict.footer.privacy}</h1>
         <p className="mt-4 max-w-2xl text-muted">
           {ko
-            ? "주문·상담에 필요한 이름, 연락처, 배송지, 결제 정보를 수집합니다. 선택 입력한 인스타그램 아이디는 주문과 제작 사양 확인을 위한 연락에 사용합니다. 배송·CS 외 목적으로 넘기지 않습니다."
-            : "We collect name, contact, shipping, and payment details needed to fulfill orders and support. An optional Instagram username is used to contact you about your order and custom design. We do not share these details for other purposes."}
+            ? "주문·상담에 필요한 이름, 연락처, 배송지, 결제 정보를 수집합니다. 인스타그램 또는 이메일 중 선택한 연락 방법으로 주문·제작 사양·배송 안내를 드립니다. 배송·CS 외 목적으로 넘기지 않습니다."
+            : "We collect name, contact, shipping, and payment details needed to fulfill orders and support. Your selected contact method (Instagram or email) is used for order, design and shipping communication. We do not share these details for other purposes."}
         </p>
         <CompanyBlock title={ko ? "사업자 정보" : "Company"} rows={company} />
         <CompanyBlock title={ko ? "상담" : "Support"} rows={support} />

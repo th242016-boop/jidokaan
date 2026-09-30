@@ -1,3 +1,13 @@
+import {
+  completeDesign,
+  designColors,
+  designKey,
+  validDesignPreview,
+  DESIGN_VERSION,
+  ORDER_TERMS_VERSION,
+} from "./design-order";
+import { checkoutCopy, CHECKOUT_COPY } from "./checkout-copy";
+import { EMS_BOX } from "./ems-rates";
 import { readCatalog, isBlockedEmail } from "./catalog.server";
 import { countOrdersByEmail } from "./orders.server";
 import { couponDiscount, couponRejectReason, findCoupon } from "./coupon";
@@ -29,6 +39,16 @@ export async function quoteCheckout(raw: Partial<StoreOrder>): Promise<CheckoutI
   if (["US", "CA", "AU", "MX", "CN", "IN", "BR", "JP"].includes(country) && !clean(raw.region))
     throw new Error("REGION_REQUIRED");
   if (country !== "AE" && !clean(raw.postal)) throw new Error("POSTAL_REQUIRED");
+  const instagram = raw.contactMethod === "email" ? "" : normalizeInstagram(raw.instagram);
+  const contactMethod = raw.contactMethod;
+  if (contactMethod !== "instagram" && contactMethod !== "email")
+    throw new Error("CONTACT_REQUIRED");
+  if (contactMethod === "instagram" && !instagram) throw new Error("CONTACT_REQUIRED");
+  if (raw.termsAccepted !== true || raw.termsVersion !== ORDER_TERMS_VERSION)
+    throw new Error("TERMS_REQUIRED");
+  const checkoutLocale = String(raw.checkoutLocale ?? "en");
+  if (!Object.hasOwn(CHECKOUT_COPY, checkoutLocale)) throw new Error("LOCALE_INVALID");
+  const copy = checkoutCopy(checkoutLocale);
   const catalog = await readCatalog();
   if (await isBlockedEmail(email)) throw new Error("BLOCKED");
   if (!Array.isArray(raw.items) || !raw.items.length || raw.items.length > 30)
@@ -51,6 +71,15 @@ export async function quoteCheckout(raw: Partial<StoreOrder>): Promise<CheckoutI
         )
       : undefined;
     if (product.options?.enabled && !sku) throw new Error("OPTION_UNAVAILABLE");
+    const design = product.customizable ? completeDesign(item.partNames) : null;
+    if (
+      product.customizable &&
+      (!design ||
+        !validDesignPreview(item.designPreview) ||
+        item.designVersion !== DESIGN_VERSION ||
+        item.designKey !== designKey(design))
+    )
+      throw new Error("DESIGN_REQUIRED");
     const names = (value: unknown) =>
       value && typeof value === "object" && !Array.isArray(value)
         ? Object.fromEntries(
@@ -68,8 +97,15 @@ export async function quoteCheckout(raw: Partial<StoreOrder>): Promise<CheckoutI
       optionKey: sku?.key,
       optionLabel: sku?.key,
       color: clean(item.color, 64),
-      partNames: names(item.partNames),
-      partColors: names(item.partColors),
+      partNames: design ?? names(item.partNames),
+      partColors: design ? designColors(design) : names(item.partColors),
+      ...(design
+        ? {
+            designPreview: item.designPreview,
+            designVersion: DESIGN_VERSION,
+            designKey: designKey(design),
+          }
+        : {}),
       priceKrw: product.priceKrw + (sku?.extraKrw ?? 0),
       priceUsd: (product.priceUsd + (sku?.extraUsd ?? 0)) / 100,
     };
@@ -98,9 +134,22 @@ export async function quoteCheckout(raw: Partial<StoreOrder>): Promise<CheckoutI
     qty,
     settings: catalog.shipping,
   });
+  if (!shipping.available) throw new Error("SHIPPING_QUOTE_REQUIRED");
   return {
     email,
-    instagram: normalizeInstagram(raw.instagram),
+    contactMethod,
+    checkoutLocale,
+    termsVersion: ORDER_TERMS_VERSION,
+    termsAccepted: true,
+    termsAcceptedAt: new Date().toISOString(),
+    acknowledgedTerms: {
+      shipping: copy.shipping,
+      duty: country === "US" ? copy.usDuty : copy.duty,
+      design: copy.design,
+      production: copy.production,
+      agree: copy.agree,
+    },
+    instagram: contactMethod === "instagram" ? instagram : "",
     name: clean(raw.name, 80),
     phone: clean(raw.phone, 40),
     address: clean(raw.address),
@@ -113,10 +162,8 @@ export async function quoteCheckout(raw: Partial<StoreOrder>): Promise<CheckoutI
     shipMethod: "standard",
     shippingKrw: shipping.krw,
     shippingUsd: shipping.usd,
-    shippingBasis: catalog.shipping.countryRates?.[country]
-      ? `국가별 요금 (${country})`
-      : `권역별 요금 (${zoneForCountry(country)})`,
-    dutyTerms: "DAP",
+    shippingBasis: `우체국 EMS · ${country} · ${EMS_BOX.widthMm}×${EMS_BOX.depthMm}×${EMS_BOX.heightMm}mm · ${EMS_BOX.billableKg}kg 구간 · 1켤레 1상자 · 환산 ${catalog.shipping.exchangeKrwPerUsd}원/USD · ${catalog.shipping.countryRates?.[country]?.note ?? ""}`,
+    dutyTerms: country === "US" ? "PREPAID_BEFORE_DISPATCH" : "DESTINATION_RULES",
     totalKrw: subtotalKrw - discountKrw + shipping.krw,
     totalUsd: (subtotalCents - discountCents) / 100 + shipping.usd,
     currency: "USD",

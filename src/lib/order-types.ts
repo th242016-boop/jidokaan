@@ -21,6 +21,9 @@ export type OrderItem = {
   optionKey?: string;
   optionLabel?: string;
   color?: string;
+  designPreview?: string;
+  designVersion?: string;
+  designKey?: string;
   partNames?: Record<string, string>;
   partColors?: Record<string, string>;
   priceKrw: number;
@@ -33,6 +36,18 @@ export type StoreOrder = {
   email: string;
   phone: string;
   instagram?: string;
+  contactMethod?: "instagram" | "email";
+  checkoutLocale?: string;
+  termsVersion?: string;
+  termsAccepted?: boolean;
+  termsAcceptedAt?: string;
+  acknowledgedTerms?: {
+    shipping: string;
+    duty: string;
+    design: string;
+    production: string;
+    agree: string;
+  };
   name: string;
   address: string;
   city: string;
@@ -57,7 +72,7 @@ export type StoreOrder = {
   depositor?: string;
   shipMethod: string;
   shippingBasis?: string;
-  dutyTerms?: "DAP";
+  dutyTerms?: "DAP" | "DESTINATION_RULES" | "PREPAID_BEFORE_DISPATCH";
   shippingKrw: number;
   shippingUsd: number;
   totalKrw: number;
@@ -157,4 +172,10 @@ export function isPendingClaim(order: StoreOrder, kind?: ClaimKind) {
   if (order.claimStatus === "requested") return true;
   if (!order.claimStatus && order.status !== order.claim) return true;
   return false;
+}
+
+/** Public order projection; never expose merchant-only notes/settlement data. */
+export function customerOrder(order: StoreOrder): StoreOrder {
+  const { note, paypalFeeUsd, paypalNetUsd, ...publicOrder } = order;
+  return publicOrder;
 }

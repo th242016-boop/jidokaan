@@ -2,12 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DesignThumb } from "@/components/store/design-thumb";
 import { KrOrderPanel } from "@/components/store/kr-order-panel";
 import {
@@ -93,16 +88,11 @@ export function CartDrawer() {
                 const product = getProduct(item.productId);
                 if (!product) return null;
                 const swatches = item.partColors
-                  ? [
-                      item.partColors.a,
-                      item.partColors.b,
-                      item.partColors.e,
-                      item.partColors.k,
-                    ]
+                  ? [item.partColors.a, item.partColors.b, item.partColors.e, item.partColors.k]
                   : [item.color].filter(Boolean);
                 return (
                   <div
-                    key={`${item.productId}-${item.size ?? ""}-${item.color ?? ""}`}
+                    key={`${item.productId}-${item.size ?? ""}-${item.sizeFit ?? ""}-${item.optionKey ?? ""}-${JSON.stringify(item.partNames ?? {})}`}
                     className="flex gap-3 rounded-2xl border border-border bg-bg/60 p-3"
                   >
                     <div className="size-24 shrink-0 overflow-hidden rounded-xl bg-[#111]">
@@ -117,9 +107,7 @@ export function CartDrawer() {
                           {item.optionLabel ? (
                             <p className="text-xs text-subtle">{item.optionLabel}</p>
                           ) : item.size ? (
-                            <p className="text-xs text-subtle">
-                              {formatCartSize(item, locale)}
-                            </p>
+                            <p className="text-xs text-subtle">{formatCartSize(item, locale)}</p>
                           ) : null}
                           {swatches.length > 0 ? (
                             <div className="mt-1 flex gap-1">
@@ -145,6 +133,7 @@ export function CartDrawer() {
                               item.size,
                               item.optionKey,
                               item.sizeFit,
+                              item.partNames,
                             )
                           }
                           aria-label={dict.cart.remove}
@@ -164,6 +153,7 @@ export function CartDrawer() {
                                 item.size,
                                 item.optionKey,
                                 item.sizeFit,
+                                item.partNames,
                               )
                             }
                             aria-label="Decrease"
@@ -183,6 +173,7 @@ export function CartDrawer() {
                                 item.size,
                                 item.optionKey,
                                 item.sizeFit,
+                                item.partNames,
                               )
                             }
                             aria-label="Increase"
@@ -263,11 +254,7 @@ export function CartDrawer() {
                   )}
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                className="w-full"
-                onClick={() => setCartOpen(false)}
-              >
+              <Button variant="ghost" className="w-full" onClick={() => setCartOpen(false)}>
                 {dict.cart.continue}
               </Button>
             </div>

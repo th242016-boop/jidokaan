@@ -1,3 +1,4 @@
+import { OrderDesign } from "./order-design";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -118,6 +119,14 @@ export function OrderDetail({
                 {field("이메일", o.email)}
                 {field("전화번호", o.phone)}
                 {field(
+                  "주 연락 방법",
+                  o.contactMethod === "email"
+                    ? "이메일"
+                    : o.contactMethod === "instagram"
+                      ? "인스타그램"
+                      : "기존 주문 · 미수집",
+                )}
+                {field(
                   "인스타그램",
                   o.instagram ? `@${o.instagram}` : "미입력 / 기존 주문은 수집하지 않았습니다",
                 )}
@@ -156,7 +165,11 @@ export function OrderDetail({
                   "관부가세",
                   o.dutyTerms === "DAP"
                     ? "결제에 미포함 · 발생 시 수취인 부담"
-                    : "주문 당시 조건 확인 필요",
+                    : o.dutyTerms === "PREPAID_BEFORE_DISPATCH"
+                      ? "미국 · 관세/통관 비용 미포함 · 제작 전 예상액 안내, 출고 전 별도 수납"
+                      : o.dutyTerms === "DESTINATION_RULES"
+                        ? "미포함 · 도착국 규정에 따라 별도 납부"
+                        : "주문 당시 조건 확인 필요",
                 )}
                 {field("상품 합계", money(subtotal))}
                 {field("배송비", money(shipping))}
@@ -227,6 +240,7 @@ export function OrderDetail({
                   {item.optionLabel ? ` · ${item.optionLabel}` : ""} · 단가{" "}
                   {money(krw ? item.priceKrw : item.priceUsd)}
                 </p>
+                <OrderDesign item={item} orderId={o.id} index={index} />
                 {item.color ? <p>색상: {item.color}</p> : null}
                 {item.partNames && Object.keys(item.partNames).length ? (
                   <dl className="grid gap-x-6 sm:grid-cols-2">
@@ -252,6 +266,20 @@ export function OrderDetail({
               </div>
             ))}
           </section>
+          {o.acknowledgedTerms ? (
+            <details className="my-5 rounded border p-4">
+              <summary className="cursor-pointer font-semibold">
+                고객이 확인한 주문 안내 · {o.checkoutLocale} ·{" "}
+                {o.termsAcceptedAt ? orderTime(o.termsAcceptedAt) : ""}
+              </summary>
+              <div className="mt-3 space-y-3 text-sm" lang={o.checkoutLocale}>
+                {Object.values(o.acknowledgedTerms).map((text, i) => (
+                  <p key={i}>{text}</p>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-[#666]">안내 버전: {o.termsVersion}</p>
+            </details>
+          ) : null}
           <section className="mt-5 border-t pt-5">
             <h3 className="mb-3 font-bold">배송 정보 / 내부 메모</h3>
             <div className="grid gap-3 sm:grid-cols-2">

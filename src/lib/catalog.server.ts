@@ -1,8 +1,14 @@
 import { PRODUCTS, type Product } from "./products";
-import { DEFAULT_COMPANY, DEFAULT_NOTICE, DEFAULT_SUPPORT, type InfoRow, type StoreNotice } from "./site-defaults";
+import {
+  DEFAULT_COMPANY,
+  DEFAULT_NOTICE,
+  DEFAULT_SUPPORT,
+  type InfoRow,
+  type StoreNotice,
+} from "./site-defaults";
 import type { Coupon } from "./order-types";
 import { DEFAULT_PAY, type PaySettings } from "./pay-settings";
-import { DEFAULT_SHIPPING, type ShippingSettings } from "./shipping";
+import { DEFAULT_SHIPPING, applyEmsPolicy, type ShippingSettings } from "./shipping";
 import {
   DEFAULT_CATEGORIES,
   DEFAULT_SEO,
@@ -48,12 +54,8 @@ function asProduct(raw: unknown): Product | null {
 }
 
 /** Insert missing starter products only. Never update or delete live rows. */
-async function applySmartstoreCatalog(
-  sql: Awaited<ReturnType<typeof db>>,
-) {
-  const existing = await sql.query<{ id: string }>(
-    "select id from catalog_products",
-  );
+async function applySmartstoreCatalog(sql: Awaited<ReturnType<typeof db>>) {
+  const existing = await sql.query<{ id: string }>("select id from catalog_products");
   const have = new Set(existing.map((r) => r.id));
   for (let i = 0; i < PRODUCTS.length; i++) {
     const p = normalizeProduct(PRODUCTS[i]);
@@ -178,8 +180,7 @@ export async function readCatalog(): Promise<CatalogPayload> {
   );
   const products = rows
     .map((r) => {
-      const data =
-        typeof r.data === "string" ? (JSON.parse(r.data) as unknown) : r.data;
+      const data = typeof r.data === "string" ? (JSON.parse(r.data) as unknown) : r.data;
       return asProduct(data);
     })
     .filter((p): p is Product => Boolean(p));
@@ -201,7 +202,7 @@ export async function readCatalog(): Promise<CatalogPayload> {
     support: parseRows(map.support_json, DEFAULT_SUPPORT),
     categories: categories.length ? categories : DEFAULT_CATEGORIES,
     seo: migrateSeo(seo),
-    shipping: parseJson(map.shipping_json, DEFAULT_SHIPPING),
+    shipping: applyEmsPolicy(parseJson(map.shipping_json, DEFAULT_SHIPPING)),
     notice: (() => {
       const n = parseJson(map.notice_json, DEFAULT_NOTICE);
       const text = String(n?.text ?? "").trim();
@@ -247,10 +248,12 @@ async function writeSetting(key: string, value: string) {
 export async function upsertProduct(token: string, product: Product) {
   await assertAdmin(token);
   const sql = await db();
-  const saved = fillProductSeo(normalizeProduct({
-    ...product,
-    createdAt: product.createdAt || new Date().toISOString(),
-  }));
+  const saved = fillProductSeo(
+    normalizeProduct({
+      ...product,
+      createdAt: product.createdAt || new Date().toISOString(),
+    }),
+  );
   await sql.query(
     `insert into catalog_products (id, data, sort, updated_at)
      values ($1, $2::jsonb, $3, now())
@@ -284,14 +287,16 @@ export async function bulkProducts(
       continue;
     }
     if (op === "copy") {
-      const copy: Product = fillProductSeo(normalizeProduct({
-        ...p,
-        id: `${p.id}-copy-${Date.now().toString(36)}`,
-        sku: p.sku ? `${p.sku}-COPY` : "",
-        name: { ...p.name, ko: `${p.name.ko} 복사` },
-        createdAt: new Date().toISOString(),
-        featured: false,
-      }));
+      const copy: Product = fillProductSeo(
+        normalizeProduct({
+          ...p,
+          id: `${p.id}-copy-${Date.now().toString(36)}`,
+          sku: p.sku ? `${p.sku}-COPY` : "",
+          name: { ...p.name, ko: `${p.name.ko} 복사` },
+          createdAt: new Date().toISOString(),
+          featured: false,
+        }),
+      );
       await sql.query(
         `insert into catalog_products (id, data, sort, updated_at)
          values ($1, $2::jsonb, 0, now())`,
@@ -338,11 +343,7 @@ export async function reorderProducts(token: string, ids: string[]) {
   await persistDisk();
 }
 
-export async function writeSiteInfo(
-  token: string,
-  company: InfoRow[],
-  support: InfoRow[],
-) {
+export async function writeSiteInfo(token: string, company: InfoRow[], support: InfoRow[]) {
   await assertAdmin(token);
   await writeSetting("company_json", JSON.stringify(company));
   await writeSetting("support_json", JSON.stringify(support));
@@ -360,15 +361,36 @@ export async function writeSeo(token: string, seo: SiteSeo) {
 
 export async function writeShipping(token: string, shipping: ShippingSettings) {
   await assertAdmin(token);
-  if (!shipping || !Number.isFinite(shipping.extraPct) || shipping.extraPct < 0 || shipping.extraPct > 1000) throw new Error("SHIPPING_INVALID");
+  if (
+    !shipping ||
+    !Number.isFinite(shipping.extraPct) ||
+    shipping.extraPct < 0 ||
+    shipping.extraPct > 1000
+  )
+    throw new Error("SHIPPING_INVALID");
+  if (
+    !Number.isFinite(shipping.exchangeKrwPerUsd) ||
+    shipping.exchangeKrwPerUsd! < 100 ||
+    shipping.exchangeKrwPerUsd! > 10000
+  )
+    throw new Error("SHIPPING_INVALID");
   for (const zone of ["kr", "asia", "pacific", "europe", "world"] as const) {
     for (const key of ["standardKrw", "standardUsd", "expressKrw", "expressUsd"] as const) {
       const value = shipping.zones?.[zone]?.[key];
-      if (!Number.isFinite(value) || value < 0 || value > 10000000) throw new Error("SHIPPING_INVALID");
+      if (!Number.isFinite(value) || value < 0 || value > 10000000)
+        throw new Error("SHIPPING_INVALID");
     }
   }
   for (const [country, rate] of Object.entries(shipping.countryRates ?? {})) {
-    if (!/^[A-Z]{2}$/.test(country) || !Number.isFinite(rate.usd) || rate.usd < 0 || rate.usd > 10000) throw new Error("SHIPPING_INVALID");
+    if (rate.krw != null && (!Number.isFinite(rate.krw) || rate.krw < 0 || rate.krw > 10000000))
+      throw new Error("SHIPPING_INVALID");
+    if (
+      !/^[A-Z]{2}$/.test(country) ||
+      !Number.isFinite(rate.usd) ||
+      rate.usd < 0 ||
+      rate.usd > 10000
+    )
+      throw new Error("SHIPPING_INVALID");
   }
   await writeSetting("shipping_json", JSON.stringify(shipping));
 }
@@ -400,14 +422,14 @@ export async function writeBlacklist(token: string, blacklist: BlackCustomer[]) 
 
 export async function isBlockedEmail(email: string) {
   const list = parseJson<BlackCustomer[]>(
-    (await (async () => {
+    await (async () => {
       const sql = await db();
       const rows = await sql.query<{ value: string }>(
         "select value from site_settings where key = $1",
         ["blacklist_json"],
       );
       return rows[0]?.value ?? "[]";
-    })()),
+    })(),
     [],
   );
   const needle = email.trim().toLowerCase();

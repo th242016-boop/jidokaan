@@ -1,3 +1,11 @@
+import { checkoutCopy } from "@/lib/checkout-copy";
+import {
+  captureDesign,
+  completeDesign,
+  designKey,
+  DESIGN_VERSION,
+  ORDER_TERMS_VERSION,
+} from "@/lib/design-order";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +46,7 @@ type PayMethod = "card" | "kakao" | "naver" | "transfer" | "paypal";
 
 type SavedCheckout = {
   instagram?: string;
+  contactMethod?: "instagram" | "email";
   email?: string;
   firstName?: string;
   lastName?: string;
@@ -84,6 +93,41 @@ function CheckoutPage() {
   const { catalog } = useCatalog();
   const [placing, setPlacing] = useState(false);
   const [instagram, setInstagram] = useState("");
+  const [contactMethod, setContactMethod] = useState<"instagram" | "email">("instagram");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [designPreviews, setDesignPreviews] = useState<Record<string, string>>({});
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [previewAttempt, setPreviewAttempt] = useState(0);
+  const review = checkoutCopy(locale);
+  const customItems = cart.filter((item) => getProduct(item.productId)?.customizable);
+  const designSignature = JSON.stringify(
+    cart.map((item) => [item.productId, item.size, item.sizeFit, item.qty, item.partNames]),
+  );
+  const validDesigns = customItems.every((item) => Boolean(completeDesign(item.partNames)));
+  const previewsReady =
+    validDesigns && customItems.every((item) => Boolean(designPreviews[designKey(item.partNames)]));
+  useEffect(() => {
+    let active = true;
+    setTermsAccepted(false);
+    setDesignPreviews({});
+    setPreviewFailed(false);
+    if (!validDesigns) return;
+    const unique = [
+      ...new Map(
+        customItems.map((item) => [designKey(item.partNames), completeDesign(item.partNames)!]),
+      ).entries(),
+    ];
+    void Promise.all(unique.map(async ([key, names]) => [key, await captureDesign(names)] as const))
+      .then((entries) => {
+        if (active) setDesignPreviews(Object.fromEntries(entries));
+      })
+      .catch(() => {
+        if (active) setPreviewFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [designSignature, previewAttempt]);
   const [orderError, setOrderError] = useState("");
   const [pendingOrder, setPendingOrder] = useState<Record<string, unknown> | null>(null);
   const [country, setCountry] = useState("KR");
@@ -114,6 +158,7 @@ function CheckoutPage() {
     setCartOpen(false);
     const saved = readProfile();
     if (saved.instagram) setInstagram(saved.instagram);
+    if (saved.contactMethod) setContactMethod(saved.contactMethod);
     try {
       const pending = sessionStorage.getItem("jidokaan-pending-paid-order");
       if (pending) setPendingOrder(JSON.parse(pending));
@@ -204,7 +249,12 @@ function CheckoutPage() {
   const shippingKrw = quote.krw;
   const totalUsd = Math.max(0, subtotalUsd - discountUsd) + shippingUsd;
   const totalKrw = Math.max(0, subtotalKrw - discountKrw) + shippingKrw;
-  const copy = shipCopy(locale);
+  const copy = shipCopy(locale, country);
+  const dutyText = country === "US" ? review.usDuty : review.duty;
+  const canPay = termsAccepted && previewsReady && quote.available && Boolean(country);
+  useEffect(() => {
+    setTermsAccepted(false);
+  }, [country, locale, totalUsd]);
 
   async function applyCoupon() {
     const code = couponCode.trim().toUpperCase();
@@ -278,20 +328,21 @@ function CheckoutPage() {
   function buildOrderPayload(paypalOrderId?: string) {
     if (cart.length === 0) return;
     setOrderError("");
+    if (!canPay || !email.trim() || (contactMethod === "instagram" && !instagram.trim())) {
+      setOrderError(review.confirmError);
+      return;
+    }
     let handle: string;
     try {
-      handle = normalizeInstagram(instagram);
+      handle = contactMethod === "instagram" ? normalizeInstagram(instagram) : "";
     } catch {
-      setOrderError(
-        locale === "ko"
-          ? "인스타그램 아이디 형식을 확인해 주세요."
-          : "Check your Instagram username.",
-      );
+      setOrderError(review.confirmError);
       return;
     }
     const fullAddress = [address.trim(), address2.trim()].filter(Boolean).join(", ");
     writeProfile({
       instagram: handle,
+      contactMethod,
       email,
       firstName,
       lastName,
@@ -319,11 +370,22 @@ function CheckoutPage() {
           color: item.color,
           partColors: item.partColors,
           partNames: item.partNames,
+          ...(product.customizable
+            ? {
+                designPreview: designPreviews[designKey(item.partNames)],
+                designKey: designKey(item.partNames),
+                designVersion: DESIGN_VERSION,
+              }
+            : {}),
         };
       })
       .filter(Boolean);
     const payload = {
       email,
+      contactMethod,
+      checkoutLocale: locale,
+      termsAccepted,
+      termsVersion: ORDER_TERMS_VERSION,
       instagram: handle,
       phone: isDomestic ? phone.trim() : fullPhoneNumber(phone, country),
       name: `${lastName} ${firstName}`.trim(),
@@ -398,15 +460,7 @@ function CheckoutPage() {
       const order = await submitOrder(payload);
       finishOrder(order);
     } catch {
-      setOrderError(
-        payload.paypalOrderId
-          ? locale === "ko"
-            ? "결제 후 주문 저장을 확인하지 못했습니다. 다시 결제하지 마세요. 아래 버튼으로 주문 저장만 재시도하거나 PayPal 주문 ID와 함께 고객센터에 문의해 주세요."
-            : "We could not confirm that your paid order was saved. Do not pay again. Retry saving below or contact support with your PayPal order ID."
-          : locale === "ko"
-            ? "주문이 저장되지 않았습니다. 입력 정보와 연결 상태를 확인하고 다시 시도해 주세요."
-            : "Your order could not be saved. Check your details and connection, then try again.",
-      );
+      setOrderError(payload.paypalOrderId ? review.paymentError : review.saveError);
     } finally {
       setPlacing(false);
     }
@@ -473,7 +527,7 @@ function CheckoutPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2 space-y-2">
                   <Label htmlFor="email">
-                    {dict.checkout.email} <span className="text-accent">*</span>
+                    {review.email} <span className="text-accent">*</span>
                   </Label>
                   <Input
                     id="email"
@@ -485,29 +539,53 @@ function CheckoutPage() {
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
-                <div className="sm:col-span-2 space-y-2">
-                  <Label htmlFor="instagram">
-                    {locale === "ko" ? "인스타그램 아이디 (선택)" : "Instagram username (optional)"}
-                  </Label>
-                  <Input
-                    id="instagram"
-                    name="instagram"
-                    value={instagram}
-                    onChange={(e) => setInstagram(e.target.value)}
-                    placeholder="@your_username"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    maxLength={31}
-                    pattern="@?[A-Za-z0-9._]{1,30}"
-                    aria-describedby="instagram-help"
-                  />
-                  <p id="instagram-help" className="text-xs text-muted">
-                    {locale === "ko"
-                      ? "제작 사양과 주문 확인을 위한 연락에 사용합니다. 인스타그램을 사용하지 않으면 비워두세요."
-                      : "Used to contact you about your order and custom design. Leave blank if you do not use Instagram."}
+                <fieldset
+                  className="sm:col-span-2 space-y-3"
+                  lang={locale}
+                  dir={locale === "ar" ? "rtl" : undefined}
+                >
+                  <legend className="mb-2 text-sm font-semibold">{review.contact}</legend>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="contactMethod"
+                      checked={contactMethod === "instagram"}
+                      onChange={() => setContactMethod("instagram")}
+                      className="mt-1"
+                    />
+                    <span>{review.instagram}</span>
+                  </label>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="contactMethod"
+                      checked={contactMethod === "email"}
+                      onChange={() => setContactMethod("email")}
+                      className="mt-1"
+                    />
+                    <span>{review.emailOption}</span>
+                  </label>
+                  {contactMethod === "instagram" ? (
+                    <Input
+                      id="instagram"
+                      name="instagram"
+                      aria-label={review.instagram}
+                      required
+                      value={instagram}
+                      onChange={(e) => setInstagram(e.target.value)}
+                      placeholder="@your_username"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      maxLength={31}
+                      pattern="@?[A-Za-z0-9._]{1,30}"
+                      aria-describedby="instagram-help"
+                    />
+                  ) : null}
+                  <p id="instagram-help" className="text-xs leading-relaxed text-muted">
+                    {review.contactHelp}
                   </p>
-                </div>
+                </fieldset>
                 <div className="sm:col-span-2 space-y-2">
                   <Label htmlFor="phone">
                     {dict.checkout.phone} <span className="text-accent">*</span>
@@ -684,16 +762,14 @@ function CheckoutPage() {
                     ))}
                   </select>
                 </div>
-                <div className="sm:col-span-2 space-y-2 rounded-xl border border-border bg-surface-muted/60 px-4 py-3">
-                  <p className="text-sm font-medium">{copy.autoShip}</p>
-                  <p className="text-xs text-muted">
-                    {copy.makeDays} {quote.days} {copy.days}
-                  </p>
-                  <p className="text-xs text-muted">{copy.production}</p>
+                <div
+                  className="sm:col-span-2 space-y-3 rounded-xl border border-border bg-surface-muted/60 px-4 py-3"
+                  lang={locale}
+                >
+                  <p className="text-sm">{isDomestic ? copy.freeKr : review.shipping}</p>
+                  <p className="text-xs leading-relaxed text-muted">{review.production}</p>
                   {!isDomestic ? (
-                    <p className="text-xs text-muted">
-                      {copy.dutyTitle}. {copy.dutyBody} {dict.checkout.noPobox}
-                    </p>
+                    <p className="text-xs leading-relaxed text-muted">{dutyText}</p>
                   ) : null}
                 </div>
               </div>
@@ -736,15 +812,7 @@ function CheckoutPage() {
                       onDepositor={setDepositor}
                     />
                   ) : null}
-                  <ul className="mt-4 space-y-1.5 text-xs leading-relaxed text-muted">
-                    <li>Prices are in USD.</li>
-                    <li>Shipping is calculated and shown in the order summary.</li>
-                    <li>
-                      Import duties and VAT in the destination country are paid by the recipient
-                      (DAP).
-                    </li>
-                    <li>{dict.checkout.noPobox}</li>
-                  </ul>
+                  <p className="mt-4 text-xs text-muted">{review.price}</p>
                 </>
               )}
             </section>
@@ -752,23 +820,13 @@ function CheckoutPage() {
 
           <aside className="h-fit rounded-3xl border border-border bg-surface p-5 sm:p-6 lg:sticky lg:top-24">
             <h2 className="mb-4 text-base font-semibold">{dict.checkout.summary}</h2>
-            {cart.some((i) => i.partNames || i.partColors) ? (
-              <div className="mb-5 overflow-hidden rounded-2xl border border-border bg-[#111]">
-                <div className="aspect-square w-full">
-                  <DesignThumb
-                    item={cart.find((i) => i.partNames || i.partColors) ?? cart[0]}
-                    className="h-full w-full"
-                  />
-                </div>
-              </div>
-            ) : null}
             <div className="space-y-3">
               {cart.map((item) => {
                 const product = getProduct(item.productId);
                 if (!product) return null;
                 return (
                   <div
-                    key={`${item.productId}-${item.size ?? ""}-${item.sizeFit ?? ""}-${item.color ?? ""}`}
+                    key={`${item.productId}-${item.size}-${item.optionKey}-${item.sizeFit}-${designKey(item.partNames)}`}
                     className="flex gap-3"
                   >
                     <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-[#111]">
@@ -833,13 +891,15 @@ function CheckoutPage() {
                     ? locale === "ko"
                       ? "배송 국가 선택 후 계산"
                       : "Select a shipping country"
-                    : quote.free
-                      ? locale === "ko"
-                        ? "무료"
-                        : "Free"
-                      : isKrw
-                        ? fmtKrw(shippingKrw)
-                        : formatMoney(shippingUsd, currency)}
+                    : !quote.available
+                      ? review.unavailable
+                      : quote.free
+                        ? locale === "ko"
+                          ? "무료"
+                          : "Free"
+                        : isKrw
+                          ? fmtKrw(shippingKrw)
+                          : formatMoney(shippingUsd, currency)}
                 </span>
               </div>
               {isDomestic ? (
@@ -848,18 +908,110 @@ function CheckoutPage() {
                 </p>
               ) : null}
               {!isDomestic ? (
-                <p className="text-xs leading-relaxed text-muted">
-                  <span className="font-medium text-fg">{copy.dutyTitle}. </span>
-                  {copy.dutyBody}
-                </p>
+                <p className="text-xs leading-relaxed text-muted">{review.notIncluded}</p>
               ) : null}
               <div className="flex justify-between border-t border-border pt-3 text-base font-semibold">
                 <span>{dict.cart.total}</span>
                 <span className="price-num">
-                  {!country ? "—" : isKrw ? fmtKrw(totalKrw) : formatMoney(totalUsd, currency)}
+                  {!country || !quote.available
+                    ? "—"
+                    : isKrw
+                      ? fmtKrw(totalKrw)
+                      : formatMoney(totalUsd, currency)}
                 </span>
               </div>
             </div>
+
+            {!isDomestic && !pendingOrder ? (
+              <section
+                className="mt-6 space-y-4 border-t border-border pt-5"
+                lang={locale}
+                dir={locale === "ar" ? "rtl" : undefined}
+              >
+                <h3 className="text-lg font-semibold">{review.title}</h3>
+                {customItems.length ? (
+                  <>
+                    <h4 className="font-medium">{review.designTitle}</h4>
+                    <p className="text-sm leading-relaxed text-muted">{review.design}</p>
+                    {!validDesigns ? (
+                      <div role="alert" className="rounded border border-red-400 p-3 text-sm">
+                        <p>{review.missing}</p>
+                        <Link to="/customize" className="mt-2 block underline">
+                          {review.simulator}
+                        </Link>
+                      </div>
+                    ) : null}
+                    {validDesigns && !previewsReady ? (
+                      <div role="status" className="text-sm">
+                        <p>{previewFailed ? review.imageError : review.loading}</p>
+                        {previewFailed ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setPreviewAttempt((n) => n + 1)}
+                          >
+                            {review.retry}
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {customItems.map((item, i) => (
+                      <figure
+                        key={`${i}-${designKey(item.partNames)}`}
+                        className="overflow-hidden rounded-xl border border-border"
+                      >
+                        {designPreviews[designKey(item.partNames)] ? (
+                          <img
+                            src={designPreviews[designKey(item.partNames)]}
+                            alt={review.designTitle}
+                            className="aspect-square w-full object-contain"
+                          />
+                        ) : null}
+                        <figcaption className="space-y-2 p-3 text-sm">
+                          <p className="font-semibold">
+                            {formatCartSize(item, locale)} · {dict.cart.qty} {item.qty}
+                          </p>
+                          <p className="text-xs leading-relaxed">
+                            {Object.entries(item.partNames ?? {})
+                              .map(([part, color]) => `${part.toUpperCase()}: ${color}`)
+                              .join(" · ")}
+                          </p>
+                        </figcaption>
+                      </figure>
+                    ))}
+                  </>
+                ) : null}
+                <p className="text-sm leading-relaxed">{review.shipping}</p>
+                <p className="rounded-xl border border-amber-500/40 p-3 text-sm leading-relaxed">
+                  {dutyText}
+                </p>
+                <p className="text-sm leading-relaxed text-muted">{review.production}</p>
+                {!quote.available && country ? (
+                  <p role="alert" className="text-sm text-red-600">
+                    {review.unavailable}{" "}
+                    <a
+                      href="https://www.instagram.com/jidokaan/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      {review.contactLink}
+                    </a>
+                  </p>
+                ) : null}
+                <label className="flex items-start gap-3 rounded-xl bg-surface-muted p-4 text-sm leading-relaxed">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={termsAccepted}
+                    disabled={!previewsReady || !quote.available}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-1 size-4 shrink-0"
+                  />
+                  <span>{review.agree}</span>
+                </label>
+              </section>
+            ) : null}
 
             {orderError ? (
               <p
@@ -895,7 +1047,8 @@ function CheckoutPage() {
               <div className="mt-6">
                 <PaypalButtons
                   valueUsd={(totalUsd / 100).toFixed(2)}
-                  disabled={placing || !country}
+                  disabled={placing || !canPay}
+                  locale={locale}
                   onPaid={(orderID) => placeStoreOrder(orderID)}
                   getOrder={() => buildOrderPayload()}
                   onPending={markPending}
@@ -903,7 +1056,7 @@ function CheckoutPage() {
                 />
               </div>
             ) : !isDomestic && !pendingOrder ? (
-              <Button type="submit" size="lg" className="mt-6 w-full" disabled={placing}>
+              <Button type="submit" size="lg" className="mt-6 w-full" disabled={placing || !canPay}>
                 {placing ? dict.checkout.placing : dict.checkout.placeOrder}
               </Button>
             ) : null}
@@ -1028,6 +1181,7 @@ type PaypalButtonsApi = {
 };
 
 function PaypalButtons({
+  locale,
   valueUsd,
   disabled,
   onPaid,
@@ -1035,6 +1189,7 @@ function PaypalButtons({
   onPending,
   onSaved,
 }: {
+  locale: string;
   valueUsd: string;
   disabled: boolean;
   onPaid: (orderID: string) => Promise<void>;
@@ -1042,6 +1197,9 @@ function PaypalButtons({
   onPending: (payload: Record<string, unknown>) => void;
   onSaved: (order: StoreOrder) => void;
 }) {
+  const review = checkoutCopy(locale);
+  const copyRef = useRef(review);
+  copyRef.current = review;
   const slot = useRef<HTMLDivElement>(null);
   const paidRef = useRef(onPaid);
   paidRef.current = onPaid;
@@ -1059,7 +1217,7 @@ function PaypalButtons({
       .then((d: { enabled?: boolean; clientId?: string }) => {
         if (d.enabled && d.clientId) setClientId(d.clientId);
       })
-      .catch(() => setErr("Payment service unavailable. Please try again later."))
+      .catch(() => setErr(copyRef.current.paymentUnavailable))
       .finally(() => setLoaded(true));
   }, []);
 
@@ -1080,13 +1238,16 @@ function PaypalButtons({
     script.async = true;
     script.dataset.jidokaanPaypal = "1";
     script.onload = () => setReady(true);
-    script.onerror = () => setErr("PayPal SDK");
+    script.onerror = () => setErr(copyRef.current.paymentUnavailable);
     document.body.appendChild(script);
   }, [clientId]);
 
   useEffect(() => {
     const w = window as Window & { paypal?: PaypalButtonsApi };
-    if (!ready || !w.paypal || !slot.current || disabled) return;
+    if (!ready || !w.paypal || !slot.current || disabled) {
+      if (slot.current) slot.current.innerHTML = "";
+      return;
+    }
     const host = slot.current;
     host.innerHTML = "";
     const buttons = w.paypal.Buttons({
@@ -1095,7 +1256,7 @@ function PaypalButtons({
         const form = host.closest("form");
         if (form && !form.reportValidity()) throw new Error("form");
         const order = callbacks.current.getOrder();
-        if (!order) throw new Error("Please check your order details.");
+        if (!order) throw new Error(copyRef.current.confirmError);
         submitted.current = order;
         const res = await fetch("/api/paypal", {
           method: "POST",
@@ -1104,9 +1265,7 @@ function PaypalButtons({
         });
         const data = (await res.json()) as { id?: string; error?: string };
         if (!res.ok || !data.id) {
-          setErr(
-            "Please check your shipping details and refresh checkout before paying. No payment has been taken.",
-          );
+          setErr(copyRef.current.refresh);
           throw new Error("create");
         }
         return data.id;
@@ -1124,12 +1283,7 @@ function PaypalButtons({
         if (result.order?.id) callbacks.current.onSaved(result.order);
         else await paidRef.current(data.orderID);
       },
-      onError: () =>
-        setErr(
-          (current) =>
-            current ||
-            "Payment could not be confirmed. Check your PayPal activity before retrying payment.",
-        ),
+      onError: () => setErr((current) => current || copyRef.current.paymentError),
     });
     void buttons.render(host);
     return () => {
@@ -1144,9 +1298,7 @@ function PaypalButtons({
   if (!clientId) {
     return (
       <p className="text-sm text-muted">
-        {loaded
-          ? "PayPal is temporarily unavailable. Please contact support or choose another payment method."
-          : "Loading PayPal…"}
+        {loaded ? review.paymentUnavailable : review.paymentLoading}
       </p>
     );
   }

@@ -17,7 +17,7 @@ import { proxyToLive, shouldProxyToLive } from "@/lib/live-proxy.server";
 import { readCatalog } from "@/lib/catalog.server";
 import { couponRejectReason, findCoupon } from "@/lib/coupon";
 import { verifyPaypalPayment } from "@/lib/paypal.server";
-import type { ClaimKind } from "@/lib/order-types";
+import { customerOrder, type ClaimKind } from "@/lib/order-types";
 import { completePaypalCheckout } from "@/lib/paypal-checkout.server";
 import { quoteCheckout } from "@/lib/checkout-quote.server";
 
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/api/orders")({
           if (id && email) {
             const order = await lookupOrder(id, email);
             if (!order) return json({ error: "NOT_FOUND" }, 404);
-            return json({ order });
+            return json({ order: customerOrder(order) });
           }
           const token = url.searchParams.get("token") ?? "";
           return json({ orders: await listOrders(token) });
@@ -84,7 +84,7 @@ export const Route = createFileRoute("/api/orders")({
           if (body.action === "lookup") {
             const order = await lookupOrder(String(body.id ?? ""), String(body.email ?? ""));
             if (!order) return json({ error: "NOT_FOUND" }, 404);
-            return json({ order });
+            return json({ order: customerOrder(order) });
           }
           if (body.action === "claim") {
             const order = await requestClaim({
@@ -93,11 +93,11 @@ export const Route = createFileRoute("/api/orders")({
               kind: (body.kind ?? "return") as ClaimKind,
               reason: String(body.reason ?? ""),
             });
-            return json({ order });
+            return json({ order: customerOrder(order) });
           }
           if (body.action === "withdraw") {
             const order = await withdrawClaim(String(body.id ?? ""), String(body.email ?? ""));
-            return json({ order });
+            return json({ order: customerOrder(order) });
           }
           if (body.action === "decide" && body.token && body.id) {
             const order = await decideClaim(
@@ -125,17 +125,19 @@ export const Route = createFileRoute("/api/orders")({
           if (body.action) return json({ error: "BAD_ACTION" }, 400);
           if (body.pay === "paypal" && body.paypalOrderId) {
             const completed = await completePaypalCheckout(body.paypalOrderId, false);
-            if (completed) return json({ order: completed });
+            if (completed) return json({ order: customerOrder(completed) });
           }
           if (body.pay !== "paypal")
-            return json({ order: await placeOrder(await quoteCheckout(body), true) });
+            return json({
+              order: customerOrder(await placeOrder(await quoteCheckout(body), true)),
+            });
           const quoted = await quoteCheckout(body);
           const payment = await verifyPaypalPayment(
             String(body.paypalOrderId ?? ""),
             quoted.totalUsd,
           );
           const order = await placeOrder({ ...quoted, ...payment }, true);
-          return json({ order });
+          return json({ order: customerOrder(order) });
         } catch (err) {
           const message = err instanceof Error ? err.message : "fail";
           return json({ error: message }, message === "AUTH" ? 401 : 400);

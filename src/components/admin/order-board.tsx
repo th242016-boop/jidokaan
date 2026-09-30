@@ -293,7 +293,14 @@ export function OrderBoard({ token }: { token: string }) {
           </thead>
           <tbody>
             {rows.map((o) => (
-              <tr key={o.id} className="border-t border-[#eee] align-top">
+              <tr
+                key={o.id}
+                className="cursor-pointer border-t border-[#eee] align-top hover:bg-slate-50"
+                onClick={(e) => {
+                  if (!(e.target as HTMLElement).closest("button,a,input,select,textarea,label"))
+                    setSelectedId(o.id);
+                }}
+              >
                 <td className="px-3 py-2">
                   <input
                     type="checkbox"
