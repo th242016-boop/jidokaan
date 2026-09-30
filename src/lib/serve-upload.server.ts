@@ -71,7 +71,7 @@ export async function uploadFileResponse(pathname: string): Promise<Response | n
     const { readMediaFile } = await import("./media.server");
     const row = await readMediaFile(parsed.filename);
     if (!row) return new Response("not found", { status: 404 });
-    return new Response(row.bytes, {
+    return new Response(new Uint8Array(row.bytes), {
       headers: {
         "content-type": row.mime || "application/octet-stream",
         "cache-control": "public, max-age=31536000, immutable",

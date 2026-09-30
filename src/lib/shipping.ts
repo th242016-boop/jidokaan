@@ -15,6 +15,7 @@ export type ShippingSettings = {
   freeUsd: number;
   extraPct: number;
   zones: Record<ShipZone, ZoneRate>;
+  countryRates?: Record<string, { usd: number; note?: string }>;
 };
 
 export const DEFAULT_SHIPPING: ShippingSettings = {
@@ -121,6 +122,14 @@ export function quoteShipping(opts: {
 
   let krw = (opts.method === "express" ? rate.expressKrw : rate.standardKrw) * extraMul;
   let usd = (opts.method === "express" ? rate.expressUsd : rate.standardUsd) * extraMul;
+  const countryRate = s.countryRates?.[opts.country.toUpperCase()];
+  if (
+    opts.method === "standard" &&
+    countryRate &&
+    Number.isFinite(countryRate.usd) &&
+    countryRate.usd >= 0
+  )
+    usd = countryRate.usd * extraMul;
   krw = Math.round(krw);
   usd = Math.round(usd);
 

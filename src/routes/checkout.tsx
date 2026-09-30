@@ -25,6 +25,9 @@ import { useCatalog } from "@/lib/use-catalog";
 import { trackStoreEvent } from "@/components/analytics-tracker";
 import { couponDiscount } from "@/lib/coupon";
 import { dialCode, fullPhoneNumber, localPhoneNumber } from "@/lib/phone";
+import type { StoreOrder } from "@/lib/order-types";
+import { submitOrder } from "@/lib/submit-order";
+import { normalizeInstagram } from "@/lib/order-contact";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/checkout")({
@@ -34,6 +37,7 @@ export const Route = createFileRoute("/checkout")({
 type PayMethod = "card" | "kakao" | "naver" | "transfer" | "paypal";
 
 type SavedCheckout = {
+  instagram?: string;
   email?: string;
   firstName?: string;
   lastName?: string;
@@ -79,6 +83,9 @@ function CheckoutPage() {
   const { user, isPending } = useCurrentUserState();
   const { catalog } = useCatalog();
   const [placing, setPlacing] = useState(false);
+  const [instagram, setInstagram] = useState("");
+  const [orderError, setOrderError] = useState("");
+  const [pendingOrder, setPendingOrder] = useState<Record<string, unknown> | null>(null);
   const [country, setCountry] = useState("KR");
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -106,6 +113,13 @@ function CheckoutPage() {
   useEffect(() => {
     setCartOpen(false);
     const saved = readProfile();
+    if (saved.instagram) setInstagram(saved.instagram);
+    try {
+      const pending = sessionStorage.getItem("jidokaan-pending-paid-order");
+      if (pending) setPendingOrder(JSON.parse(pending));
+    } catch {
+      /* storage may be unavailable */
+    }
     let nextCountry = "";
     try {
       const overseas = overseasCheckoutIntent();
@@ -174,19 +188,15 @@ function CheckoutPage() {
 
   useEffect(() => {
     if (isDomestic) return;
-    setPay((cur) =>
-      cur === "card" || cur === "kakao" || cur === "naver" ? "paypal" : cur,
-    );
+    setPay((cur) => (cur === "card" || cur === "kakao" || cur === "naver" ? "paypal" : cur));
   }, [isDomestic]);
-  const regionRequired = ["US", "CA", "AU", "MX", "CN", "IN", "BR", "JP"].includes(
-    country,
-  );
+  const regionRequired = ["US", "CA", "AU", "MX", "CN", "IN", "BR", "JP"].includes(country);
   const qty = cart.reduce((n, i) => n + i.qty, 0);
   const quote = quoteShipping({
     country,
     method: "standard",
     subtotalKrw,
-    subtotalUsd: Math.round(subtotalUsd / 100),
+    subtotalUsd: subtotalUsd / 100,
     qty,
     settings: catalog.shipping,
   });
@@ -265,11 +275,23 @@ function CheckoutPage() {
     await placeStoreOrder();
   }
 
-  async function placeStoreOrder(paypalOrderId?: string) {
+  function buildOrderPayload(paypalOrderId?: string) {
     if (cart.length === 0) return;
-    setPlacing(true);
+    setOrderError("");
+    let handle: string;
+    try {
+      handle = normalizeInstagram(instagram);
+    } catch {
+      setOrderError(
+        locale === "ko"
+          ? "인스타그램 아이디 형식을 확인해 주세요."
+          : "Check your Instagram username.",
+      );
+      return;
+    }
     const fullAddress = [address.trim(), address2.trim()].filter(Boolean).join(", ");
     writeProfile({
+      instagram: handle,
       email,
       firstName,
       lastName,
@@ -288,81 +310,109 @@ function CheckoutPage() {
           productId: item.productId,
           name: `${product.name.ko || product.name.en}${item.optionLabel ? ` (${item.optionLabel})` : ""}`,
           qty: item.qty,
-          size: item.size
-            ? formatCartSize(item, "ko")
-            : undefined,
+          size: item.size ? formatCartSize(item, "ko") : undefined,
           priceKrw: product.priceKrw + (item.extraKrw ?? 0),
-          priceUsd: Math.round((product.priceUsd + (item.extraUsd ?? 0)) / 100),
+          priceUsd: (product.priceUsd + (item.extraUsd ?? 0)) / 100,
+          sizeFit: item.sizeFit,
+          optionKey: item.optionKey,
+          optionLabel: item.optionLabel,
+          color: item.color,
+          partColors: item.partColors,
           partNames: item.partNames,
         };
       })
       .filter(Boolean);
-    let orderId = `JDK-${Date.now().toString(36).toUpperCase()}`;
+    const payload = {
+      email,
+      instagram: handle,
+      phone: isDomestic ? phone.trim() : fullPhoneNumber(phone, country),
+      name: `${lastName} ${firstName}`.trim(),
+      address: fullAddress,
+      city: city.trim(),
+      region: region.trim(),
+      postal: postal.trim(),
+      country,
+      pay,
+      depositor,
+      shipMethod: "standard",
+      shippingKrw,
+      shippingUsd: quote.usd,
+      totalKrw,
+      totalUsd: totalUsd / 100,
+      currency,
+      items,
+      couponCode: appliedCode || undefined,
+      discountKrw,
+      discountUsd: discountUsd / 100,
+      paypalOrderId,
+    };
+    return payload;
+  }
+
+  function markPending(payload: Record<string, unknown>) {
+    setPendingOrder(payload);
     try {
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          phone: isDomestic ? phone.trim() : fullPhoneNumber(phone, country),
-          name: `${lastName} ${firstName}`.trim(),
-          address: fullAddress,
-          city: city.trim(),
-          region: region.trim(),
-          postal: postal.trim(),
-          country,
-          pay,
-          depositor,
-          shipMethod: "standard",
-          shippingKrw,
-          shippingUsd: quote.usd,
-          totalKrw,
-          totalUsd: Math.round(totalUsd / 100),
-          currency,
-          items,
-          couponCode: appliedCode || undefined,
-          discountKrw,
-          discountUsd: Math.round(discountUsd / 100),
-          paypalOrderId,
-        }),
-      });
-      const data = (await res.json()) as { order?: { id: string }; error?: string };
-      if (!res.ok && paypalOrderId) {
-        setPlacing(false);
-        return;
-      }
-      if (data.order?.id) orderId = data.order.id;
+      sessionStorage.setItem("jidokaan-pending-paid-order", JSON.stringify(payload));
     } catch {
-      /* still show success with local id */
+      /* retain in component state */
     }
+  }
+
+  async function placeStoreOrder(paypalOrderId?: string) {
+    const payload = buildOrderPayload(paypalOrderId);
+    if (!payload) return;
+    if (paypalOrderId) markPending(payload);
+    await saveOrderPayload(payload);
+  }
+
+  function finishOrder(order: StoreOrder) {
     try {
       sessionStorage.setItem(
         "jidokaan-last-order",
         JSON.stringify({
-          orderId,
-          email,
-          country,
-          pay,
-          depositor,
-          currency,
-          shipMethod: "standard",
-          shipping: isKrw ? shippingKrw : shippingUsd,
-          total: isKrw ? totalKrw : totalUsd,
+          orderId: order.id,
+          email: order.email,
+          country: order.country,
+          pay: order.pay,
+          depositor: order.depositor,
+          currency: order.currency,
+          shipMethod: order.shipMethod,
+          shipping: order.currency === "KRW" ? order.shippingKrw : order.shippingUsd * 100,
+          total: order.currency === "KRW" ? order.totalKrw : order.totalUsd * 100,
         }),
       );
+      sessionStorage.removeItem("jidokaan-pending-paid-order");
     } catch {
-      /* ignore */
+      /* server order is already saved */
     }
+    setPendingOrder(null);
     clearCart();
-    setPlacing(false);
     trackStoreEvent("order");
-    navigate({
-      to: "/order-success",
-      search: { order: orderId },
-    });
+    navigate({ to: "/order-success", search: { order: order.id } });
   }
 
-  if (cart.length === 0) {
+  async function saveOrderPayload(payload: Record<string, unknown>) {
+    setPlacing(true);
+    setOrderError("");
+    try {
+      const order = await submitOrder(payload);
+      finishOrder(order);
+    } catch {
+      setOrderError(
+        payload.paypalOrderId
+          ? locale === "ko"
+            ? "결제 후 주문 저장을 확인하지 못했습니다. 다시 결제하지 마세요. 아래 버튼으로 주문 저장만 재시도하거나 PayPal 주문 ID와 함께 고객센터에 문의해 주세요."
+            : "We could not confirm that your paid order was saved. Do not pay again. Retry saving below or contact support with your PayPal order ID."
+          : locale === "ko"
+            ? "주문이 저장되지 않았습니다. 입력 정보와 연결 상태를 확인하고 다시 시도해 주세요."
+            : "Your order could not be saved. Check your details and connection, then try again.",
+      );
+    } finally {
+      setPlacing(false);
+    }
+  }
+
+  if (cart.length === 0 && !pendingOrder) {
     return (
       <SiteShell>
         <div className="container-page flex min-h-[50vh] flex-col items-center justify-center gap-4 py-16 text-center">
@@ -383,9 +433,7 @@ function CheckoutPage() {
   return (
     <SiteShell>
       <div className="container-page py-8 sm:py-12">
-        <h1 className="mb-8 text-3xl font-semibold tracking-tight">
-          {dict.checkout.title}
-        </h1>
+        <h1 className="mb-8 text-3xl font-semibold tracking-tight">{dict.checkout.title}</h1>
 
         {!isPending && !user && !isDomestic ? (
           <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -418,15 +466,10 @@ function CheckoutPage() {
           </div>
         ) : null}
 
-        <form
-          onSubmit={onSubmit}
-          className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]"
-        >
+        <form onSubmit={onSubmit} className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-8">
             <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
-              <h2 className="mb-4 text-base font-semibold">
-                {dict.checkout.contact}
-              </h2>
+              <h2 className="mb-4 text-base font-semibold">{dict.checkout.contact}</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2 space-y-2">
                   <Label htmlFor="email">
@@ -441,6 +484,29 @@ function CheckoutPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
+                </div>
+                <div className="sm:col-span-2 space-y-2">
+                  <Label htmlFor="instagram">
+                    {locale === "ko" ? "인스타그램 아이디 (선택)" : "Instagram username (optional)"}
+                  </Label>
+                  <Input
+                    id="instagram"
+                    name="instagram"
+                    value={instagram}
+                    onChange={(e) => setInstagram(e.target.value)}
+                    placeholder="@your_username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    maxLength={31}
+                    pattern="@?[A-Za-z0-9._]{1,30}"
+                    aria-describedby="instagram-help"
+                  />
+                  <p id="instagram-help" className="text-xs text-muted">
+                    {locale === "ko"
+                      ? "제작 사양과 주문 확인을 위한 연락에 사용합니다. 인스타그램을 사용하지 않으면 비워두세요."
+                      : "Used to contact you about your order and custom design. Leave blank if you do not use Instagram."}
+                  </p>
                 </div>
                 <div className="sm:col-span-2 space-y-2">
                   <Label htmlFor="phone">
@@ -488,9 +554,7 @@ function CheckoutPage() {
             </section>
 
             <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
-              <h2 className="mb-4 text-base font-semibold">
-                {dict.checkout.shipping}
-              </h2>
+              <h2 className="mb-4 text-base font-semibold">{dict.checkout.shipping}</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">
@@ -611,9 +675,7 @@ function CheckoutPage() {
                     required
                   >
                     {!country ? (
-                      <option value="">
-                        {locale === "ko" ? "국가 선택" : "Select country"}
-                      </option>
+                      <option value="">{locale === "ko" ? "국가 선택" : "Select country"}</option>
                     ) : null}
                     {COUNTRIES.map((c) => (
                       <option key={c.code} value={c.code}>
@@ -638,9 +700,7 @@ function CheckoutPage() {
             </section>
 
             <section className="rounded-3xl border border-border bg-surface p-5 sm:p-6">
-              <h2 className="mb-4 text-base font-semibold">
-                {dict.checkout.payment}
-              </h2>
+              <h2 className="mb-4 text-base font-semibold">{dict.checkout.payment}</h2>
               {isDomestic ? (
                 <p className="text-sm leading-relaxed text-muted">
                   {locale === "ko"
@@ -649,55 +709,54 @@ function CheckoutPage() {
                 </p>
               ) : (
                 <>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {payOptions.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setPay(opt.id)}
-                    className={cn(
-                      "h-12 rounded-xl border px-4 text-sm font-semibold transition",
-                      pay === opt.id
-                        ? "border-fg bg-fg text-primary-fg"
-                        : "border-border bg-surface-muted text-fg hover:border-border-strong",
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              {pay === "transfer" ? (
-                <BankBox
-                  locale={locale}
-                  domestic={isDomestic}
-                  pay={paySettings}
-                  amount={isKrw ? fmtKrw(totalKrw) : formatMoney(totalUsd, currency)}
-                  depositor={depositor}
-                  onDepositor={setDepositor}
-                />
-              ) : null}
-              <ul className="mt-4 space-y-1.5 text-xs leading-relaxed text-muted">
-                <li>Prices are in USD.</li>
-                <li>Shipping is calculated and shown in the order summary.</li>
-                <li>Import duties and VAT in the destination country are paid by the recipient (DAP).</li>
-                <li>{dict.checkout.noPobox}</li>
-              </ul>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {payOptions.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setPay(opt.id)}
+                        className={cn(
+                          "h-12 rounded-xl border px-4 text-sm font-semibold transition",
+                          pay === opt.id
+                            ? "border-fg bg-fg text-primary-fg"
+                            : "border-border bg-surface-muted text-fg hover:border-border-strong",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  {pay === "transfer" ? (
+                    <BankBox
+                      locale={locale}
+                      domestic={isDomestic}
+                      pay={paySettings}
+                      amount={isKrw ? fmtKrw(totalKrw) : formatMoney(totalUsd, currency)}
+                      depositor={depositor}
+                      onDepositor={setDepositor}
+                    />
+                  ) : null}
+                  <ul className="mt-4 space-y-1.5 text-xs leading-relaxed text-muted">
+                    <li>Prices are in USD.</li>
+                    <li>Shipping is calculated and shown in the order summary.</li>
+                    <li>
+                      Import duties and VAT in the destination country are paid by the recipient
+                      (DAP).
+                    </li>
+                    <li>{dict.checkout.noPobox}</li>
+                  </ul>
                 </>
               )}
             </section>
           </div>
 
           <aside className="h-fit rounded-3xl border border-border bg-surface p-5 sm:p-6 lg:sticky lg:top-24">
-            <h2 className="mb-4 text-base font-semibold">
-              {dict.checkout.summary}
-            </h2>
+            <h2 className="mb-4 text-base font-semibold">{dict.checkout.summary}</h2>
             {cart.some((i) => i.partNames || i.partColors) ? (
               <div className="mb-5 overflow-hidden rounded-2xl border border-border bg-[#111]">
                 <div className="aspect-square w-full">
                   <DesignThumb
-                    item={
-                      cart.find((i) => i.partNames || i.partColors) ?? cart[0]
-                    }
+                    item={cart.find((i) => i.partNames || i.partColors) ?? cart[0]}
                     className="h-full w-full"
                   />
                 </div>
@@ -770,13 +829,17 @@ function CheckoutPage() {
               <div className="flex justify-between">
                 <span className="text-muted">{dict.cart.shipping}</span>
                 <span className="price-num">
-                  {quote.free
+                  {!country
                     ? locale === "ko"
-                      ? "무료"
-                      : "Free"
-                    : isKrw
-                      ? fmtKrw(shippingKrw)
-                      : formatMoney(shippingUsd, currency)}
+                      ? "배송 국가 선택 후 계산"
+                      : "Select a shipping country"
+                    : quote.free
+                      ? locale === "ko"
+                        ? "무료"
+                        : "Free"
+                      : isKrw
+                        ? fmtKrw(shippingKrw)
+                        : formatMoney(shippingUsd, currency)}
                 </span>
               </div>
               {isDomestic ? (
@@ -793,28 +856,56 @@ function CheckoutPage() {
               <div className="flex justify-between border-t border-border pt-3 text-base font-semibold">
                 <span>{dict.cart.total}</span>
                 <span className="price-num">
-                  {isKrw ? fmtKrw(totalKrw) : formatMoney(totalUsd, currency)}
+                  {!country ? "—" : isKrw ? fmtKrw(totalKrw) : formatMoney(totalUsd, currency)}
                 </span>
               </div>
             </div>
 
-            {!isDomestic && pay === "paypal" ? (
+            {orderError ? (
+              <p
+                role="alert"
+                className="mt-4 rounded border border-red-400 p-3 text-sm text-red-600"
+              >
+                {orderError}
+              </p>
+            ) : null}
+            {pendingOrder ? (
+              <div className="mt-4 rounded border border-amber-500 p-4">
+                <p className="text-sm">
+                  {locale === "ko"
+                    ? "PayPal 결제 결과와 주문 저장 확인이 필요합니다. 추가 결제를 하지 마세요."
+                    : "Your PayPal payment and order need confirmation. Do not make another payment."}
+                </p>
+                <p className="mt-2 break-all text-xs">
+                  PayPal Order ID: {String(pendingOrder.paypalOrderId ?? "")}
+                </p>
+                <Button
+                  className="mt-3"
+                  type="button"
+                  disabled={placing}
+                  onClick={() => void saveOrderPayload(pendingOrder)}
+                >
+                  {locale === "ko"
+                    ? "주문 저장 재시도 (추가 결제 없음)"
+                    : "Retry saving order (no extra payment)"}
+                </Button>
+              </div>
+            ) : null}
+            {!isDomestic && pay === "paypal" && !pendingOrder ? (
               <div className="mt-6">
                 <PaypalButtons
                   valueUsd={(totalUsd / 100).toFixed(2)}
-                  disabled={placing}
+                  disabled={placing || !country}
                   onPaid={(orderID) => placeStoreOrder(orderID)}
+                  getOrder={() => buildOrderPayload()}
+                  onPending={markPending}
+                  onSaved={finishOrder}
                 />
               </div>
-            ) : !isDomestic ? (
-            <Button
-              type="submit"
-              size="lg"
-              className="mt-6 w-full"
-              disabled={placing}
-            >
-              {placing ? dict.checkout.placing : dict.checkout.placeOrder}
-            </Button>
+            ) : !isDomestic && !pendingOrder ? (
+              <Button type="submit" size="lg" className="mt-6 w-full" disabled={placing}>
+                {placing ? dict.checkout.placing : dict.checkout.placeOrder}
+              </Button>
             ) : null}
             <p className="mt-3 text-center text-xs text-subtle">jidokaan.com</p>
             <IgHelp className="mt-3 text-center text-sm text-muted" />
@@ -835,17 +926,19 @@ function BankBox({
 }: {
   locale: string;
   domestic: boolean;
-  pay: {
-    krBank?: string;
-    krAccount?: string;
-    krHolder?: string;
-    krMemo?: string;
-    intlBank?: string;
-    intlAccount?: string;
-    intlSwift?: string;
-    intlHolder?: string;
-    intlPaypal?: string;
-  } | undefined;
+  pay:
+    | {
+        krBank?: string;
+        krAccount?: string;
+        krHolder?: string;
+        krMemo?: string;
+        intlBank?: string;
+        intlAccount?: string;
+        intlSwift?: string;
+        intlHolder?: string;
+        intlPaypal?: string;
+      }
+    | undefined;
   amount: string;
   depositor: string;
   onDepositor: (v: string) => void;
@@ -862,26 +955,48 @@ function BankBox({
       {ready ? (
         domestic ? (
           <ul className="space-y-1 text-muted">
-            <li>{ko ? "은행" : "Bank"}: <b className="text-fg">{pay?.krBank}</b></li>
-            <li>{ko ? "계좌" : "Account"}: <b className="text-fg">{pay?.krAccount}</b></li>
-            <li>{ko ? "예금주" : "Holder"}: <b className="text-fg">{pay?.krHolder}</b></li>
+            <li>
+              {ko ? "은행" : "Bank"}: <b className="text-fg">{pay?.krBank}</b>
+            </li>
+            <li>
+              {ko ? "계좌" : "Account"}: <b className="text-fg">{pay?.krAccount}</b>
+            </li>
+            <li>
+              {ko ? "예금주" : "Holder"}: <b className="text-fg">{pay?.krHolder}</b>
+            </li>
             {pay?.krMemo ? (
-              <li>
-                {pay.krMemo.includes("주문번호")
-                  ? "주문자명으로 입금해 주세요"
-                  : pay.krMemo}
-              </li>
+              <li>{pay.krMemo.includes("주문번호") ? "주문자명으로 입금해 주세요" : pay.krMemo}</li>
             ) : (
               <li>{ko ? "주문자명으로 입금해 주세요" : "Transfer under the orderer's name"}</li>
             )}
           </ul>
         ) : (
           <ul className="space-y-1 text-muted">
-            {pay?.intlBank ? <li>Bank: <b className="text-fg">{pay.intlBank}</b></li> : null}
-            {pay?.intlAccount ? <li>Account / IBAN: <b className="text-fg">{pay.intlAccount}</b></li> : null}
-            {pay?.intlSwift ? <li>SWIFT: <b className="text-fg">{pay.intlSwift}</b></li> : null}
-            {pay?.intlHolder ? <li>Name: <b className="text-fg">{pay.intlHolder}</b></li> : null}
-            {pay?.intlPaypal ? <li>PayPal: <b className="text-fg">{pay.intlPaypal}</b></li> : null}
+            {pay?.intlBank ? (
+              <li>
+                Bank: <b className="text-fg">{pay.intlBank}</b>
+              </li>
+            ) : null}
+            {pay?.intlAccount ? (
+              <li>
+                Account / IBAN: <b className="text-fg">{pay.intlAccount}</b>
+              </li>
+            ) : null}
+            {pay?.intlSwift ? (
+              <li>
+                SWIFT: <b className="text-fg">{pay.intlSwift}</b>
+              </li>
+            ) : null}
+            {pay?.intlHolder ? (
+              <li>
+                Name: <b className="text-fg">{pay.intlHolder}</b>
+              </li>
+            ) : null}
+            {pay?.intlPaypal ? (
+              <li>
+                PayPal: <b className="text-fg">{pay.intlPaypal}</b>
+              </li>
+            ) : null}
           </ul>
         )
       ) : (
@@ -916,14 +1031,24 @@ function PaypalButtons({
   valueUsd,
   disabled,
   onPaid,
+  getOrder,
+  onPending,
+  onSaved,
 }: {
   valueUsd: string;
   disabled: boolean;
   onPaid: (orderID: string) => Promise<void>;
+  getOrder: () => Record<string, unknown> | undefined;
+  onPending: (payload: Record<string, unknown>) => void;
+  onSaved: (order: StoreOrder) => void;
 }) {
   const slot = useRef<HTMLDivElement>(null);
   const paidRef = useRef(onPaid);
   paidRef.current = onPaid;
+  const callbacks = useRef({ getOrder, onPending, onSaved });
+  callbacks.current = { getOrder, onPending, onSaved };
+  const submitted = useRef<Record<string, unknown> | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [clientId, setClientId] = useState("");
   const [ready, setReady] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -934,7 +1059,8 @@ function PaypalButtons({
       .then((d: { enabled?: boolean; clientId?: string }) => {
         if (d.enabled && d.clientId) setClientId(d.clientId);
       })
-      .catch(() => setErr("PayPal"));
+      .catch(() => setErr("Payment service unavailable. Please try again later."))
+      .finally(() => setLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -968,25 +1094,42 @@ function PaypalButtons({
       createOrder: async () => {
         const form = host.closest("form");
         if (form && !form.reportValidity()) throw new Error("form");
+        const order = callbacks.current.getOrder();
+        if (!order) throw new Error("Please check your order details.");
+        submitted.current = order;
         const res = await fetch("/api/paypal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "create", value: valueUsd }),
+          body: JSON.stringify({ action: "create", value: valueUsd, order }),
         });
-        const data = (await res.json()) as { id?: string };
-        if (!data.id) throw new Error("create");
+        const data = (await res.json()) as { id?: string; error?: string };
+        if (!res.ok || !data.id) {
+          setErr(
+            "Please check your shipping details and refresh checkout before paying. No payment has been taken.",
+          );
+          throw new Error("create");
+        }
         return data.id;
       },
       onApprove: async (data: { orderID: string }) => {
+        if (submitted.current)
+          callbacks.current.onPending({ ...submitted.current, paypalOrderId: data.orderID });
         const res = await fetch("/api/paypal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "capture", orderID: data.orderID }),
         });
         if (!res.ok) throw new Error("capture");
-        await paidRef.current(data.orderID);
+        const result = (await res.json()) as { order?: StoreOrder };
+        if (result.order?.id) callbacks.current.onSaved(result.order);
+        else await paidRef.current(data.orderID);
       },
-      onError: () => setErr("PayPal"),
+      onError: () =>
+        setErr(
+          (current) =>
+            current ||
+            "Payment could not be confirmed. Check your PayPal activity before retrying payment.",
+        ),
     });
     void buttons.render(host);
     return () => {
@@ -1001,7 +1144,9 @@ function PaypalButtons({
   if (!clientId) {
     return (
       <p className="text-sm text-muted">
-        PayPal is not configured. Use bank transfer or add PAYPAL_CLIENT_ID on the server.
+        {loaded
+          ? "PayPal is temporarily unavailable. Please contact support or choose another payment method."
+          : "Loading PayPal…"}
       </p>
     );
   }

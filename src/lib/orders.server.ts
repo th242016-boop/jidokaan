@@ -1,6 +1,8 @@
 import { isBlockedEmail, readCatalog } from "./catalog.server";
 import { assertSession } from "./admin-auth.server";
 import { couponDiscount, couponRejectReason, findCoupon } from "./coupon";
+import { randomUUID } from "node:crypto";
+import { normalizeInstagram } from "./order-contact";
 import type {
   ClaimKind,
   ClaimStatus,
@@ -35,6 +37,8 @@ export async function ensureOrderTables() {
       created_at timestamptz not null default now()
     )
   `);
+  await sql.query(`create unique index if not exists store_orders_paypal_unique
+    on store_orders ((data->>'paypalOrderId')) where data->>'paypalOrderId' is not null`);
   await sql.query(`
     create table if not exists store_reviews (
       id text primary key,
@@ -55,10 +59,11 @@ function emailMatch(a: string, b: string) {
 
 async function saveOrder(order: StoreOrder) {
   const sql = await db();
-  await sql.query(
-    "update store_orders set data = $2::jsonb, status = $3 where id = $1",
-    [order.id, JSON.stringify(order), order.status],
-  );
+  await sql.query("update store_orders set data = $2::jsonb, status = $3 where id = $1", [
+    order.id,
+    JSON.stringify(order),
+    order.status,
+  ]);
 }
 
 export async function findOrderById(id: string): Promise<StoreOrder | null> {
@@ -66,10 +71,9 @@ export async function findOrderById(id: string): Promise<StoreOrder | null> {
   const needle = id.trim().toUpperCase();
   if (!needle) return null;
   const sql = await db();
-  const exact = await sql.query<{ data: unknown }>(
-    "select data from store_orders where id = $1",
-    [needle],
-  );
+  const exact = await sql.query<{ data: unknown }>("select data from store_orders where id = $1", [
+    needle,
+  ]);
   if (exact[0]) return asJson<StoreOrder>(exact[0].data);
   const rows = await sql.query<{ data: unknown }>(
     "select data from store_orders order by created_at desc limit 400",
@@ -166,9 +170,7 @@ export async function countOrdersByEmail(email: string) {
   const needle = email.trim().toLowerCase();
   if (!needle) return 0;
   const sql = await db();
-  const rows = await sql.query<{ data: unknown }>(
-    "select data from store_orders limit 400",
-  );
+  const rows = await sql.query<{ data: unknown }>("select data from store_orders limit 400");
   return rows.filter((r) => {
     const o = asJson<StoreOrder>(r.data);
     return o?.email?.trim().toLowerCase() === needle && o.status !== "cancel";
@@ -177,6 +179,7 @@ export async function countOrdersByEmail(email: string) {
 
 export async function placeOrder(
   input: Omit<StoreOrder, "id" | "createdAt" | "status"> & { status?: StoreOrder["status"] },
+  preserveVerifiedQuote = false,
 ) {
   await ensureOrderTables();
   if (!input.email || !input.name || !input.address || !input.items?.length) {
@@ -188,14 +191,11 @@ export async function placeOrder(
   let discountKrw = input.discountKrw ?? 0;
   let discountUsd = input.discountUsd ?? 0;
   let couponCode = input.couponCode?.trim().toUpperCase() || "";
-  if (couponCode) {
+  if (couponCode && !preserveVerifiedQuote) {
     const catalog = await readCatalog();
     const coupon = findCoupon(catalog.coupons ?? [], couponCode);
     const count = await countOrdersByEmail(input.email);
-    const goodsKrw = Math.max(
-      0,
-      Number(input.totalKrw) + discountKrw - (input.shippingKrw || 0),
-    );
+    const goodsKrw = Math.max(0, Number(input.totalKrw) + discountKrw - (input.shippingKrw || 0));
     const reason = couponRejectReason(coupon, goodsKrw, count);
     if (reason || !coupon) {
       couponCode = "";
@@ -217,11 +217,12 @@ export async function placeOrder(
   const wait = input.pay === "transfer";
   const order: StoreOrder = {
     ...input,
-    id: `JDK-${Date.now().toString(36).toUpperCase()}`,
+    id: `JDK-${randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`,
     createdAt: new Date().toISOString(),
     status: wait ? "wait" : "paid",
     email: String(input.email).slice(0, 200),
     phone: String(input.phone ?? "").slice(0, 40),
+    instagram: normalizeInstagram(input.instagram),
     name: String(input.name).slice(0, 80),
     address: String(input.address).slice(0, 200),
     depositor: String(input.depositor ?? "").slice(0, 80),
@@ -231,10 +232,26 @@ export async function placeOrder(
     items: input.items.slice(0, 30),
   };
   const sql = await db();
-  await sql.query(
-    "insert into store_orders (id, data, status) values ($1, $2::jsonb, $3)",
+  const inserted = await sql.query<{ id: string }>(
+    "insert into store_orders (id, data, status) values ($1, $2::jsonb, $3) on conflict do nothing returning id",
     [order.id, JSON.stringify(order), order.status],
   );
+  if (!inserted.length) {
+    if (!order.paypalOrderId) throw new Error("ORDER_ID_CONFLICT");
+    const previous = await sql.query<{ data: unknown }>(
+      "select data from store_orders where data->>'paypalOrderId' = $1",
+      [order.paypalOrderId],
+    );
+    const existing = previous[0] ? asJson<StoreOrder>(previous[0].data) : null;
+    if (
+      !existing ||
+      !emailMatch(existing.email, order.email) ||
+      existing.totalUsd !== order.totalUsd
+    ) {
+      throw new Error("PAYPAL_ALREADY_USED");
+    }
+    return existing;
+  }
   return order;
 }
 
@@ -296,13 +313,10 @@ export async function updateOrder(
     courier: patch.courier ?? order.courier,
     note: patch.note ?? order.note,
   };
+  if (patch.status === "shipped" && !next.tracking?.trim()) throw new Error("TRACKING_REQUIRED");
   if (patch.claim) next.claim = patch.claim;
   if (patch.claimStatus) next.claimStatus = patch.claimStatus;
-  if (
-    patch.status === "cancel" ||
-    patch.status === "return" ||
-    patch.status === "exchange"
-  ) {
+  if (patch.status === "cancel" || patch.status === "return" || patch.status === "exchange") {
     next.claim = patch.status;
     if (!next.claimStatus) next.claimStatus = "accepted";
   }
@@ -338,10 +352,11 @@ export async function addInbox(input: {
     status: "new",
   };
   const sql = await db();
-  await sql.query(
-    "insert into store_inbox (id, data, status) values ($1, $2::jsonb, $3)",
-    [item.id, JSON.stringify(item), item.status],
-  );
+  await sql.query("insert into store_inbox (id, data, status) values ($1, $2::jsonb, $3)", [
+    item.id,
+    JSON.stringify(item),
+    item.status,
+  ]);
   return { ok: true, item };
 }
 
@@ -349,16 +364,16 @@ export async function updateInbox(token: string, id: string, status: "new" | "do
   await assertSession(token);
   await ensureOrderTables();
   const sql = await db();
-  const rows = await sql.query<{ data: unknown }>(
-    "select data from store_inbox where id = $1",
-    [id],
-  );
+  const rows = await sql.query<{ data: unknown }>("select data from store_inbox where id = $1", [
+    id,
+  ]);
   if (!rows[0]) throw new Error("NOT_FOUND");
   const item = { ...asJson<InboxItem>(rows[0].data), status };
-  await sql.query(
-    "update store_inbox set data = $2::jsonb, status = $3 where id = $1",
-    [id, JSON.stringify(item), status],
-  );
+  await sql.query("update store_inbox set data = $2::jsonb, status = $3 where id = $1", [
+    id,
+    JSON.stringify(item),
+    status,
+  ]);
   return item;
 }
 
@@ -397,10 +412,11 @@ export async function addReview(input: {
     status: "new",
   };
   const sql = await db();
-  await sql.query(
-    "insert into store_reviews (id, data, status) values ($1, $2::jsonb, $3)",
-    [item.id, JSON.stringify(item), item.status],
-  );
+  await sql.query("insert into store_reviews (id, data, status) values ($1, $2::jsonb, $3)", [
+    item.id,
+    JSON.stringify(item),
+    item.status,
+  ]);
   return { ok: true, item };
 }
 
@@ -408,15 +424,15 @@ export async function updateReview(token: string, id: string, status: "new" | "d
   await assertSession(token);
   await ensureOrderTables();
   const sql = await db();
-  const rows = await sql.query<{ data: unknown }>(
-    "select data from store_reviews where id = $1",
-    [id],
-  );
+  const rows = await sql.query<{ data: unknown }>("select data from store_reviews where id = $1", [
+    id,
+  ]);
   if (!rows[0]) throw new Error("NOT_FOUND");
   const item = { ...asJson<StoreReview>(rows[0].data), status };
-  await sql.query(
-    "update store_reviews set data = $2::jsonb, status = $3 where id = $1",
-    [id, JSON.stringify(item), status],
-  );
+  await sql.query("update store_reviews set data = $2::jsonb, status = $3 where id = $1", [
+    id,
+    JSON.stringify(item),
+    status,
+  ]);
   return item;
 }

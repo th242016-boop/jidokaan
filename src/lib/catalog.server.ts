@@ -360,6 +360,16 @@ export async function writeSeo(token: string, seo: SiteSeo) {
 
 export async function writeShipping(token: string, shipping: ShippingSettings) {
   await assertAdmin(token);
+  if (!shipping || !Number.isFinite(shipping.extraPct) || shipping.extraPct < 0 || shipping.extraPct > 1000) throw new Error("SHIPPING_INVALID");
+  for (const zone of ["kr", "asia", "pacific", "europe", "world"] as const) {
+    for (const key of ["standardKrw", "standardUsd", "expressKrw", "expressUsd"] as const) {
+      const value = shipping.zones?.[zone]?.[key];
+      if (!Number.isFinite(value) || value < 0 || value > 10000000) throw new Error("SHIPPING_INVALID");
+    }
+  }
+  for (const [country, rate] of Object.entries(shipping.countryRates ?? {})) {
+    if (!/^[A-Z]{2}$/.test(country) || !Number.isFinite(rate.usd) || rate.usd < 0 || rate.usd > 10000) throw new Error("SHIPPING_INVALID");
+  }
   await writeSetting("shipping_json", JSON.stringify(shipping));
 }
 

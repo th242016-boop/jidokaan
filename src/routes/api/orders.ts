@@ -16,8 +16,10 @@ import {
 import { proxyToLive, shouldProxyToLive } from "@/lib/live-proxy.server";
 import { readCatalog } from "@/lib/catalog.server";
 import { couponRejectReason, findCoupon } from "@/lib/coupon";
-import { paypalCaptureOk } from "@/lib/paypal.server";
+import { verifyPaypalPayment } from "@/lib/paypal.server";
 import type { ClaimKind } from "@/lib/order-types";
+import { completePaypalCheckout } from "@/lib/paypal-checkout.server";
+import { quoteCheckout } from "@/lib/checkout-quote.server";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: AUTH_HEADERS });
@@ -58,10 +60,14 @@ export const Route = createFileRoute("/api/orders")({
             ids?: string[];
             reason?: string;
             decision?: "accept" | "reject" | "cancel";
+            kind?: ClaimKind;
           } & Partial<StoreOrder>;
           if (body.action === "checkCoupon") {
             const catalog = await readCatalog();
-            const coupon = findCoupon(catalog.coupons ?? [], String(body.note ?? body.couponCode ?? ""));
+            const coupon = findCoupon(
+              catalog.coupons ?? [],
+              String(body.note ?? body.couponCode ?? ""),
+            );
             const count = await countOrdersByEmail(body.email ?? "");
             const goods = Number(body.totalKrw) || 0;
             const reason = couponRejectReason(coupon, goods, count);
@@ -116,38 +122,19 @@ export const Route = createFileRoute("/api/orders")({
             const deleted = await deleteCancelledOrders(body.token, ids);
             return json({ deleted });
           }
-          if ((body.pay ?? "") === "paypal") {
-            if ((body.country ?? "KR") === "KR") {
-              return json({ error: "PAYPAL_OVERSEAS_ONLY" }, 400);
-            }
-            const paid = await paypalCaptureOk(
-              String((body as { paypalOrderId?: string }).paypalOrderId ?? ""),
-            );
-            if (!paid) return json({ error: "PAYPAL_UNPAID" }, 400);
+          if (body.action) return json({ error: "BAD_ACTION" }, 400);
+          if (body.pay === "paypal" && body.paypalOrderId) {
+            const completed = await completePaypalCheckout(body.paypalOrderId, false);
+            if (completed) return json({ order: completed });
           }
-          const order = await placeOrder({
-            email: body.email ?? "",
-            phone: body.phone ?? "",
-            name: body.name ?? "",
-            address: body.address ?? "",
-            city: body.city ?? "",
-            region: body.region ?? "",
-            postal: body.postal ?? "",
-            country: body.country ?? "KR",
-            pay: body.pay ?? "card",
-            depositor: (body as { depositor?: string }).depositor,
-            shipMethod: body.shipMethod ?? "standard",
-            shippingKrw: Number(body.shippingKrw) || 0,
-            shippingUsd: Number(body.shippingUsd) || 0,
-            totalKrw: Number(body.totalKrw) || 0,
-            totalUsd: Number(body.totalUsd) || 0,
-            currency: body.currency ?? "KRW",
-            items: body.items ?? [],
-            note: body.note,
-            couponCode: body.couponCode,
-            discountKrw: body.discountKrw,
-            discountUsd: body.discountUsd,
-          });
+          if (body.pay !== "paypal")
+            return json({ order: await placeOrder(await quoteCheckout(body), true) });
+          const quoted = await quoteCheckout(body);
+          const payment = await verifyPaypalPayment(
+            String(body.paypalOrderId ?? ""),
+            quoted.totalUsd,
+          );
+          const order = await placeOrder({ ...quoted, ...payment }, true);
           return json({ order });
         } catch (err) {
           const message = err instanceof Error ? err.message : "fail";
