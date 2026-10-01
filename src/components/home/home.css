@@ -92,8 +92,14 @@ html:has(#cinematic-home):not([lang="ko"]) h1,html:has(#cinematic-home):not([lan
 /* Workshop photographs and the live shop share the home page's editorial rhythm. */
 #cinematic-home .nav-shop{font-weight:500}
 #cinematic-home .desktop-nav .nav-shop:after{transform:scaleX(1);opacity:.6}
-#cinematic-home .atelier{row-gap:100px}
-#cinematic-home .craft-story{grid-column:1/-1;min-width:0;padding-top:65px;border-top:1px solid #b7b1a6}
+#cinematic-home .atelier{display:block}
+#cinematic-home .atelier-identity{width:100%;max-width:480px;margin:0 auto 65px}
+#cinematic-home .atelier-identity .identity-caption{text-align:center}
+#cinematic-home .atelier-copy{display:grid;grid-template-columns:1fr 1fr;column-gap:10%;align-items:start;margin-top:80px;padding-top:65px;border-top:1px solid #b7b1a6}
+#cinematic-home .atelier-copy>.section-index{grid-column:1;grid-row:1}
+#cinematic-home .atelier-copy>h2{grid-column:1;grid-row:2;margin:24px 0 0}
+#cinematic-home .atelier-copy>.process-list{grid-column:2;grid-row:1/span 2}
+#cinematic-home .craft-story{min-width:0}
 #cinematic-home .craft-heading,#cinematic-home .home-shop-heading{display:grid;grid-template-columns:1fr 1fr;gap:10%;align-items:end;margin-bottom:48px}
 #cinematic-home .craft-heading h2,#cinematic-home .home-shop-heading h2{font-size:clamp(34px,3.5vw,58px);line-height:1.6;margin:24px 0 0}
 #cinematic-home .craft-heading>p,#cinematic-home .home-shop-heading p{max-width:460px;justify-self:end;color:#666154;font-size:16px;line-height:1.95;word-break:keep-all}
@@ -137,8 +143,9 @@ html:has(#cinematic-home):not([lang="ko"]) h1,html:has(#cinematic-home):not([lan
   #cinematic-home .site-header.menu-open .brand{filter:none}
 }
 @media(max-width:760px){
-  #cinematic-home .atelier{row-gap:55px}
-  #cinematic-home .craft-story{padding-top:40px}
+  #cinematic-home .atelier-identity{max-width:380px;margin-bottom:40px}
+  #cinematic-home .atelier-copy{display:block;margin-top:55px;padding-top:40px}
+  #cinematic-home .atelier-copy>h2{margin:20px 0 30px}
   #cinematic-home .craft-heading,#cinematic-home .home-shop-heading{display:block;margin-bottom:30px}
   #cinematic-home .craft-heading h2,#cinematic-home .home-shop-heading h2{font-size:34px;margin-top:20px}
   #cinematic-home .craft-heading>p,#cinematic-home .home-shop-heading p{font-size:15px;margin-top:22px;max-width:none}
