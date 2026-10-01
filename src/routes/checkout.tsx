@@ -108,6 +108,7 @@ function CheckoutPage() {
     validDesigns && customItems.every((item) => Boolean(designPreviews[designKey(item.partNames)]));
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setTermsAccepted(false);
     setDesignPreviews({});
     setPreviewFailed(false);
@@ -117,15 +118,18 @@ function CheckoutPage() {
         customItems.map((item) => [designKey(item.partNames), completeDesign(item.partNames)!]),
       ).entries(),
     ];
-    void Promise.all(unique.map(async ([key, names]) => [key, await captureDesign(names)] as const))
-      .then((entries) => {
-        if (active) setDesignPreviews(Object.fromEntries(entries));
-      })
-      .catch(() => {
-        if (active) setPreviewFailed(true);
-      });
+    // Render one design at a time to avoid decoding every cart item's layers at once on phones.
+    void (async () => {
+      for (const [key, names] of unique) {
+        const preview = await captureDesign(names, { signal: controller.signal });
+        if (active) setDesignPreviews((current) => ({ ...current, [key]: preview }));
+      }
+    })().catch(() => {
+      if (active) setPreviewFailed(true);
+    });
     return () => {
       active = false;
+      controller.abort();
     };
   }, [designSignature, previewAttempt]);
   const [orderError, setOrderError] = useState("");
@@ -252,6 +256,17 @@ function CheckoutPage() {
   const copy = shipCopy(locale, country);
   const dutyText = country === "US" ? review.usDuty : review.duty;
   const canPay = termsAccepted && previewsReady && quote.available && Boolean(country);
+  const consentBlocker = !country
+    ? review.selectCountry
+    : !quote.available
+      ? review.unavailable
+      : !validDesigns
+        ? review.missing
+        : !previewsReady
+          ? previewFailed
+            ? review.imageError
+            : review.loading
+          : "";
   useEffect(() => {
     setTermsAccepted(false);
   }, [country, locale, totalUsd]);
@@ -999,17 +1014,52 @@ function CheckoutPage() {
                     </a>
                   </p>
                 ) : null}
-                <label className="flex items-start gap-3 rounded-xl bg-surface-muted p-4 text-sm leading-relaxed">
+                <label
+                  htmlFor="checkout-consent"
+                  className="flex min-h-14 cursor-pointer touch-manipulation items-start gap-3 rounded-xl border border-border-strong bg-surface-muted p-4 text-sm leading-relaxed focus-within:ring-2 focus-within:ring-ring"
+                >
                   <input
+                    id="checkout-consent"
+                    name="checkout-consent"
                     type="checkbox"
                     required
                     checked={termsAccepted}
-                    disabled={!previewsReady || !quote.available}
+                    aria-describedby={consentBlocker ? "checkout-consent-status" : undefined}
                     onChange={(e) => setTermsAccepted(e.target.checked)}
-                    className="mt-1 size-4 shrink-0"
+                    className="mt-0.5 size-6 shrink-0 cursor-pointer accent-primary"
                   />
                   <span>{review.agree}</span>
                 </label>
+                {consentBlocker ? (
+                  <div
+                    id="checkout-consent-status"
+                    role="status"
+                    aria-live="polite"
+                    className="space-y-3 rounded-xl border border-amber-500/40 p-3 text-sm leading-relaxed"
+                  >
+                    <p>{consentBlocker}</p>
+                    {!country ? (
+                      <a href="#country" className="inline-flex min-h-11 items-center underline">
+                        {dict.checkout.country} ↑
+                      </a>
+                    ) : null}
+                    {!validDesigns ? (
+                      <Link to="/customize" className="inline-flex min-h-11 items-center underline">
+                        {review.simulator}
+                      </Link>
+                    ) : null}
+                    {previewFailed && validDesigns ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="min-h-11"
+                        onClick={() => setPreviewAttempt((n) => n + 1)}
+                      >
+                        {review.retry}
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
               </section>
             ) : null}
 

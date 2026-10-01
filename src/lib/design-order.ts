@@ -47,8 +47,47 @@ export function validDesignPreview(value: unknown): value is string {
   );
 }
 
-/** Same base, layer order and object-contain geometry as LayerSimulator. */
-export async function captureDesign(names: PartColorNames): Promise<string> {
+function loadDesignImage(src: string, signal: AbortSignal | undefined, deadline: number) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error("DESIGN_IMAGE_ABORTED"));
+      return;
+    }
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      reject(new Error("DESIGN_IMAGE_TIMEOUT"));
+      return;
+    }
+    const img = new Image();
+    let settled = false;
+    const finish = (error?: string) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
+      img.onload = img.onerror = null;
+      if (error) {
+        img.src = "";
+        reject(new Error(error));
+      } else resolve(img);
+    };
+    const abort = () => finish("DESIGN_IMAGE_ABORTED");
+    const timeout = setTimeout(() => finish("DESIGN_IMAGE_TIMEOUT"), remaining);
+    signal?.addEventListener("abort", abort, { once: true });
+    img.onload = () =>
+      finish(img.naturalWidth > 0 && img.naturalHeight > 0 ? undefined : "DESIGN_IMAGE_FAILED");
+    img.onerror = () => finish("DESIGN_IMAGE_FAILED");
+    img.src = src;
+  });
+}
+
+/** Same base, layer order and object-contain geometry as LayerSimulator.
+ * Decode/draw/release one layer at a time; do not hold all full-size layers on phones.
+ */
+export async function captureDesign(
+  names: PartColorNames,
+  options: { signal?: AbortSignal } = {},
+): Promise<string> {
   if (!completeDesign(names)) throw new Error("DESIGN_REQUIRED");
   const sources = [
     PHOTO_BASE,
@@ -56,37 +95,33 @@ export async function captureDesign(names: PartColorNames): Promise<string> {
       Boolean(s),
     ),
   ];
-  const images = await Promise.all(
-    sources.map(
-      (src) =>
-        new Promise<HTMLImageElement>((resolve, reject) => {
-          const img = new Image();
-          const timeout = setTimeout(() => reject(new Error("DESIGN_IMAGE_TIMEOUT")), 20000);
-          img.onload = () => {
-            clearTimeout(timeout);
-            resolve(img);
-          };
-          img.onerror = () => {
-            clearTimeout(timeout);
-            reject(new Error("DESIGN_IMAGE_FAILED"));
-          };
-          img.src = src;
-        }),
-    ),
-  );
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 1000;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("DESIGN_IMAGE_FAILED");
-  ctx.fillStyle = "#121214";
-  ctx.fillRect(0, 0, 1000, 1000);
-  for (const img of images) {
-    const ratio = Math.min(1000 / img.naturalWidth, 1000 / img.naturalHeight);
-    const w = img.naturalWidth * ratio,
-      h = img.naturalHeight * ratio;
-    ctx.drawImage(img, (1000 - w) / 2, (1000 - h) / 2, w, h);
+  const deadline = Date.now() + 60_000;
+  try {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("DESIGN_IMAGE_FAILED");
+    ctx.fillStyle = "#121214";
+    ctx.fillRect(0, 0, 1000, 1000);
+    for (const src of sources) {
+      const img = await loadDesignImage(src, options.signal, deadline);
+      try {
+        if (options.signal?.aborted) throw new Error("DESIGN_IMAGE_ABORTED");
+        const ratio = Math.min(1000 / img.naturalWidth, 1000 / img.naturalHeight);
+        const w = img.naturalWidth * ratio,
+          h = img.naturalHeight * ratio;
+        ctx.drawImage(img, (1000 - w) / 2, (1000 - h) / 2, w, h);
+      } finally {
+        img.src = "";
+      }
+    }
+    // Keep the same 1000px composition; lower JPEG quality only if the order-size limit requires it.
+    for (const quality of [0.9, 0.85, 0.8]) {
+      const preview = canvas.toDataURL("image/jpeg", quality);
+      if (validDesignPreview(preview)) return preview;
+    }
+    throw new Error("DESIGN_IMAGE_FAILED");
+  } finally {
+    canvas.width = canvas.height = 0;
   }
-  const preview = canvas.toDataURL("image/jpeg", 0.9);
-  if (!validDesignPreview(preview)) throw new Error("DESIGN_IMAGE_FAILED");
-  return preview;
 }

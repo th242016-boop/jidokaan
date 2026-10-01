@@ -653,8 +653,30 @@ export const SHIPPING_RATE_NOTE: Record<Locale, string> = {
   tl: "Ang nakasaad na singil sa pagpapadala ay isang nakatakdang halaga na kasama ang internasyonal na pagpapadala at paghawak ng kargamento.",
   ar: "رسوم الشحن المعروضة مبلغ ثابت يشمل النقل الدولي ومناولة الشحنة.",
 };
-export function checkoutCopy(locale: string): Copy {
+export const CHECKOUT_COUNTRY_PROMPT: Record<Locale, string> = {
+  ko: "배송 국가를 먼저 선택해 주세요. 배송비 확인 후 결제를 진행할 수 있습니다.",
+  en: "Select your delivery country first. Payment will be available once shipping is confirmed.",
+  es: "Selecciona primero el país de entrega. Podrás pagar cuando se confirme el envío.",
+  th: "กรุณาเลือกประเทศปลายทางก่อน คุณจะชำระเงินได้เมื่อยืนยันค่าจัดส่งแล้ว",
+  fr: "Sélectionnez d’abord le pays de livraison. Le paiement sera disponible une fois les frais de livraison confirmés.",
+  de: "Wähle zuerst das Lieferland. Sobald die Versandkosten bestätigt sind, kannst du bezahlen.",
+  ja: "先に配送先の国を選択してください。送料の確認後にお支払いいただけます。",
+  zh: "请先选择收货国家。确认运费后即可付款。",
+  ru: "Сначала выберите страну доставки. Оплата станет доступна после подтверждения стоимости доставки.",
+  it: "Seleziona prima il paese di consegna. Potrai pagare dopo la conferma delle spese di spedizione.",
+  pt: "Selecione primeiro o país de entrega. O pagamento ficará disponível após a confirmação do frete.",
+  tr: "Önce teslimat ülkesini seçin. Kargo ücreti onaylandıktan sonra ödeme yapabilirsiniz.",
+  uz: "Avval yetkazib beriladigan mamlakatni tanlang. Yetkazib berish haqi tasdiqlangach, to‘lovni amalga oshirishingiz mumkin.",
+  hi: "पहले डिलीवरी का देश चुनें। शिपिंग शुल्क की पुष्टि होने के बाद भुगतान किया जा सकेगा।",
+  tl: "Piliin muna ang bansang paghahatiran. Maaari nang magbayad kapag nakumpirma na ang singil sa pagpapadala.",
+  ar: "اختر بلد التسليم أولاً. سيتاح الدفع بعد تأكيد رسوم الشحن.",
+};
+export function checkoutCopy(locale: string): Copy & { selectCountry: string } {
   const key = Object.hasOwn(CHECKOUT_COPY, locale) ? (locale as Locale) : "en";
   const copy = CHECKOUT_COPY[key];
-  return { ...copy, shipping: `${copy.shipping} ${SHIPPING_RATE_NOTE[key]}` };
+  return {
+    ...copy,
+    shipping: `${copy.shipping} ${SHIPPING_RATE_NOTE[key]}`,
+    selectCountry: CHECKOUT_COUNTRY_PROMPT[key],
+  };
 }

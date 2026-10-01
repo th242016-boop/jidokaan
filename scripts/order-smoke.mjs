@@ -313,6 +313,7 @@ try {
       );
       assert.ok(copies.checkoutCopy(locale).shipping.includes("410×310×150"));
       assert.ok(copies.SHIPPING_RATE_NOTE[locale]?.length > 10);
+      assert.ok(copies.checkoutCopy(locale).selectCountry.length > 10);
       assert.ok(copies.checkoutCopy(locale).shipping.endsWith(copies.SHIPPING_RATE_NOTE[locale]));
     }
   });
