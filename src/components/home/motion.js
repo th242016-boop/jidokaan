@@ -27,6 +27,8 @@ export function mountHomeMotion(root, locale) {
   const data=cards.map(card=>({image:card.dataset.image}));
   const specialCards=$$('.special-look');
   const specialData=specialCards.map(card=>({image:card.dataset.image}));
+  const craftCards=$$('.craft-photo');
+  const craftData=craftCards.map(card=>({src:card.querySelector('img').getAttribute('src')}));
   const lookCount=data.length;
   const totalLabel=String(lookCount).padStart(2,'0');
   $('.gallery-line i').style.width=`${100/lookCount}%`;
@@ -146,6 +148,26 @@ export function mountHomeMotion(root, locale) {
     specialCount(distances.indexOf(Math.min(...distances)));
   },{passive:true});
   specialCount(0);
+  const craftRail=$('.craft-rail');let activeCraft=0;
+  function craftCount(i){
+    activeCraft=clamp(i,0,craftCards.length-1);
+    $('.craft-count').textContent=`${String(activeCraft+1).padStart(2,'0')} / ${String(craftCards.length).padStart(2,'0')}`;
+    $('.craft-prev').disabled=activeCraft===0;
+    $('.craft-next').disabled=activeCraft===craftCards.length-1;
+  }
+  function craftGo(i){
+    const card=craftCards[clamp(i,0,craftCards.length-1)];
+    const r=card.getBoundingClientRect(),rail=craftRail.getBoundingClientRect();
+    craftRail.scrollTo({left:craftRail.scrollLeft+r.left-rail.left-(rail.width-r.width)/2,behavior:reduced.matches?'instant':'smooth'});
+  }
+  listen($('.craft-prev'),'click',()=>craftGo(activeCraft-1));
+  listen($('.craft-next'),'click',()=>craftGo(activeCraft+1));
+  listen(craftRail,'scroll',()=>{
+    const rail=craftRail.getBoundingClientRect(),center=rail.left+rail.width/2;
+    const distances=craftCards.map(card=>{const r=card.getBoundingClientRect();return Math.abs(r.left+r.width/2-center);});
+    craftCount(distances.indexOf(Math.min(...distances)));
+  },{passive:true});
+  craftCount(0);
   const menu=$('#mobile-menu'),toggle=$('.menu-toggle');
   function closeMenu(){menu.hidden=true;header.classList.remove('menu-open');toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-label',t('menuOpen'));root.classList.remove('modal-open');}
   listen(toggle,'click',()=>{
@@ -157,25 +179,30 @@ export function mountHomeMotion(root, locale) {
   listen(window,'keydown',e=>{if(e.key==='Escape'&&!menu.hidden){closeMenu();toggle.focus();}});
   const dialog=$('.look-dialog');let dialogIndex=0,dialogCollection='custom';
   function showLook(i){
-    const isSpecial=dialogCollection==='special';
-    const collection=isSpecial?specialData:data;
+    const isSpecial=dialogCollection==='special',isCraft=dialogCollection==='craft';
+    const collection=isCraft?craftData:isSpecial?specialData:data;
     dialogIndex=(i+collection.length)%collection.length;
-    const look=collection[dialogIndex],key=`${isSpecial?'specialLook':'look'}${dialogIndex}`;
-    $('#dialog-image').src=`/homepage/assets/${look.image}.webp`;
+    const look=collection[dialogIndex],key=`${isCraft?'craftPhoto':isSpecial?'specialLook':'look'}${dialogIndex}`;
+    $('#dialog-image').src=look.src??`/homepage/assets/${look.image}.webp`;
     $('#dialog-image').alt=t(`${key}Alt`);
     $('#dialog-title').textContent=t(key);
     $('#dialog-count').textContent=`${String(dialogIndex+1).padStart(2,'0')} / ${String(collection.length).padStart(2,'0')}`;
     const index=$('#dialog-index'),description=$('#dialog-description'),action=$('#dialog-action');
-    index.dataset.i18n=isSpecial?'specialDialogIndex':'dialogIndex';
-    description.dataset.i18n=isSpecial?'specialExampleProduct':'exampleProduct';
+    index.dataset.i18n=isCraft?'craftDialogIndex':isSpecial?'specialDialogIndex':'dialogIndex';
+    description.dataset.i18n=isCraft?'craftDescription':isSpecial?'specialExampleProduct':'exampleProduct';
     action.dataset.i18n=isSpecial?'specialContact':'createCombination';
     [index,description,action].forEach(el=>el.innerHTML=t(el.dataset.i18n));
     action.href=isSpecial?'tel:+821034815598':`/customize?lang=${encodeURIComponent(locale.locale)}`;
     action.removeAttribute('target');
+    action.hidden=isCraft;
+    [['#dialog-prev',isCraft?'craftPrevious':'previous'],['#dialog-next',isCraft?'craftNext':'next']].forEach(([selector,key])=>{
+      $(selector).setAttribute('data-i18n-aria-label',key);
+      $(selector).setAttribute('aria-label',t(key));
+    });
   }
-  $$('[data-open],[data-special-open]').forEach(b=>listen(b,'click',()=>{
-    savedFocus=b;dialogCollection=b.hasAttribute('data-special-open')?'special':'custom';
-    showLook(Number(b.dataset.specialOpen??b.dataset.open));dialog.showModal();root.classList.add('modal-open');
+  $$('[data-open],[data-special-open],[data-craft-open]').forEach(b=>listen(b,'click',()=>{
+    savedFocus=b;dialogCollection=b.hasAttribute('data-craft-open')?'craft':b.hasAttribute('data-special-open')?'special':'custom';
+    showLook(Number(b.dataset.craftOpen??b.dataset.specialOpen??b.dataset.open));dialog.showModal();root.classList.add('modal-open');
   }));
   listen($('.dialog-close'),'click',()=>dialog.close());
   listen($('#dialog-prev'),'click',()=>showLook(dialogIndex-1));

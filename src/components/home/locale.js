@@ -1,5 +1,6 @@
 import faqCopy from './faq-copy.js';
 import specialCopy from './special-copy.js';
+import craftCopy from './craft-copy.js';
 export function createHomeLocale(root, onLocaleChange) {
   const strings = {};
   // Korean source content also provides a complete no-JavaScript fallback.
@@ -52,6 +53,7 @@ export function createHomeLocale(root, onLocaleChange) {
   };
   for (const [lang,copy] of Object.entries(faqCopy)) Object.assign(strings[lang],copy);
   for (const [lang,copy] of Object.entries(specialCopy)) Object.assign(strings[lang],copy);
+  for (const [lang,copy] of Object.entries(craftCopy)) Object.assign(strings[lang],copy);
   const arrow='<span aria-hidden="true">↗</span>';
   for (const [lang,d] of Object.entries(strings)) {
     if (lang==='ko') continue;
@@ -96,7 +98,7 @@ export function createHomeLocale(root, onLocaleChange) {
     toggle.setAttribute('aria-label',t(toggle.getAttribute('aria-expanded')==='true'?'menuClose':'menuOpen'));
     select.value=locale;
     // These are full-page links; carry the selection even if storage is blocked.
-    root.querySelectorAll('a[href="/customize"], a[href^="/customize?"]').forEach(link=>{
+    root.querySelectorAll('a[href="/customize"], a[href^="/customize?"], a[href="/shop"], a[href^="/shop?"]').forEach(link=>{
       const url=new URL(link.getAttribute('href'),'https://jidokaan.com');
       url.searchParams.set('lang',locale);
       link.setAttribute('href',url.pathname+url.search+url.hash);

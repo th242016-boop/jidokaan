@@ -125,7 +125,8 @@ try {
     "home entry links pass every home language across a full-page navigation",
     async () => {
       const { createHomeLocale } = await server.ssrLoadModule("/src/components/home/locale.js");
-      const anchors = ["/customize", "/customize?source=gallery#preview"].map((href) => ({
+      const anchors = ["/customize", "/customize?source=gallery#preview", "/shop", "/shop?sort=price-asc#products"].map((href) => ({
+        originalPath: new URL(href, "https://jidokaan.com").pathname,
         href,
         getAttribute() {
           return this.href;
@@ -147,13 +148,15 @@ try {
         for (const anchor of anchors) {
           const url = new URL(anchor.href, "https://jidokaan.com");
           assert.equal(requestedLocale(url.searchParams.get("lang")), lang);
-          assert.equal(url.pathname, "/customize");
+          assert.equal(url.pathname, anchor.originalPath);
         }
         assert.equal(
           new URL(anchors[1].href, "https://jidokaan.com").searchParams.get("source"),
           "gallery",
         );
         assert.ok(anchors[1].href.endsWith("#preview"));
+        assert.equal(new URL(anchors[3].href, "https://jidokaan.com").searchParams.get("sort"), "price-asc");
+        assert.ok(anchors[3].href.endsWith("#products"));
       }
       runtime.destroy();
     },

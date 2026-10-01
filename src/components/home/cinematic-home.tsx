@@ -13,6 +13,7 @@ import { useCatalog } from "@/lib/use-catalog";
 import { DEFAULT_COMPANY, DEFAULT_SUPPORT, type InfoRow } from "@/lib/site-defaults";
 import { createHomeLocale, type HomeLocale } from "./locale.js";
 import { mountHomeMotion } from "./motion.js";
+import { HomeShop } from "./home-shop";
 import approvedMarkup from "./page.html?raw";
 
 const markup = { __html: approvedMarkup };
@@ -57,11 +58,13 @@ export function CinematicHome() {
   const rootRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<{copy: HomeLocale; motion: ReturnType<typeof mountHomeMotion>} | null>(null);
   const [accountSlot, setAccountSlot] = useState<HTMLElement | null>(null);
+  const [shopSlot, setShopSlot] = useState<HTMLElement | null>(null);
   const locale = useStore((state) => state.locale);
+  const currency = useStore((state) => state.currency);
   const cartCount = useStore((state) => state.cartCount());
   const setCartOpen = useStore((state) => state.setCartOpen);
   const { user, isPending } = useCurrentUserState();
-  const { catalog } = useCatalog();
+  const { catalog, ready } = useCatalog();
   const dict = t(locale);
 
   useEffect(() => {
@@ -73,6 +76,7 @@ export function CinematicHome() {
     const motion = mountHomeMotion(root, copy);
     runtimeRef.current = {copy, motion};
     setAccountSlot(root.querySelector<HTMLElement>("[data-account-tools]"));
+    setShopSlot(root.querySelector<HTMLElement>("[data-home-shop]"));
     return () => {
       motion.destroy();
       copy.destroy();
@@ -104,6 +108,7 @@ export function CinematicHome() {
     <AnalyticsTracker />
     <SeoTags title={catalog.seo.title} description={catalog.seo.description} keywords={catalog.seo.keywords} />
     <div id="cinematic-home" ref={rootRef} dangerouslySetInnerHTML={markup} />
+    {shopSlot && createPortal(<HomeShop products={catalog.products} ready={ready} locale={locale} currency={currency} />, shopSlot)}
     {accountSlot && createPortal(<>
       <button type="button" onClick={() => setCartOpen(true)} aria-label={dict.nav.cart} title={dict.nav.cart}>
         <ShoppingBag size={19} strokeWidth={1.4} />
