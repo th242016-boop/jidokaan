@@ -170,7 +170,7 @@ export function mountHomeMotion(root, locale) {
     description.dataset.i18n=isSpecial?'specialExampleProduct':'exampleProduct';
     action.dataset.i18n=isSpecial?'specialContact':'createCombination';
     [index,description,action].forEach(el=>el.innerHTML=t(el.dataset.i18n));
-    action.href=isSpecial?'tel:+821034815598':'/customize';
+    action.href=isSpecial?'tel:+821034815598':`/customize?lang=${encodeURIComponent(locale.locale)}`;
     action.removeAttribute('target');
   }
   $$('[data-open],[data-special-open]').forEach(b=>listen(b,'click',()=>{

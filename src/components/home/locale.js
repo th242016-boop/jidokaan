@@ -95,6 +95,12 @@ export function createHomeLocale(root, onLocaleChange) {
     const toggle=root.querySelector('.menu-toggle');
     toggle.setAttribute('aria-label',t(toggle.getAttribute('aria-expanded')==='true'?'menuClose':'menuOpen'));
     select.value=locale;
+    // These are full-page links; carry the selection even if storage is blocked.
+    root.querySelectorAll('a[href="/customize"], a[href^="/customize?"]').forEach(link=>{
+      const url=new URL(link.getAttribute('href'),'https://jidokaan.com');
+      url.searchParams.set('lang',locale);
+      link.setAttribute('href',url.pathname+url.search+url.hash);
+    });
     root.dispatchEvent(new CustomEvent('jidokaan:languagechange',{detail:{locale}}));
   }
   const onChange=()=>onLocaleChange(select.value);
