@@ -23,9 +23,13 @@ import {
   type PartColorNames,
 } from "@/lib/simulator-config";
 import { useStore } from "@/lib/store";
+import { requestedLocale } from "@/lib/locale-preference";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/customize")({
+  validateSearch: (search: Record<string, unknown>): { lang?: ReturnType<typeof requestedLocale> } => ({
+    lang: requestedLocale(search.lang),
+  }),
   component: CustomizePage,
 });
 
@@ -37,6 +41,7 @@ function closestSize(target: string, list: readonly string[]) {
 }
 
 function CustomizePage() {
+  const { lang } = Route.useSearch();
   const locale = useStore((s) => s.locale);
   const currency = useStore((s) => s.currency);
   const setCurrency = useStore((s) => s.setCurrency);
@@ -89,7 +94,7 @@ function CustomizePage() {
 
   return (
     <div className="flex h-[calc(100dvh-var(--grok-banner-h,0px))] flex-col overflow-hidden bg-white font-[Helvetica_Neue,Helvetica,Arial,sans-serif] text-black md:flex-row">
-      <LocaleSync />
+      <LocaleSync requestedLocale={lang} />
 
       <div className="relative z-0 h-[42svh] min-h-[220px] w-full shrink-0 overflow-hidden bg-[#141416] md:h-full md:min-h-0 md:w-[58%] md:max-w-[58%] md:flex-none">
         <Link
