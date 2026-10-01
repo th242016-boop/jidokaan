@@ -37,6 +37,7 @@ try {
   const auth = await server.ssrLoadModule("/src/lib/admin-auth.server.ts");
   const catalog = await server.ssrLoadModule("/src/lib/catalog.server.ts");
   const shipping = await server.ssrLoadModule("/src/lib/shipping.ts");
+  const pricing = await server.ssrLoadModule("/src/lib/shipping-pricing.ts");
   const paypal = await server.ssrLoadModule("/src/lib/paypal.server.ts");
   const submit = await server.ssrLoadModule("/src/lib/submit-order.ts");
   const sim = await server.ssrLoadModule("/src/lib/simulator-config.ts");
@@ -127,10 +128,10 @@ try {
   });
   await check("original carton EMS country rates and one carton per pair", async () => {
     for (const [country, usd] of [
-      ["SG", 21.74],
-      ["CN", 23.19],
-      ["US", 69.93],
-      ["AE", 50.36],
+      ["SG", 27],
+      ["CN", 28],
+      ["US", 85],
+      ["AE", 61],
     ]) {
       const q = shipping.quoteShipping({
         country,
@@ -150,7 +151,7 @@ try {
         subtotalUsd: 460,
         qty: 2,
       }).usd,
-      139.86,
+      170,
     );
     for (const country of ["IT", "ZA", ""])
       assert.equal(
@@ -174,6 +175,55 @@ try {
       0,
     );
   });
+  await check(
+    "buffered quote covers carrier cost under the configured FX and deduction assumptions",
+    async () => {
+      const p = pricing.DEFAULT_SHIPPING_PRICING;
+      const base = pricing.shippingPrice(96500, 1350, p);
+      assert.equal(base.usd, 85);
+      assert.equal(base.effectiveFx, 1282.5);
+      assert.ok(base.assumedNetKrw >= 96500 * 1.03);
+      assert.ok((base.usd - 1) * base.effectiveFx * 0.92 < 96500 * 1.03);
+      assert.ok(pricing.shippingPrice(96500, 1250, p).usd > base.usd);
+      assert.ok(
+        pricing.shippingPrice(96500, 1350, { ...p, settlementReservePct: 12 }).usd > base.usd,
+      );
+      assert.equal(pricing.shippingPrice(96500, 1350, { ...p, roundUsd: 5 }).usd % 5, 0);
+      for (const invalid of [
+        { fxBufferPct: 100 },
+        { settlementReservePct: -1 },
+        { costBufferPct: NaN },
+        { roundUsd: 0 },
+      ]) {
+        assert.throws(
+          () => pricing.shippingPrice(96500, 1350, { ...p, ...invalid }),
+          /SHIPPING_PRICING_INVALID/,
+        );
+      }
+      assert.throws(() => pricing.shippingPrice(96500, 0, p), /SHIPPING_PRICING_INVALID/);
+    },
+  );
+  await check(
+    "old EMS settings migrate once and preserve higher manual country prices",
+    async () => {
+      const old = {
+        ...shipping.DEFAULT_SHIPPING,
+        pricing: undefined,
+        exchangeKrwPerUsd: 1380,
+        countryRates: { US: { krw: 96500, usd: 69.93 }, SG: { krw: 30000, usd: 45 } },
+      };
+      const before = JSON.stringify(old);
+      const migrated = shipping.applyEmsPolicy(old);
+      assert.equal(migrated.countryRates.US.usd, 85);
+      assert.equal(migrated.countryRates.SG.usd, 45);
+      assert.equal(migrated.countryRates.SG.minimumUsd, 45);
+      assert.deepEqual(shipping.applyEmsPolicy(migrated), migrated);
+      assert.equal(JSON.stringify(old), before);
+      const paid = await orders.lookupOrder(saved.id, input.email);
+      assert.equal(paid.shippingUsd, 18);
+      assert.equal(paid.totalUsd, 248);
+    },
+  );
   await check("malformed Instagram rejected; no account allowed", async () => {
     assert.equal(contact.normalizeInstagram(""), "");
     assert.equal(contact.normalizeInstagram("@valid.name"), "valid.name");
@@ -261,7 +311,9 @@ try {
           (v) => typeof v === "string" && v.trim().length > 0,
         ),
       );
-      assert.ok(copies.CHECKOUT_COPY[locale].shipping.includes("410×310×150"));
+      assert.ok(copies.checkoutCopy(locale).shipping.includes("410×310×150"));
+      assert.ok(copies.SHIPPING_RATE_NOTE[locale]?.length > 10);
+      assert.ok(copies.checkoutCopy(locale).shipping.endsWith(copies.SHIPPING_RATE_NOTE[locale]));
     }
   });
   await check("different designs at the same size stay separate in cart", async () => {
@@ -270,15 +322,13 @@ try {
     const one = sim.defaultPartNames(),
       two = { ...one, b: "RED" };
     for (const partNames of [one, two, one])
-      useStore
-        .getState()
-        .addToCart("drone-custom", 1, {
-          size: "265",
-          sizeFit: "men",
-          partNames,
-          partColors: design.designColors(partNames),
-          openCart: false,
-        });
+      useStore.getState().addToCart("drone-custom", 1, {
+        size: "265",
+        sizeFit: "men",
+        partNames,
+        partColors: design.designColors(partNames),
+        openCart: false,
+      });
     assert.deepEqual(
       useStore.getState().cart.map((i) => i.qty),
       [2, 1],
@@ -311,6 +361,36 @@ try {
   const quoteModule = await server.ssrLoadModule("/src/lib/checkout-quote.server.ts");
   const drafts = await server.ssrLoadModule("/src/lib/paypal-checkout.server.ts");
   await check(
+    "admin FX changes recalculate stale country USD on both server and customer quotes",
+    async () => {
+      const config = { ...shipping.DEFAULT_SHIPPING, exchangeKrwPerUsd: 1250 };
+      await catalog.writeShipping(token, config);
+      const updated = await quoteModule.quoteCheckout({ ...input, country: "US", region: "CA" });
+      assert.equal(updated.shippingUsd, 91);
+      assert.equal(updated.totalUsd, 321);
+      assert.match(updated.shippingBasis, /1,250|1250/);
+      assert.equal(
+        shipping.quoteShipping({
+          country: "US",
+          qty: 1,
+          method: "standard",
+          subtotalKrw: 288000,
+          subtotalUsd: 230,
+          settings: config,
+        }).usd,
+        updated.shippingUsd,
+      );
+      await assert.rejects(
+        catalog.writeShipping(token, {
+          ...config,
+          pricing: { ...config.pricing, settlementReservePct: 100 },
+        }),
+        /SHIPPING_INVALID/,
+      );
+      await catalog.writeShipping(token, shipping.DEFAULT_SHIPPING);
+    },
+  );
+  await check(
     "server ignores browser prices and calculates catalog prices + shipping",
     async () => {
       const q = await quoteModule.quoteCheckout({
@@ -319,19 +399,19 @@ try {
         shippingUsd: 0,
         items: input.items.map((i) => ({ ...i, priceUsd: 1 })),
       });
-      assert.equal(q.totalUsd, 251.74);
-      assert.equal(q.shippingUsd, 21.74);
+      assert.equal(q.totalUsd, 257);
+      assert.equal(q.shippingUsd, 27);
       assert.equal(q.items[0].priceUsd, 230);
     },
   );
   await check("country override is used by both server quote and checkout calculator", async () => {
     const config = {
       ...shipping.DEFAULT_SHIPPING,
-      countryRates: { SG: { usd: 25, note: "TEST ONLY" } },
+      countryRates: { SG: { usd: 35, krw: 30000, minimumUsd: 35, note: "TEST ONLY" } },
     };
     await catalog.writeShipping(token, config);
     const q = await quoteModule.quoteCheckout(input);
-    assert.equal(q.shippingUsd, 25);
+    assert.equal(q.shippingUsd, 35);
     assert.equal(
       shipping.quoteShipping({
         country: "SG",
@@ -341,7 +421,7 @@ try {
         subtotalUsd: 230,
         settings: config,
       }).usd,
-      25,
+      35,
     );
     await catalog.writeShipping(token, shipping.DEFAULT_SHIPPING);
   });
@@ -363,7 +443,7 @@ try {
       });
       assert.equal(q.contactMethod, "email");
       assert.equal(q.instagram, "");
-      assert.equal(q.acknowledgedTerms.shipping, copies.CHECKOUT_COPY.zh.shipping);
+      assert.equal(q.acknowledgedTerms.shipping, copies.checkoutCopy("zh").shipping);
       for (const change of [
         { instagram: "" },
         { contactMethod: undefined },
@@ -386,7 +466,7 @@ try {
           /DESIGN_REQUIRED/,
         );
       const us = await quoteModule.quoteCheckout({ ...input, country: "US", region: "CA" });
-      assert.equal(us.shippingUsd, 69.93);
+      assert.equal(us.shippingUsd, 85);
       assert.equal(us.dutyTerms, "PREPAID_BEFORE_DISPATCH");
       assert.equal(us.acknowledgedTerms.duty, copies.CHECKOUT_COPY.en.usDuty);
     },
@@ -456,14 +536,14 @@ try {
   await check(
     "PayPal checkout saves design BEFORE capture; capture stores complete order",
     async () => {
-      newId = await drafts.startPaypalCheckout(input, "251.74");
+      newId = await drafts.startPaypalCheckout(input, "257.00");
       const o = await drafts.completePaypalCheckout(newId, true);
       assert.equal(o.paypalOrderId, newId);
       assert.equal(o.paypalNetUsd, 236.79);
       assert.equal(o.paypalShipping.country, "SG");
       assert.deepEqual(o.items[0].partNames, input.items[0].partNames);
       assert.equal(o.items[0].designPreview, input.items[0].designPreview);
-      assert.equal(o.acknowledgedTerms.shipping, copies.CHECKOUT_COPY.en.shipping);
+      assert.equal(o.acknowledgedTerms.shipping, copies.checkoutCopy("en").shipping);
     },
   );
   await check(
@@ -471,17 +551,17 @@ try {
     async () => {
       await catalog.writeShipping(token, {
         ...shipping.DEFAULT_SHIPPING,
-        countryRates: { SG: { usd: 99 } },
+        countryRates: { SG: { usd: 99, krw: 30000, minimumUsd: 99 } },
       });
       const one = await drafts.completePaypalCheckout(newId, false);
       const two = await drafts.completePaypalCheckout(newId, false);
       assert.equal(one.id, two.id);
-      assert.equal(one.shippingUsd, 21.74);
+      assert.equal(one.shippingUsd, 27);
       await catalog.writeShipping(token, shipping.DEFAULT_SHIPPING);
     },
   );
   await check("database failure after payment is recoverable without a second charge", async () => {
-    const id = await drafts.startPaypalCheckout(input, "251.74");
+    const id = await drafts.startPaypalCheckout(input, "257.00");
     const realQuery = sql.query;
     sql.query = async (text, ...args) => {
       if (text.startsWith("insert into store_orders")) throw new Error("TEST_DB_OUTAGE");
@@ -495,12 +575,34 @@ try {
     assert.ok((await drafts.pendingPaypalCheckouts(token)).some((p) => p.paypalOrderId === id));
     const charges = captureCalls;
     const recovered = await drafts.recoverPaypalCheckout(token, id);
-    assert.equal(recovered.totalUsd, 251.74);
+    assert.equal(recovered.totalUsd, 257);
     assert.equal(captureCalls, charges);
     assert.ok(!(await drafts.pendingPaypalCheckouts(token)).some((p) => p.paypalOrderId === id));
   });
+  await check(
+    "an in-progress PayPal quote keeps its original amount and terms after settings change",
+    async () => {
+      const id = await drafts.startPaypalCheckout(input, "257.00");
+      const original = await sql.query(
+        "select payload from paypal_checkout_drafts where paypal_id=$1",
+        [id],
+      );
+      const payload = { ...original[0].payload, termsVersion: "2026-09-30-ems-design-v1" };
+      await sql.query("update paypal_checkout_drafts set payload=$2::jsonb where paypal_id=$1", [
+        id,
+        JSON.stringify(payload),
+      ]);
+      await catalog.writeShipping(token, { ...shipping.DEFAULT_SHIPPING, exchangeKrwPerUsd: 1100 });
+      const completed = await drafts.completePaypalCheckout(id, true);
+      assert.equal(completed.shippingUsd, 27);
+      assert.equal(completed.totalUsd, 257);
+      assert.equal(completed.termsVersion, "2026-09-30-ems-design-v1");
+      assert.equal(completed.shippingBasis, payload.shippingBasis);
+      await catalog.writeShipping(token, shipping.DEFAULT_SHIPPING);
+    },
+  );
   await check("admin recovery never captures an unpaid draft", async () => {
-    const id = await drafts.startPaypalCheckout(input, "251.74");
+    const id = await drafts.startPaypalCheckout(input, "257.00");
     const charges = captureCalls;
     await assert.rejects(drafts.recoverPaypalCheckout(token, id), /PAYPAL_UNPAID/);
     assert.equal(captureCalls, charges);

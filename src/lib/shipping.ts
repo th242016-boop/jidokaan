@@ -1,4 +1,11 @@
 import { EMS_POLICY, EMS_RATES_KRW, EMS_FX_KRW_PER_USD, emsUsd } from "./ems-rates";
+import {
+  DEFAULT_SHIPPING_PRICING,
+  SHIPPING_REFERENCE_FX,
+  SHIPPING_PRICING_VERSION,
+  shippingPrice,
+  type ShippingPricing,
+} from "./shipping-pricing";
 import { checkoutCopy } from "./checkout-copy";
 export type ShipZone = "kr" | "asia" | "pacific" | "europe" | "world";
 export type ShipMethod = "standard" | "express";
@@ -15,11 +22,12 @@ export type ZoneRate = {
 export type ShippingSettings = {
   policyVersion?: string;
   exchangeKrwPerUsd?: number;
+  pricing?: ShippingPricing;
   freeKrw: number;
   freeUsd: number;
   extraPct: number;
   zones: Record<ShipZone, ZoneRate>;
-  countryRates?: Record<string, { usd: number; krw?: number; note?: string }>;
+  countryRates?: Record<string, { usd: number; krw?: number; note?: string; minimumUsd?: number }>;
 };
 
 const LEGACY_SHIPPING: ShippingSettings = {
@@ -72,20 +80,58 @@ const LEGACY_SHIPPING: ShippingSettings = {
 
 /** Apply the owner-approved EMS policy to old settings without mutating old orders. */
 export function applyEmsPolicy(settings: ShippingSettings): ShippingSettings {
-  if (settings.policyVersion === EMS_POLICY) return settings;
+  let next = settings;
+  if (next.policyVersion !== EMS_POLICY) {
+    next = {
+      ...next,
+      policyVersion: EMS_POLICY,
+      exchangeKrwPerUsd: EMS_FX_KRW_PER_USD,
+      extraPct: 100,
+      countryRates: Object.fromEntries(
+        Object.entries(EMS_RATES_KRW).map(([code, krw]) => [
+          code,
+          {
+            usd: emsUsd(krw),
+            krw,
+            note: `우체국 EMS · 410×310×150mm · 3.5kg 구간 · ${krw.toLocaleString("en-US")}원 · 2026-07-01 시행`,
+          },
+        ]),
+      ),
+    };
+  }
+  if (next.pricing?.version !== SHIPPING_PRICING_VERSION) {
+    const previousFx = next.exchangeKrwPerUsd ?? EMS_FX_KRW_PER_USD;
+    next = {
+      ...next,
+      exchangeKrwPerUsd: SHIPPING_REFERENCE_FX,
+      pricing: { ...DEFAULT_SHIPPING_PRICING },
+      countryRates: Object.fromEntries(
+        Object.entries(next.countryRates ?? {}).map(([code, rate]) => {
+          const krw = rate.krw ?? EMS_RATES_KRW[code];
+          const manuallySet = krw != null && Math.abs(rate.usd - emsUsd(krw, previousFx)) > 0.005;
+          return [
+            code,
+            { ...rate, krw, minimumUsd: rate.minimumUsd ?? (manuallySet ? rate.usd : undefined) },
+          ];
+        }),
+      ),
+    };
+  }
+  // Recalculate on every settings read/quote. Changing FX cannot leave stale USD rates.
   return {
-    ...settings,
-    policyVersion: EMS_POLICY,
-    exchangeKrwPerUsd: EMS_FX_KRW_PER_USD,
-    extraPct: 100,
+    ...next,
     countryRates: Object.fromEntries(
-      Object.entries(EMS_RATES_KRW).map(([code, krw]) => [
+      Object.entries(next.countryRates ?? {}).map(([code, rate]) => [
         code,
-        {
-          usd: emsUsd(krw),
-          krw,
-          note: `우체국 EMS · 410×310×150mm · 3.5kg 구간 · ${krw.toLocaleString("en-US")}원 · 2026-07-01 시행`,
-        },
+        rate.krw == null
+          ? rate
+          : {
+              ...rate,
+              usd: Math.max(
+                rate.minimumUsd ?? 0,
+                shippingPrice(rate.krw, next.exchangeKrwPerUsd!, next.pricing!).usd,
+              ),
+            },
       ]),
     ),
   };

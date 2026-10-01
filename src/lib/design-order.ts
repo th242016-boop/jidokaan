@@ -9,7 +9,7 @@ import {
   type PartColors,
 } from "./simulator-config";
 
-export const ORDER_TERMS_VERSION = "2026-09-30-ems-design-v1";
+export const ORDER_TERMS_VERSION = "2026-10-01-shipping-buffer-v2";
 export const DESIGN_VERSION = "simulator-photo-2026-09-30";
 
 /** Stable specification identity; never merge two different custom designs. */
