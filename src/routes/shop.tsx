@@ -8,8 +8,10 @@ import { useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
 import { majorsOf } from "@/lib/shop-taxonomy";
 import { SeoTags } from "@/components/seo-tags";
+import { requestedLocale } from "@/lib/locale-preference";
 
 const searchSchema = z.object({
+  lang: z.string().optional().transform(requestedLocale),
   sort: z
     .enum(["featured", "price-asc", "price-desc", "rating"])
     .optional()
@@ -22,7 +24,7 @@ export const Route = createFileRoute("/shop")({
 });
 
 function ShopPage() {
-  const { sort = "featured" } = Route.useSearch();
+  const { sort = "featured", lang } = Route.useSearch();
   const navigate = Route.useNavigate();
   const locale = useStore((s) => s.locale);
   const dict = t(locale);
@@ -50,7 +52,7 @@ function ShopPage() {
   const majors = majorsOf(catalog.categories);
 
   return (
-    <SiteShell>
+    <SiteShell requestedLocale={lang}>
       <SeoTags
         title={catalog.seo.title}
         description={catalog.seo.description}
@@ -90,7 +92,7 @@ function ShopPage() {
 
         <div className="mb-8 flex flex-wrap gap-2">
           <Chip active={!major} onClick={() => setMajor("")}>
-            전체
+            {dict.shop.all}
           </Chip>
           {majors.map((c) => (
             <Chip
