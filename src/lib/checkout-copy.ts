@@ -635,6 +635,26 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
     contactLink: "استفسارات الشحن والتصنيع",
   },
 };
+export const SHIPPING_RATE_NOTE: Record<Locale, string> = {
+  ko: "표시된 배송비는 국제 운송·취급 비용이 포함된 정액 요금입니다.",
+  en: "The displayed shipping charge is a fixed rate covering international shipping and handling.",
+  es: "El importe de envío mostrado es una tarifa fija que incluye el transporte internacional y la manipulación.",
+  th: "ค่าจัดส่งที่แสดงเป็นอัตราคงที่ ซึ่งรวมค่าขนส่งระหว่างประเทศและค่าดำเนินการจัดส่งแล้ว",
+  fr: "Les frais de livraison affichés sont forfaitaires et comprennent le transport international et la manutention.",
+  de: "Die angezeigten Versandkosten sind ein Festpreis für internationalen Versand und Versandabwicklung.",
+  ja: "表示の送料は、国際配送・発送手数料を含む定額料金です。",
+  zh: "显示的运费为固定费用，包含国际运输及发货处理费用。",
+  ru: "Указанная стоимость доставки — фиксированная сумма, включающая международную перевозку и обработку отправления.",
+  it: "Il costo di spedizione indicato è una tariffa fissa che comprende il trasporto internazionale e la gestione della spedizione.",
+  pt: "O valor de envio apresentado é uma tarifa fixa que inclui o transporte internacional e o manuseio da encomenda.",
+  tr: "Gösterilen kargo ücreti, uluslararası taşıma ve gönderi işlemlerini kapsayan sabit bir ücrettir.",
+  uz: "Ko‘rsatilgan yetkazib berish haqi xalqaro tashish va jo‘natmani tayyorlash xarajatlarini o‘z ichiga olgan qat’iy belgilangan summadir.",
+  hi: "दिखाया गया शिपिंग शुल्क एक निश्चित राशि है, जिसमें अंतरराष्ट्रीय परिवहन और हैंडलिंग का खर्च शामिल है।",
+  tl: "Ang nakasaad na singil sa pagpapadala ay isang nakatakdang halaga na kasama ang internasyonal na pagpapadala at paghawak ng kargamento.",
+  ar: "رسوم الشحن المعروضة مبلغ ثابت يشمل النقل الدولي ومناولة الشحنة.",
+};
 export function checkoutCopy(locale: string): Copy {
-  return CHECKOUT_COPY[locale as Locale] ?? CHECKOUT_COPY.en;
+  const key = Object.hasOwn(CHECKOUT_COPY, locale) ? (locale as Locale) : "en";
+  const copy = CHECKOUT_COPY[key];
+  return { ...copy, shipping: `${copy.shipping} ${SHIPPING_RATE_NOTE[key]}` };
 }

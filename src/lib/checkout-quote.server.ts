@@ -162,7 +162,7 @@ export async function quoteCheckout(raw: Partial<StoreOrder>): Promise<CheckoutI
     shipMethod: "standard",
     shippingKrw: shipping.krw,
     shippingUsd: shipping.usd,
-    shippingBasis: `우체국 EMS · ${country} · ${EMS_BOX.widthMm}×${EMS_BOX.depthMm}×${EMS_BOX.heightMm}mm · ${EMS_BOX.billableKg}kg 구간 · 1켤레 1상자 · 환산 ${catalog.shipping.exchangeKrwPerUsd}원/USD · ${catalog.shipping.countryRates?.[country]?.note ?? ""}`,
+    shippingBasis: `우체국 EMS · ${country} · ${EMS_BOX.widthMm}×${EMS_BOX.depthMm}×${EMS_BOX.heightMm}mm · ${EMS_BOX.billableKg}kg 구간 · 1켤레 1상자 · 환산 ${catalog.shipping.exchangeKrwPerUsd}원/USD · 환율 여유 ${catalog.shipping.pricing?.fxBufferPct ?? 0}% · 정산 차감 대비 ${catalog.shipping.pricing?.settlementReservePct ?? 0}% · 운임 여유 ${catalog.shipping.pricing?.costBufferPct ?? 0}% · ${catalog.shipping.pricing?.roundUsd ?? 0.01}USD 올림 · ${catalog.shipping.countryRates?.[country]?.note ?? ""}`,
     dutyTerms: country === "US" ? "PREPAID_BEFORE_DISPATCH" : "DESTINATION_RULES",
     totalKrw: subtotalKrw - discountKrw + shipping.krw,
     totalUsd: (subtotalCents - discountCents) / 100 + shipping.usd,

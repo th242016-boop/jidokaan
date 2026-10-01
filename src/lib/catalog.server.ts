@@ -1,3 +1,4 @@
+import { validShippingPricing } from "./shipping-pricing";
 import { PRODUCTS, type Product } from "./products";
 import {
   DEFAULT_COMPANY,
@@ -374,6 +375,8 @@ export async function writeShipping(token: string, shipping: ShippingSettings) {
     shipping.exchangeKrwPerUsd! > 10000
   )
     throw new Error("SHIPPING_INVALID");
+  if (!shipping.pricing || !validShippingPricing(shipping.pricing))
+    throw new Error("SHIPPING_INVALID");
   for (const zone of ["kr", "asia", "pacific", "europe", "world"] as const) {
     for (const key of ["standardKrw", "standardUsd", "expressKrw", "expressUsd"] as const) {
       const value = shipping.zones?.[zone]?.[key];
@@ -382,6 +385,11 @@ export async function writeShipping(token: string, shipping: ShippingSettings) {
     }
   }
   for (const [country, rate] of Object.entries(shipping.countryRates ?? {})) {
+    if (
+      rate.minimumUsd != null &&
+      (!Number.isFinite(rate.minimumUsd) || rate.minimumUsd < 0 || rate.minimumUsd > 10000)
+    )
+      throw new Error("SHIPPING_INVALID");
     if (rate.krw != null && (!Number.isFinite(rate.krw) || rate.krw < 0 || rate.krw > 10000000))
       throw new Error("SHIPPING_INVALID");
     if (
@@ -392,7 +400,7 @@ export async function writeShipping(token: string, shipping: ShippingSettings) {
     )
       throw new Error("SHIPPING_INVALID");
   }
-  await writeSetting("shipping_json", JSON.stringify(shipping));
+  await writeSetting("shipping_json", JSON.stringify(applyEmsPolicy(shipping)));
 }
 
 export async function writeNotice(token: string, notice: StoreNotice) {
