@@ -7,19 +7,7 @@ export type ColorOpt = {
   finish?: "solid" | "gold" | "silver";
 };
 
-export type PartId =
-  | "a"
-  | "b"
-  | "c"
-  | "d"
-  | "e"
-  | "f"
-  | "g"
-  | "h"
-  | "i"
-  | "j"
-  | "k"
-  | "l";
+export type PartId = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l";
 
 export type PartDef = {
   id: PartId;
@@ -141,17 +129,15 @@ export const SIM_PARTS: PartDef[] = [
 ];
 
 export type PartColors = Record<PartId, string>;
-export type PartColorNames = Record<PartId, string>;
+export type BootModel = "high" | "mid";
+export type PartColorNames = Record<PartId, string> & { model?: BootModel };
 
 export function paletteFor(part: PartDef): ColorOpt[] {
   return part.type === "basic" ? BASIC_COLORS : FULL_COLORS;
 }
 
 export function colorByName(name: string): ColorOpt | undefined {
-  return (
-    FULL_COLORS.find((c) => c.name === name) ||
-    BASIC_COLORS.find((c) => c.name === name)
-  );
+  return FULL_COLORS.find((c) => c.name === name) || BASIC_COLORS.find((c) => c.name === name);
 }
 
 export const READY_PARTS: PartId[] = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
@@ -194,9 +180,7 @@ export const PHOTO_NATIVE: Partial<Record<PartId, string>> = {
 };
 
 /** Real photos supplied per part + color. No generated tints. */
-export const REAL_LAYERS: Partial<
-  Record<PartId, Partial<Record<string, string>>>
-> = {
+export const REAL_LAYERS: Partial<Record<PartId, Partial<Record<string, string>>>> = {
   a: {
     BLACK: "/simulator/photo/tints/a-black.png?v=c1",
   },
@@ -359,9 +343,7 @@ export function defaultPartColors(): PartColors {
   const out = {} as PartColors;
   for (const part of SIM_PARTS) {
     const native = PHOTO_NATIVE[part.id];
-    const opt =
-      (native && colorByName(native)) ||
-      paletteFor(part)[0];
+    const opt = (native && colorByName(native)) || paletteFor(part)[0];
     out[part.id] = opt.color;
   }
   return out;
@@ -378,3 +360,49 @@ export function defaultPartNames(): PartColorNames {
 export const SIM_ASSET = (file: string) => `/simulator/${file}`;
 export const PHOTO_ASSET = (file: string) => `/simulator/photo/${file}?v=c1`;
 export const PHOTO_BASE = "/simulator/photo/base.jpg?v=c6";
+
+/** Historical designs without model metadata are always high-cut. */
+export function modelOf(names?: { model?: string }): BootModel {
+  return names?.model === "mid" ? "mid" : "high";
+}
+
+export function modelLabel(names?: { model?: string }, locale = "ko") {
+  return locale === "ko"
+    ? modelOf(names) === "mid"
+      ? "중목"
+      : "장목"
+    : locale === "ja"
+      ? modelOf(names) === "mid"
+        ? "ミドルカット"
+        : "ハイカット"
+      : modelOf(names) === "mid"
+        ? "Mid-cut"
+        : "High-cut";
+}
+
+export function partsForModel(names?: { model?: string }) {
+  return SIM_PARTS.filter((p) => modelOf(names) !== "mid" || p.id !== "g");
+}
+
+export function photoBaseFor(names?: { model?: string }) {
+  return modelOf(names) === "mid" ? "/simulator/mid/base.jpg?v=1" : PHOTO_BASE;
+}
+
+export function photoLayerFor(part: PartId, name: string, names?: { model?: string }) {
+  if (modelOf(names) === "mid") {
+    if (part === "g") return undefined;
+    if (["a", "e", "f", "h"].includes(part)) {
+      if (name !== "WHITE" && !REAL_LAYERS[part]?.[name]) return undefined;
+      return `/simulator/mid/${part}/${name.toLowerCase().replaceAll(" ", "-")}.png?v=1`;
+    }
+  }
+  return REAL_LAYERS[part]?.[name];
+}
+
+export function designSpecLine(names?: Record<string, string>, locale = "ko") {
+  if (!names) return "";
+  return [
+    modelLabel(names, locale),
+    ...partsForModel(names).map((p) => `${p.label} ${names[p.id] ?? ""}`),
+  ].join(" · ");
+}

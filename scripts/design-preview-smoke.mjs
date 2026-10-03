@@ -113,6 +113,15 @@ try {
       ),
     );
   });
+  await check("mid-cut capture uses exact mid masks and excludes G", async () => {
+    const mid = { ...names, model: "mid", a: "BLACK", e: "GOLD", f: "SILVER", h: "SKY BLUE" };
+    assert.equal(await design.captureDesign(mid), validJpeg);
+    assert.equal(draws[0].src, "/simulator/mid/base.jpg?v=1");
+    for (const [part, color] of [["a","black"],["e","gold"],["f","silver"],["h","sky-blue"]])
+      assert.ok(draws.some(d => d.src === `/simulator/mid/${part}/${color}.png?v=1`));
+    assert.ok(draws.every(d => !d.src.includes("/g-") && !d.src.includes("guide")));
+    assert.equal(peak, 1);
+  });
   await check(
     "large JPEG falls back without losing the design or exceeding payload limit",
     async () => {

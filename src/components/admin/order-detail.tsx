@@ -1,3 +1,4 @@
+import { modelLabel } from "@/lib/simulator-config";
 import { OrderDesign } from "./order-design";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
@@ -240,22 +241,28 @@ export function OrderDetail({
                   {item.optionLabel ? ` · ${item.optionLabel}` : ""} · 단가{" "}
                   {money(krw ? item.priceKrw : item.priceUsd)}
                 </p>
+                {item.partNames ? <p>모델: {modelLabel(item.partNames)}</p> : null}
                 <OrderDesign item={item} orderId={o.id} index={index} />
                 {item.color ? <p>색상: {item.color}</p> : null}
                 {item.partNames && Object.keys(item.partNames).length ? (
                   <dl className="grid gap-x-6 sm:grid-cols-2">
-                    {Object.entries(item.partNames).map(([part, name]) => (
-                      <div
-                        key={part}
-                        className="flex justify-between gap-3 border-t border-[#eee] py-2"
-                      >
-                        <dt>
-                          {part.toUpperCase()} ·{" "}
-                          {SIM_PARTS.find((p) => p.id === part)?.hint.ko || "부위"}
-                        </dt>
-                        <dd className="font-medium">{name || "미저장"}</dd>
-                      </div>
-                    ))}
+                    {Object.entries(item.partNames)
+                      .filter(
+                        ([part]) =>
+                          part !== "model" && !(item.partNames?.model === "mid" && part === "g"),
+                      )
+                      .map(([part, name]) => (
+                        <div
+                          key={part}
+                          className="flex justify-between gap-3 border-t border-[#eee] py-2"
+                        >
+                          <dt>
+                            {part.toUpperCase()} ·{" "}
+                            {SIM_PARTS.find((p) => p.id === part)?.hint.ko || "부위"}
+                          </dt>
+                          <dd className="font-medium">{name || "미저장"}</dd>
+                        </div>
+                      ))}
                   </dl>
                 ) : (
                   <p className="text-amber-800">

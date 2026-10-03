@@ -1,5 +1,8 @@
 import {
-  PHOTO_BASE,
+  photoBaseFor,
+  photoLayerFor,
+  partsForModel,
+  modelOf,
   PHOTO_NATIVE,
   REAL_LAYERS,
   SIM_PARTS,
@@ -14,18 +17,25 @@ export const DESIGN_VERSION = "simulator-photo-2026-09-30";
 
 /** Stable specification identity; never merge two different custom designs. */
 export function designKey(names?: Record<string, string>) {
-  return names ? SIM_PARTS.map((p) => `${p.id}:${names[p.id] ?? ""}`).join("|") : "";
+  return names
+    ? (modelOf(names) === "mid" ? "model:mid|" : "") +
+        partsForModel(names)
+          .map((p) => `${p.id}:${names[p.id] ?? ""}`)
+          .join("|")
+    : "";
 }
 
 /** Missing historical information must not be silently replaced by white. */
 export function completeDesign(value: unknown): PartColorNames | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const names = value as Record<string, unknown>;
-  const result: Record<string, string> = {};
+  if (names.model !== undefined && names.model !== "high" && names.model !== "mid") return null;
+  const result: Record<string, string> = names.model === "mid" ? { model: "mid" } : {};
   for (const part of SIM_PARTS) {
     const name = names[part.id];
     if (typeof name !== "string" || !colorByName(name)) return null;
     if (name !== PHOTO_NATIVE[part.id] && !REAL_LAYERS[part.id]?.[name]) return null;
+    if (names.model === "mid" && part.id === "g" && name !== "WHITE") return null;
     result[part.id] = name;
   }
   const linked = linkedLColor(result.d, "", result.i, "", result.a, "");
@@ -90,10 +100,10 @@ export async function captureDesign(
 ): Promise<string> {
   if (!completeDesign(names)) throw new Error("DESIGN_REQUIRED");
   const sources = [
-    PHOTO_BASE,
-    ...SIM_PARTS.map((p) => REAL_LAYERS[p.id]?.[names[p.id]]).filter((s): s is string =>
-      Boolean(s),
-    ),
+    photoBaseFor(names),
+    ...partsForModel(names)
+      .map((p) => photoLayerFor(p.id, names[p.id], names))
+      .filter((s): s is string => Boolean(s)),
   ];
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 1000;

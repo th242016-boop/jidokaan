@@ -5,29 +5,30 @@ import { toast } from "sonner";
 import { LocaleSync } from "@/components/locale-sync";
 import { LayerSimulator } from "@/components/customizer/layer-simulator";
 import { Button } from "@/components/ui/button";
+import { currencyForCountry, formatProductPrice, startOverseasCheckout, t } from "@/lib/i18n";
 import {
-  currencyForCountry,
-  formatProductPrice,
-  startOverseasCheckout,
-  t,
-} from "@/lib/i18n";
-import { getProduct, MEN_BOOT_SIZES, WOMEN_BOOT_SIZES, closestBootSize, naverProductUrl } from "@/lib/products";
+  getProduct,
+  MEN_BOOT_SIZES,
+  WOMEN_BOOT_SIZES,
+  closestBootSize,
+  naverProductUrl,
+} from "@/lib/products";
 import {
   paletteFor,
+  modelOf,
+  partsForModel,
   PHOTO_NATIVE,
   PICKABLE_PARTS,
   REAL_LAYERS,
-  SIM_PARTS,
-  defaultPartNames,
-  linkedLColor,
-  type PartColorNames,
 } from "@/lib/simulator-config";
 import { useStore } from "@/lib/store";
 import { requestedLocale } from "@/lib/locale-preference";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/customize")({
-  validateSearch: (search: Record<string, unknown>): { lang?: ReturnType<typeof requestedLocale> } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { lang?: ReturnType<typeof requestedLocale> } => ({
     lang: requestedLocale(search.lang),
   }),
   component: CustomizePage,
@@ -61,8 +62,9 @@ function CustomizePage() {
   const [showGuide, setShowGuide] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [showKrOrder, setShowKrOrder] = useState(false);
-  const [localNames, setLocalNames] = useState<PartColorNames | null>(null);
-  const colorNames = localNames ?? draftPartNames;
+  const colorNames = draftPartNames;
+  const model = modelOf(colorNames);
+  const setDraftModel = useStore((s) => s.setDraftModel);
   const sizes = fit === "women" ? WOMEN_SIZES : MEN_SIZES;
 
   useEffect(() => {
@@ -121,14 +123,47 @@ function CustomizePage() {
       </div>
 
       <aside className="relative z-30 flex min-h-0 min-w-0 w-full flex-1 flex-col border-t border-[#ddd] bg-white pointer-events-auto md:w-[42%] md:flex-none md:border-t-0 md:border-l">
-        <div className="hidden shrink-0 border-b border-[#eee] bg-white px-5 py-6 md:block">
-          <h1 className="m-0 text-2xl font-black tracking-[1px] text-black uppercase">
-            JIDOKAAN
-          </h1>
-          <p className="mt-0.5 mb-0 text-[11px] font-medium text-[#999]">
-            Custom Studio
-          </p>
-          <p className="mt-1.5 mb-0 flex items-center text-[11px] font-semibold tracking-[0.5px] text-[#d0021b]">
+        <div className="shrink-0 border-b border-[#eee] bg-white px-3 py-3 md:px-5 md:py-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="m-0 text-2xl font-black tracking-[1px] text-black uppercase">
+                JIDOKAAN
+              </h1>
+              <p className="mt-0.5 mb-0 text-[11px] font-medium text-[#999]">Custom Studio</p>
+            </div>
+            <div
+              className="flex items-center gap-1 rounded-lg border border-[#ddd] p-1"
+              role="group"
+              aria-label="모델 선택"
+            >
+              {(["high", "mid", "low"] as const).map((value) => (
+                <button
+                  type="button"
+                  key={value}
+                  disabled={value === "low"}
+                  aria-pressed={model === value}
+                  onClick={() => {
+                    if (value === "low") return;
+                    setDraftModel(value);
+                    setShowGuide(false);
+                    setShowKrOrder(false);
+                  }}
+                  className={cn(
+                    "min-h-9 rounded-md px-3 text-sm font-bold",
+                    model === value ? "bg-black text-white" : "text-black hover:bg-neutral-100",
+                    value === "low" && "cursor-default text-neutral-400 hover:bg-transparent",
+                  )}
+                >
+                  {locale === "ko"
+                    ? { high: "장목", mid: "중목", low: "단목 · 준비중" }[value]
+                    : locale === "ja"
+                      ? { high: "ハイ", mid: "ミドル", low: "ロー · 準備中" }[value]
+                      : { high: "High-cut", mid: "Mid-cut", low: "Low-cut · Soon" }[value]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="mt-1.5 mb-0 hidden md:flex items-center text-[11px] font-semibold tracking-[0.5px] text-[#d0021b]">
             <span className="mr-1.5 text-sm">ⓘ</span>
             {dict.custom.guide2d}
           </p>
@@ -141,88 +176,66 @@ function CustomizePage() {
                 베이스 사진만 표시 중입니다. G 색 사진이 오면 여기서 바꿉니다.
               </p>
             ) : null}
-            {SIM_PARTS.filter((p) => PICKABLE_PARTS.includes(p.id)).map((part) => {
-              const supplied = REAL_LAYERS[part.id];
-              const pal = supplied
-                ? paletteFor(part).filter(
-                    (o) => o.name === "WHITE" || Boolean(supplied[o.name]),
-                  )
-                : paletteFor(part);
-              return (
-                <div key={part.id} className="mb-3.5 md:mb-8">
-                  <div className="mb-1.5 flex items-center border-l-4 border-black pl-2 text-[13px] font-bold text-black md:mb-2.5 md:pl-2.5 md:text-sm">
-                    {part.label}
-                  </div>
-                  <div className="grid grid-cols-5 gap-1.5 md:grid-cols-4 md:gap-2">
-                    {pal.map((opt) => {
-                      const active =
-                        (colorNames?.[part.id] ?? PHOTO_NATIVE[part.id]) ===
-                        opt.name;
-                      return (
-                        <button
-                          key={`${part.id}-${opt.name}`}
-                          type="button"
-                          title={opt.name}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setPartColor(part.id, opt.color, opt.name);
-                            setLocalNames((prev) => {
-                              const next: PartColorNames = {
-                                ...defaultPartNames(),
-                                ...(prev ?? draftPartNames),
-                                [part.id]: opt.name,
-                              };
-                              if (part.id === "i" || part.id === "d" || part.id === "a") {
-                                const linked = linkedLColor(
-                                  next.d,
-                                  "",
-                                  next.i,
-                                  "",
-                                  next.a,
-                                  "",
-                                );
-                                next.l = linked.name;
-                              }
-                              return next;
-                            });
-                          }}
-                          className={cn(
-                            "relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition",
-                            active
-                              ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]"
-                              : "border-[#ddd] hover:scale-105 hover:border-[#888]",
-                          )}
-                          style={{
-                            backgroundColor: opt.color,
-                            backgroundImage:
-                              opt.finish === "gold"
-                                ? "linear-gradient(145deg, #f4e4b0 0%, #d7b24a 32%, #f0d36a 50%, #b8891c 78%, #ead07a 100%)"
-                                : opt.finish === "silver"
-                                  ? "url(/simulator/tex-silver.jpg)"
-                                  : undefined,
-                            backgroundSize: "cover",
-                          }}
-                        >
-                          <span
-                            className="absolute inset-0 flex items-center justify-center p-0.5 text-center text-[8px] font-bold leading-[1.1] break-words md:text-[10px]"
-                            style={{ color: opt.isBright ? "#000" : "#fff" }}
+            {partsForModel(colorNames)
+              .filter((p) => PICKABLE_PARTS.includes(p.id))
+              .map((part) => {
+                const supplied = REAL_LAYERS[part.id];
+                const pal = supplied
+                  ? paletteFor(part).filter((o) => o.name === "WHITE" || Boolean(supplied[o.name]))
+                  : paletteFor(part);
+                return (
+                  <div key={part.id} className="mb-3.5 md:mb-8">
+                    <div className="mb-1.5 flex items-center border-l-4 border-black pl-2 text-[13px] font-bold text-black md:mb-2.5 md:pl-2.5 md:text-sm">
+                      {part.label}
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5 md:grid-cols-4 md:gap-2">
+                      {pal.map((opt) => {
+                        const active =
+                          (colorNames?.[part.id] ?? PHOTO_NATIVE[part.id]) === opt.name;
+                        return (
+                          <button
+                            key={`${part.id}-${opt.name}`}
+                            type="button"
+                            title={opt.name}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setPartColor(part.id, opt.color, opt.name);
+                            }}
+                            className={cn(
+                              "relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition",
+                              active
+                                ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]"
+                                : "border-[#ddd] hover:scale-105 hover:border-[#888]",
+                            )}
+                            style={{
+                              backgroundColor: opt.color,
+                              backgroundImage:
+                                opt.finish === "gold"
+                                  ? "linear-gradient(145deg, #f4e4b0 0%, #d7b24a 32%, #f0d36a 50%, #b8891c 78%, #ead07a 100%)"
+                                  : opt.finish === "silver"
+                                    ? "url(/simulator/tex-silver.jpg)"
+                                    : undefined,
+                              backgroundSize: "cover",
+                            }}
                           >
-                            {opt.name}
-                          </span>
-                        </button>
-                      );
-                    })}
+                            <span
+                              className="absolute inset-0 flex items-center justify-center p-0.5 text-center text-[8px] font-bold leading-[1.1] break-words md:text-[10px]"
+                              style={{ color: opt.isBright ? "#000" : "#fff" }}
+                            >
+                              {opt.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
 
             <div className="border-t border-[#eee] pt-6">
               <div className="mb-2.5 flex flex-wrap items-center gap-2">
-                <span className="border-l-4 border-black pl-2.5 text-sm font-bold">
-                  SIZE
-                </span>
+                <span className="border-l-4 border-black pl-2.5 text-sm font-bold">SIZE</span>
                 <div className="flex gap-1.5">
                   {(["men", "women"] as const).map((g) => (
                     <button
@@ -310,53 +323,49 @@ function CustomizePage() {
             </div>
           ) : (
             <>
-          <p className="mb-1.5 hidden text-center text-sm font-bold md:mb-0 md:block">
-            {product ? formatProductPrice(product, currency) : "₩288,000"}
-          </p>
-          <div className="flex items-center gap-2 md:flex-col md:items-stretch">
-            <p className="min-w-[4.5rem] shrink-0 text-left text-xs font-bold md:hidden">
-              {product ? formatProductPrice(product, currency) : "₩288,000"}
-            </p>
-            <Button
-              size="lg"
-              className="h-11 min-h-11 flex-1 rounded-[6px] bg-black px-2 text-[12px] text-white hover:bg-neutral-800 md:h-11 md:w-full md:text-sm"
-              disabled={confirming}
-              onClick={handleConfirm}
-            >
-              {confirming ? (
-                dict.checkout.placing
-              ) : (
-                <>
-                  <Check className="size-3.5 md:size-4" />
-                  <span className="truncate">{dict.custom.lockOrder}</span>
-                </>
-              )}
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="h-11 min-h-11 flex-1 rounded-[6px] border border-[#ddd] bg-white px-2 text-[12px] text-black hover:bg-neutral-50 md:w-full md:text-sm"
-              type="button"
-              onClick={() => {
-                addCustomBoot(1);
-                toast.success(dict.product.added);
-              }}
-            >
-              <ShoppingBag className="size-3.5 md:size-4" />
-              <span className="truncate">{dict.product.addToCart}</span>
-            </Button>
-          </div>
+              <p className="mb-1.5 hidden text-center text-sm font-bold md:mb-0 md:block">
+                {product ? formatProductPrice(product, currency) : "₩288,000"}
+              </p>
+              <div className="flex items-center gap-2 md:flex-col md:items-stretch">
+                <p className="min-w-[4.5rem] shrink-0 text-left text-xs font-bold md:hidden">
+                  {product ? formatProductPrice(product, currency) : "₩288,000"}
+                </p>
+                <Button
+                  size="lg"
+                  className="h-11 min-h-11 flex-1 rounded-[6px] bg-black px-2 text-[12px] text-white hover:bg-neutral-800 md:h-11 md:w-full md:text-sm"
+                  disabled={confirming}
+                  onClick={handleConfirm}
+                >
+                  {confirming ? (
+                    dict.checkout.placing
+                  ) : (
+                    <>
+                      <Check className="size-3.5 md:size-4" />
+                      <span className="truncate">{dict.custom.lockOrder}</span>
+                    </>
+                  )}
+                </Button>
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="h-11 min-h-11 flex-1 rounded-[6px] border border-[#ddd] bg-white px-2 text-[12px] text-black hover:bg-neutral-50 md:w-full md:text-sm"
+                  type="button"
+                  onClick={() => {
+                    addCustomBoot(1);
+                    toast.success(dict.product.added);
+                  }}
+                >
+                  <ShoppingBag className="size-3.5 md:size-4" />
+                  <span className="truncate">{dict.product.addToCart}</span>
+                </Button>
+              </div>
             </>
           )}
         </div>
       </aside>
 
       {zoomed ? (
-        <div
-          className="fixed inset-0 z-50 bg-black"
-          role="dialog"
-          aria-modal="true"
-        >
+        <div className="fixed inset-0 z-50 bg-black" role="dialog" aria-modal="true">
           <LayerSimulator
             colors={draftParts}
             colorNames={colorNames}

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import {
-  PHOTO_BASE,
+  photoBaseFor,
+  photoLayerFor,
+  partsForModel,
+  modelOf,
   PHOTO_NATIVE,
   READY_PARTS,
-  REAL_LAYERS,
-  SIM_PARTS,
   type PartColorNames,
   type PartColors,
   type PartId,
@@ -54,10 +55,7 @@ export function LayerSimulator({
       )}
 
       <div
-        className={cn(
-          "absolute inset-0",
-          onPreviewClick && !hideChrome ? "cursor-zoom-in" : "",
-        )}
+        className={cn("absolute inset-0", onPreviewClick && !hideChrome ? "cursor-zoom-in" : "")}
         onClick={hideChrome ? undefined : onPreviewClick}
         onKeyDown={
           hideChrome || !onPreviewClick
@@ -71,31 +69,35 @@ export function LayerSimulator({
         aria-label={onPreviewClick && !hideChrome ? "Enlarge preview" : undefined}
       >
         <img
-          src={`${PHOTO_BASE}`}
+          src={photoBaseFor(colorNames)}
           alt="JIDOKAAN custom base"
           className="pointer-events-none absolute inset-0 h-full w-full object-contain"
           draggable={false}
         />
-        {SIM_PARTS.filter((p) => READY_PARTS.includes(p.id)).map((part) => {
-          const name =
-            colorNames?.[part.id as PartId] ??
-            PHOTO_NATIVE[part.id as PartId] ??
-            "WHITE";
-          const src = REAL_LAYERS[part.id]?.[name];
-          if (!src) return null;
-          return (
-            <img
-              key={`${part.id}-${name}`}
-              src={src}
-              alt=""
-              className="pointer-events-none absolute inset-0 h-full w-full object-contain"
-              draggable={false}
-            />
-          );
-        })}
+        {partsForModel(colorNames)
+          .filter((p) => READY_PARTS.includes(p.id))
+          .map((part) => {
+            const name =
+              colorNames?.[part.id as PartId] ?? PHOTO_NATIVE[part.id as PartId] ?? "WHITE";
+            const src = photoLayerFor(part.id, name, colorNames);
+            if (!src) return null;
+            return (
+              <img
+                key={`${part.id}-${name}`}
+                src={src}
+                alt=""
+                className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+                draggable={false}
+              />
+            );
+          })}
         {showGuide ? (
           <img
-            src="/simulator/photo/guide.png?v=g2"
+            src={
+              modelOf(colorNames) === "mid"
+                ? "/simulator/mid/guide.png?v=1"
+                : "/simulator/photo/guide.png?v=g2"
+            }
             alt=""
             className="pointer-events-none absolute inset-0 h-full w-full object-contain"
             draggable={false}

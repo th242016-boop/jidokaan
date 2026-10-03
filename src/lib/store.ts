@@ -8,6 +8,8 @@ import {
   defaultPartColors,
   defaultPartNames,
   linkedLColor,
+  modelOf,
+  type BootModel,
   type PartColorNames,
   type PartColors,
   type PartId,
@@ -51,6 +53,8 @@ type StoreState = {
   cart: CartItem[];
   cartOpen: boolean;
   draftParts: PartColors;
+  modelDrafts: Partial<Record<BootModel, { parts: PartColors; names: PartColorNames }>>;
+  setDraftModel: (model: BootModel) => void;
   draftPartNames: PartColorNames;
   draftSize: string;
   draftFit: SizeFit;
@@ -119,6 +123,7 @@ export const useStore = create<StoreState>()(
       localePicked: false,
       cart: [],
       cartOpen: false,
+      modelDrafts: {},
       draftParts: defaultPartColors(),
       draftPartNames: defaultPartNames(),
       draftSize: "265",
@@ -132,6 +137,24 @@ export const useStore = create<StoreState>()(
           localePicked: picked,
         }),
       setCartOpen: (cartOpen) => set({ cartOpen }),
+      setDraftModel: (model) =>
+        set((s) => {
+          const current = modelOf(s.draftPartNames);
+          if (current === model) return {};
+          const modelDrafts = {
+            ...s.modelDrafts,
+            [current]: { parts: s.draftParts, names: s.draftPartNames },
+          };
+          const saved = modelDrafts[model];
+          return {
+            modelDrafts,
+            draftParts: saved?.parts ?? defaultPartColors(),
+            draftPartNames: {
+              ...(saved?.names ?? defaultPartNames()),
+              ...(model === "mid" ? { model: "mid" as const, g: "WHITE" } : {}),
+            },
+          };
+        }),
       setPartColor: (part, color, name) =>
         set((s) => {
           const draftParts = {
@@ -276,6 +299,7 @@ export const useStore = create<StoreState>()(
         currency: state.currency === "KRW" ? "KRW" : "USD",
         localePicked: state.localePicked,
         cart: state.cart,
+        modelDrafts: state.modelDrafts,
         draftParts: state.draftParts,
         draftPartNames: state.draftPartNames,
         draftSize: state.draftSize,

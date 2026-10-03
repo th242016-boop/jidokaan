@@ -1,3 +1,4 @@
+import { modelLabel } from "./simulator-config";
 import {
   completeDesign,
   designColors,
@@ -95,7 +96,7 @@ export async function quoteCheckout(raw: Partial<StoreOrder>): Promise<CheckoutI
       size: clean(item.size, 100),
       sizeFit: clean(item.sizeFit, 16),
       optionKey: sku?.key,
-      optionLabel: sku?.key,
+      optionLabel: design ? [sku?.key, modelLabel(design)].filter(Boolean).join(" · ") : sku?.key,
       color: clean(item.color, 64),
       partNames: design ?? names(item.partNames),
       partColors: design ? designColors(design) : names(item.partColors),

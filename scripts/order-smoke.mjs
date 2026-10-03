@@ -343,6 +343,37 @@ try {
     assert.equal(useStore.getState().cart.length, 1);
     assert.equal(useStore.getState().cart[0].partNames.b, "RED");
   });
+  await check("high/mid drafts and carts remain separate; mid order metadata survives", async () => {
+    const { useStore } = await server.ssrLoadModule("/src/lib/store.ts");
+    useStore.getState().clearCart();
+    useStore.getState().resetDraft();
+    useStore.getState().setPartColor("e", sim.colorByName("RED").color, "RED");
+    useStore.getState().addCustomBoot(1, false);
+    useStore.getState().setDraftModel("mid");
+    assert.equal(useStore.getState().draftPartNames.e, "WHITE");
+    useStore.getState().setPartColor("e", sim.colorByName("RED").color, "RED");
+    useStore.getState().addCustomBoot(1, false);
+    assert.equal(useStore.getState().cart.length, 2);
+    const mid = useStore.getState().draftPartNames;
+    assert.equal(design.completeDesign(mid).model, "mid");
+    assert.notEqual(design.designKey(mid), design.designKey({ ...mid, model: "high" }));
+    assert.equal(design.completeDesign({ ...mid, g: "RED" }), null);
+    assert.equal(design.completeDesign({ ...mid, model: "low" }), null);
+    assert.equal(sim.partsForModel(mid).some(p => p.id === "g"), false);
+    useStore.getState().setDraftModel("high");
+    useStore.getState().setPartColor("e", sim.colorByName("BLUE").color, "BLUE");
+    useStore.getState().setDraftModel("mid");
+    assert.equal(useStore.getState().draftPartNames.e, "RED");
+    const { quoteCheckout } = await server.ssrLoadModule("/src/lib/checkout-quote.server.ts");
+    const midInput = structuredClone(input);
+    midInput.items[0].partNames = mid;
+    midInput.items[0].partColors = design.designColors(mid);
+    midInput.items[0].designKey = design.designKey(mid);
+    const quote = await quoteCheckout(midInput);
+    assert.equal(quote.items[0].partNames.model, "mid");
+    assert.equal(quote.items[0].optionLabel, "중목");
+    assert.equal(quote.items[0].designKey, design.designKey(mid));
+  });
   await check("missing/invalid historical colors never produce a guessed design", async () => {
     assert.equal(design.completeDesign({ a: "WHITE" }), null);
     assert.equal(design.completeDesign({ ...sim.defaultPartNames(), k: "GOLD" }), null);

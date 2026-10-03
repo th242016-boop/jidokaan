@@ -1,3 +1,4 @@
+import { designSpecLine } from "@/lib/simulator-config";
 import { checkoutCopy } from "@/lib/checkout-copy";
 import {
   captureDesign,
@@ -858,9 +859,7 @@ function CheckoutPage() {
                       </p>
                       {item.partNames ? (
                         <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-subtle">
-                          {Object.entries(item.partNames)
-                            .map(([k, v]) => `${k.toUpperCase()} ${v}`)
-                            .join(" · ")}
+                          {designSpecLine(item.partNames, locale)}
                         </p>
                       ) : null}
                     </div>
@@ -987,9 +986,7 @@ function CheckoutPage() {
                             {formatCartSize(item, locale)} · {dict.cart.qty} {item.qty}
                           </p>
                           <p className="text-xs leading-relaxed">
-                            {Object.entries(item.partNames ?? {})
-                              .map(([part, color]) => `${part.toUpperCase()}: ${color}`)
-                              .join(" · ")}
+                            {designSpecLine(item.partNames, locale)}
                           </p>
                         </figcaption>
                       </figure>
