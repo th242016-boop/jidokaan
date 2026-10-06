@@ -166,7 +166,10 @@ export default defineConfig(({ command }) => ({
     tailwindcss(),
     tanstackStart(),
     ...(command === "build"
-      ? [nitro({ preset: process.env.NITRO_PRESET || "vercel" })]
+      ? [nitro({
+          preset: process.env.NITRO_PRESET || "vercel",
+          plugins: ["./src/server-plugins/order-notifications.ts"],
+        })]
       : []),
     viteReact(),
   ],

@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AUTH_HEADERS } from "@/lib/admin-auth.server";
+import { AUTH_HEADERS, assertSession } from "@/lib/admin-auth.server";
 import {
   countOrdersByEmail,
+  findOrderById,
   decideClaim,
   deleteCancelledOrders,
   listOrders,
@@ -39,7 +40,12 @@ export const Route = createFileRoute("/api/orders")({
             if (!order) return json({ error: "NOT_FOUND" }, 404);
             return json({ order: customerOrder(order) });
           }
-          const token = url.searchParams.get("token") ?? "";
+          const token = request.headers.get("Authorization")?.replace(/^Bearer /, "") || url.searchParams.get("token") || "";
+          if (id) {
+            await assertSession(token);
+            const order = await findOrderById(id);
+            return order ? json({ order }) : json({ error: "NOT_FOUND" }, 404);
+          }
           return json({ orders: await listOrders(token) });
         } catch {
           return json({ error: "AUTH" }, 401);
