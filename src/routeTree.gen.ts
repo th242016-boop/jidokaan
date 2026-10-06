@@ -32,6 +32,7 @@ import { Route as ApiInboxRouteImport } from './routes/api/inbox'
 import { Route as ApiLoginProvidersRouteImport } from './routes/api/login-providers'
 import { Route as ApiMediaRouteImport } from './routes/api/media'
 import { Route as ApiMembersRouteImport } from './routes/api/members'
+import { Route as ApiOrderNotificationsRouteImport } from './routes/api/order-notifications'
 import { Route as ApiOrdersRouteImport } from './routes/api/orders'
 import { Route as ApiPaypalRouteImport } from './routes/api/paypal'
 import { Route as ApiProfileRouteImport } from './routes/api/profile'
@@ -156,6 +157,11 @@ const ApiMembersRoute = ApiMembersRouteImport.update({
   path: '/api/members',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOrderNotificationsRoute = ApiOrderNotificationsRouteImport.update({
+  id: '/api/order-notifications',
+  path: '/api/order-notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiOrdersRoute = ApiOrdersRouteImport.update({
   id: '/api/orders',
   path: '/api/orders',
@@ -221,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/api/login-providers': typeof ApiLoginProvidersRoute
   '/api/media': typeof ApiMediaRoute
   '/api/members': typeof ApiMembersRoute
+  '/api/order-notifications': typeof ApiOrderNotificationsRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/paypal': typeof ApiPaypalRoute
   '/api/profile': typeof ApiProfileRoute
@@ -254,6 +261,7 @@ export interface FileRoutesByTo {
   '/api/login-providers': typeof ApiLoginProvidersRoute
   '/api/media': typeof ApiMediaRoute
   '/api/members': typeof ApiMembersRoute
+  '/api/order-notifications': typeof ApiOrderNotificationsRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/paypal': typeof ApiPaypalRoute
   '/api/profile': typeof ApiProfileRoute
@@ -288,6 +296,7 @@ export interface FileRoutesById {
   '/api/login-providers': typeof ApiLoginProvidersRoute
   '/api/media': typeof ApiMediaRoute
   '/api/members': typeof ApiMembersRoute
+  '/api/order-notifications': typeof ApiOrderNotificationsRoute
   '/api/orders': typeof ApiOrdersRoute
   '/api/paypal': typeof ApiPaypalRoute
   '/api/profile': typeof ApiProfileRoute
@@ -323,6 +332,7 @@ export interface FileRouteTypes {
     | '/api/login-providers'
     | '/api/media'
     | '/api/members'
+    | '/api/order-notifications'
     | '/api/orders'
     | '/api/paypal'
     | '/api/profile'
@@ -356,6 +366,7 @@ export interface FileRouteTypes {
     | '/api/login-providers'
     | '/api/media'
     | '/api/members'
+    | '/api/order-notifications'
     | '/api/orders'
     | '/api/paypal'
     | '/api/profile'
@@ -389,6 +400,7 @@ export interface FileRouteTypes {
     | '/api/login-providers'
     | '/api/media'
     | '/api/members'
+    | '/api/order-notifications'
     | '/api/orders'
     | '/api/paypal'
     | '/api/profile'
@@ -423,6 +435,7 @@ export interface RootRouteChildren {
   ApiLoginProvidersRoute: typeof ApiLoginProvidersRoute
   ApiMediaRoute: typeof ApiMediaRoute
   ApiMembersRoute: typeof ApiMembersRoute
+  ApiOrderNotificationsRoute: typeof ApiOrderNotificationsRoute
   ApiOrdersRoute: typeof ApiOrdersRoute
   ApiPaypalRoute: typeof ApiPaypalRoute
   ApiProfileRoute: typeof ApiProfileRoute
@@ -596,6 +609,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMembersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/order-notifications': {
+      id: '/api/order-notifications'
+      path: '/api/order-notifications'
+      fullPath: '/api/order-notifications'
+      preLoaderRoute: typeof ApiOrderNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/orders': {
       id: '/api/orders'
       path: '/api/orders'
@@ -679,6 +699,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiLoginProvidersRoute: ApiLoginProvidersRoute,
   ApiMediaRoute: ApiMediaRoute,
   ApiMembersRoute: ApiMembersRoute,
+  ApiOrderNotificationsRoute: ApiOrderNotificationsRoute,
   ApiOrdersRoute: ApiOrdersRoute,
   ApiPaypalRoute: ApiPaypalRoute,
   ApiProfileRoute: ApiProfileRoute,

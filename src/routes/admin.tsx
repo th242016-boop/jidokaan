@@ -10,6 +10,7 @@ import { CategoryManager } from "@/components/admin/category-manager";
 import { Dashboard } from "@/components/admin/dashboard";
 import { InboxBoard } from "@/components/admin/inbox-board";
 import { OrderBoard } from "@/components/admin/order-board";
+import { OrderNotifications } from "@/components/admin/order-notifications";
 import { emptyProduct, ProductForm } from "@/components/admin/product-form";
 import { ProductList } from "@/components/admin/product-list";
 import { ShippingForm } from "@/components/admin/shipping-form";
@@ -43,6 +44,7 @@ import type { Coupon } from "@/lib/order-types";
 const searchSchema = z.object({
   p: z.string().optional().catch(undefined),
   edit: z.string().optional().catch(undefined),
+  order: z.string().max(80).optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/admin")({
@@ -424,7 +426,8 @@ function AdminPage() {
         />
       ) : null}
 
-      {!editing && page === "orders" ? <OrderBoard token={token} /> : null}
+      {!editing && page === "orders" ? <OrderBoard token={token} initialOrderId={search.order} /> : null}
+      {!editing && page === "notifications" ? <OrderNotifications token={token} /> : null}
       {!editing && page === "shipstatus" ? <ShipStatusBoard token={token} /> : null}
       {!editing && page === "claims" ? <ClaimsBoard token={token} /> : null}
       {!editing && page === "delay" ? <DelayBoard token={token} /> : null}

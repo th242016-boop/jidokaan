@@ -17,13 +17,13 @@ const STATUSES: { id: OrderStatus | "all"; label: string }[] = [
   { id: "exchange", label: "교환" },
 ];
 
-export function OrderBoard({ token }: { token: string }) {
+export function OrderBoard({ token, initialOrderId }: { token: string; initialOrderId?: string }) {
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
   const [msg, setMsg] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialOrderId || null);
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<
@@ -39,6 +39,16 @@ export function OrderBoard({ token }: { token: string }) {
       if (!res.ok) throw new Error("LOAD_FAILED");
       const data = (await res.json()) as { orders?: StoreOrder[] };
       if (!Array.isArray(data.orders)) throw new Error("LOAD_FAILED");
+      // A notification can point to an older order outside the recent-200 list.
+      if (initialOrderId && !data.orders.some((o) => o.id === initialOrderId)) {
+        const detail = await fetch(`/api/orders?id=${encodeURIComponent(initialOrderId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (detail.ok) {
+          const found = await detail.json();
+          if (found.order) data.orders.push(found.order);
+        } else setLoadError("알림에 연결된 주문을 찾을 수 없습니다. 주문번호를 확인해 주세요.");
+      }
       setOrders(data.orders);
       setPendingError("");
       try {
@@ -59,8 +69,9 @@ export function OrderBoard({ token }: { token: string }) {
   }
 
   useEffect(() => {
+    setSelectedId(initialOrderId || null);
     void load();
-  }, [token]);
+  }, [token, initialOrderId]);
 
   const active = useMemo(() => orders.filter((o) => !isCancelledOrder(o)), [orders]);
   const rows = useMemo(() => {
