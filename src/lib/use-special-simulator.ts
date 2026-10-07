@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ADMIN_SESSION_EVENT, readAdminToken } from "./admin-session";
 import { type BootModel, type PartColorNames, type PartId } from "./simulator-config";
-import { selectSpecial, specialOverrides, type SpecialAssets, type SpecialDraft } from "./simulator-special";
+import { selectSpecial, specialOverrides, meshSelection, laceSelection, selectMesh, selectLaces, type SpecialAssets, type SpecialDraft } from "./simulator-special";
+import type { MeshColor, LaceColor } from "./mesh-laces";
+import { useMeshLaces } from "./use-mesh-laces";
 
 export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames) {
   const [available, setAvailable] = useState(false);
@@ -78,14 +80,25 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
 
   const currentAssets = enabled && assets?.model === model ? assets : null;
   const draft = enabled ? drafts[model] : undefined;
+  const mesh = meshSelection(draft), laces = laceSelection(draft);
+  const split = useMeshLaces(Boolean(enabled && currentAssets && draft), model, mesh, laces);
   return {
-    available, enabled, busy, validate,
+    available, enabled, busy: busy || split.loading, validate,
+    mesh, laces, meshReady: split.ready, meshFailed: split.failed,
     toggle: () => { setEnabled(value => !value); },
     names: draft?.names ?? baseNames,
     swatch: currentAssets?.swatch,
     flowers: draft?.flowers ?? {},
     layers: currentAssets?.layers ?? {},
-    overrides: specialOverrides(draft, currentAssets),
+    overrides: { ...specialOverrides(draft, currentAssets), ...(split.layer ? { a: split.layer } : {}) },
+    selectMesh: (color: MeshColor) => {
+      if (!currentAssets || !split.ready) return;
+      setDrafts(prev => ({ ...prev, [model]: selectMesh(prev[model]!, color) }));
+    },
+    selectLaces: (color: LaceColor) => {
+      if (!currentAssets || !split.ready) return;
+      setDrafts(prev => ({ ...prev, [model]: selectLaces(prev[model]!, color) }));
+    },
     select: (part: PartId, name: string) => {
       if (!currentAssets || busy) return;
       setDrafts(prev => ({ ...prev, [model]: selectSpecial(prev[model]!, part, name) }));

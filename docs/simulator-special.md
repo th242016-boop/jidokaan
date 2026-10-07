@@ -6,7 +6,7 @@ has been checked by POST /api/simulator-special. From /admin use the same-tab
 No separate password or public feature flag is introduced.
 
 FLOWER A: high B–J; mid B/C/D/I/J. Mid has no G and no supplied floral E/F/H
-layers. A and K remain white/black. L keeps the underlying solid-color linkage
+layers. Ordinary A and K remain white/black. L keeps the underlying solid-color linkage
 because no floral L was supplied. Original PNG coordinates, pixels and alpha are
 unchanged; only embedded editing metadata was removed. The swatch is z (90).png.
 
@@ -33,3 +33,33 @@ Run npm run typecheck, NITRO_PRESET=node-server npm run build,
 node scripts/simulator-special-smoke.mjs and node scripts/design-preview-smoke.mjs.
 The special checks use only an isolated disposable PGlite database. Supplying the
 asset key through the environment additionally verifies authenticated decryption.
+
+## Mesh and lace preview
+
+Administrator special mode splits A into mesh and independently controlled laces.
+Mesh choices are RED, ORANGE, YELLOW, GREEN, BLUE, NAVY, PURPLE, PINK, GRAY,
+WHITE and BLACK. Stocked laces are RED, BLUE, YELLOW, WHITE and BLACK. Both high
+and mid models keep independent in-memory selections; standard ordering remains
+unchanged. L is an existing hidden line layer and is not renamed or repurposed.
+
+The renderer uses native 1424×1392 source pixels and original A alpha. The internal
+lace mask is the existing prototype accepted for color expansion; no contour was
+changed for additional colors. Exposed tongue gaps use traced paths. The user
+approved administrator deployment on 2026-10-07. Solid tints retain source luminance; they
+are previews, not photographs of the new physical lace colors.
+
+Non-black mesh choices keep WHITE in the ordinary underlying A specification;
+BLACK keeps BLACK. This preserves valid standard data and existing hidden L
+linkage. With colored mesh, L may therefore remain white depending on D/I.
+
+The earlier local prototype checkout was removed by workspace maintenance.
+Its exact renderer and paths were recovered from the retained inline preview;
+React integration was reconstructed on production 97ab236. The rollout is limited
+to authenticated administrator special previews, for both high and mid models.
+
+Verified: TypeScript and production build; 7 isolated authentication/state checks;
+9 browser flows against the actual local build (protected floral payload fixture);
+110 high/mid mesh/lace combinations in the inline preview, with independent
+model drafts, zoom and mobile layout. The browser test also verifies normal order
+data is unchanged and logout removes the preview. Production deployment status
+and commit should be checked in Railway when taking over this project.

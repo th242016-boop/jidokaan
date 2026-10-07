@@ -23,6 +23,7 @@ try {
   const api = await server.ssrLoadModule("/src/lib/simulator-special.server.ts");
   const special = await server.ssrLoadModule("/src/lib/simulator-special.ts");
   const sim = await server.ssrLoadModule("/src/lib/simulator-config.ts");
+  const palette = await server.ssrLoadModule("/src/lib/mesh-laces.ts");
   const design = await server.ssrLoadModule("/src/lib/design-order.ts");
   const call = body => api.handleSpecialRequest(new Request("http://localhost/api/simulator-special", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -80,6 +81,27 @@ try {
     assert.equal(red.flowers.b, false); assert.equal(red.names.b, "RED");
     assert.equal(design.completeDesign({ ...normal, b: "FLOWER A" }), null);
     assert.equal(design.completeDesign(red.names).b, "RED");
+  });
+  await check("stocked mesh and lace colors stay independent of each other and orders", async () => {
+    assert.deepEqual(palette.LACE_COLORS, ["RED", "BLUE", "YELLOW", "WHITE", "BLACK"]);
+    for (const model of ["high", "mid"]) {
+      const normal = sim.defaultPartNames();
+      const initial = { names: { ...normal, model }, flowers: {} };
+      for (const mesh of palette.MESH_COLORS) for (const laces of palette.LACE_COLORS) {
+        const a = special.selectMesh(initial, mesh);
+        const b = special.selectLaces(a, laces);
+        assert.equal(special.meshSelection(b), mesh);
+        assert.equal(special.laceSelection(b), laces);
+        assert.deepEqual(b.names, a.names);
+        assert.ok(design.completeDesign(b.names));
+        const c = special.selectMesh(b, "WHITE");
+        assert.equal(special.laceSelection(c), laces);
+        assert.equal(special.laceSelection(special.selectSpecial(b, "b", "BLUE")), laces);
+      }
+      assert.equal(special.selectLaces(initial, "GREEN"), initial);
+      assert.equal(special.selectMesh(initial, "GOLD"), initial);
+      assert.deepEqual(initial.names, { ...normal, model });
+    }
   });
   await check("logout immediately revokes asset access on the server", async () => {
     await auth.destroySession(token);

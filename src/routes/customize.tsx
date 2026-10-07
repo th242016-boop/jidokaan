@@ -1,5 +1,6 @@
 import { useSpecialSimulator } from "@/lib/use-special-simulator";
 import { FLOWER_A } from "@/lib/simulator-special";
+import { MESH_COLORS, LACE_COLORS, type MeshColor } from "@/lib/mesh-laces";
 import { captureDesign } from "@/lib/design-order";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Check, ShoppingBag, X } from "lucide-react";
@@ -18,6 +19,7 @@ import {
 } from "@/lib/products";
 import {
   paletteFor,
+  colorByName,
   modelOf,
   partsForModel,
   PHOTO_NATIVE,
@@ -92,7 +94,7 @@ function CustomizePage() {
   }, [size, sizes, setDraftSize]);
 
   async function saveSpecial() {
-    if (savingSpecial || special.busy || !special.swatch) return;
+    if (savingSpecial || special.busy || !special.swatch || !special.meshReady) return;
     setSavingSpecial(true);
     try {
       if (!(await special.validate())) return;
@@ -210,29 +212,30 @@ function CustomizePage() {
               .filter((p) => PICKABLE_PARTS.includes(p.id))
               .map((part) => {
                 const supplied = REAL_LAYERS[part.id];
-                const pal = supplied
+                const pal = special.enabled && part.id === "a" ? MESH_COLORS.map(name => colorByName(name)!) : supplied
                   ? paletteFor(part).filter((o) => o.name === "WHITE" || Boolean(supplied[o.name]))
                   : paletteFor(part);
                 return (
-                  <div key={part.id} className="mb-3.5 md:mb-8">
+                  <div key={part.id} data-part={part.id} className="mb-3.5 md:mb-8">
                     <div className="mb-1.5 flex items-center border-l-4 border-black pl-2 text-[13px] font-bold text-black md:mb-2.5 md:pl-2.5 md:text-sm">
-                      {part.label}
+                      {special.enabled && part.id === "a" ? (locale === "ko" ? "A · 메쉬" : "A · Mesh") : part.label}
                     </div>
                     <div className="grid grid-cols-5 gap-1.5 md:grid-cols-4 md:gap-2">
                       {pal.map((opt) => {
                         const active =
-                          (colorNames?.[part.id] ?? PHOTO_NATIVE[part.id]) === opt.name && !special.flowers[part.id];
+                          (special.enabled && part.id === "a" ? special.mesh : (colorNames?.[part.id] ?? PHOTO_NATIVE[part.id])) === opt.name && !special.flowers[part.id];
                         return (
                           <button
                             key={`${part.id}-${opt.name}`}
                             type="button"
                             title={opt.name}
-                            disabled={special.enabled && !special.swatch}
+                            disabled={special.enabled && (!special.swatch || (part.id === "a" && !special.meshReady))}
                             aria-pressed={active}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              if (special.enabled) special.select(part.id, opt.name);
+                              if (special.enabled && part.id === "a") special.selectMesh(opt.name as MeshColor);
+                              else if (special.enabled) special.select(part.id, opt.name);
                               else setPartColor(part.id, opt.color, opt.name);
                             }}
                             className={cn(
@@ -276,6 +279,23 @@ function CustomizePage() {
                         </button>
                       )}
                     </div>
+                    {special.enabled && part.id === "a" && (
+                      <div data-part="laces" role="group" aria-label="신발끈 색상" className="mt-4">
+                        <div className="mb-1.5 border-l-4 border-black pl-2 text-[13px] font-bold text-black md:mb-2.5 md:text-sm">{locale === "ko" ? "신발끈" : "Shoelaces"}</div>
+                        <div className="grid grid-cols-5 gap-1.5 md:grid-cols-4 md:gap-2">
+                          {LACE_COLORS.map(name => {
+                            const opt = colorByName(name)!;
+                            return <button key={name} type="button" title={name} disabled={!special.meshReady}
+                              aria-pressed={special.laces === name} onClick={() => special.selectLaces(name)}
+                              className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", special.laces === name ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
+                              style={{ backgroundColor: opt.color }}>
+                              <span className="absolute inset-0 flex items-center justify-center p-0.5 text-center text-[8px] font-bold md:text-[10px]" style={{ color: opt.isBright ? "#000" : "#fff" }}>{name}</span>
+                            </button>;
+                          })}
+                        </div>
+                        {special.meshFailed && <p role="alert" className="mt-2 text-xs text-red-700">메쉬·끈 이미지를 불러오지 못했습니다. 스페셜을 다시 눌러주세요.</p>}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -337,7 +357,7 @@ function CustomizePage() {
 
         <div className="shrink-0 border-t border-[#ddd] bg-white px-3 py-2 md:space-y-2 md:p-4">
           {special.enabled ? (
-            <Button type="button" className="h-11 w-full rounded-[6px] bg-black text-white hover:bg-neutral-800" disabled={savingSpecial || special.busy || !special.swatch} onClick={() => void saveSpecial()}>
+            <Button type="button" className="h-11 w-full rounded-[6px] bg-black text-white hover:bg-neutral-800" disabled={savingSpecial || special.busy || !special.swatch || !special.meshReady} onClick={() => void saveSpecial()}>
               {savingSpecial ? "저장 중…" : "스페셜 시안 저장"}
             </Button>
           ) : showKrOrder ? (
