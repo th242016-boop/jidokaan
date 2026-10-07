@@ -1,3 +1,4 @@
+import { readAdminToken as readToken, writeAdminToken as writeToken } from "@/lib/admin-session";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -57,24 +58,6 @@ export const Route = createFileRoute("/admin")({
     ],
   }),
 });
-
-const TOKEN_KEY = "jidokaan-admin-token";
-
-function readToken() {
-  try {
-    return sessionStorage.getItem(TOKEN_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function writeToken(token: string) {
-  try {
-    sessionStorage.setItem(TOKEN_KEY, token);
-  } catch {
-    /* ignore */
-  }
-}
 
 async function postCatalog(body: Record<string, unknown>): Promise<CatalogPayload> {
   const res = await fetch("/api/catalog", {

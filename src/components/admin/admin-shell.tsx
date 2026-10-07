@@ -153,6 +153,7 @@ export function AdminShell({
           <span className="hidden text-xs text-white/50 sm:inline">판매 · 주문 · 상품 · 문의</span>
         </div>
         <div className="flex items-center gap-3 text-xs">
+          <Link to="/customize" className="text-white/75 hover:text-white">시뮬레이터</Link>
           <Link to="/" className="inline-flex items-center gap-1 text-white/75 hover:text-white">
             쇼핑몰 보기 <ExternalLink className="size-3" />
           </Link>

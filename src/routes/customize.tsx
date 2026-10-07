@@ -1,3 +1,6 @@
+import { useSpecialSimulator } from "@/lib/use-special-simulator";
+import { FLOWER_A } from "@/lib/simulator-special";
+import { captureDesign } from "@/lib/design-order";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Check, ShoppingBag, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -62,8 +65,10 @@ function CustomizePage() {
   const [showGuide, setShowGuide] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [showKrOrder, setShowKrOrder] = useState(false);
-  const colorNames = draftPartNames;
-  const model = modelOf(colorNames);
+  const model = modelOf(draftPartNames);
+  const special = useSpecialSimulator(model, draftPartNames);
+  const colorNames = special.names;
+  const [savingSpecial, setSavingSpecial] = useState(false);
   const setDraftModel = useStore((s) => s.setDraftModel);
   const sizes = fit === "women" ? WOMEN_SIZES : MEN_SIZES;
 
@@ -85,6 +90,21 @@ function CustomizePage() {
       setDraftSize(closestSize(size, sizes));
     }
   }, [size, sizes, setDraftSize]);
+
+  async function saveSpecial() {
+    if (savingSpecial || special.busy || !special.swatch) return;
+    setSavingSpecial(true);
+    try {
+      if (!(await special.validate())) return;
+      const preview = await captureDesign(colorNames, { layerOverrides: special.overrides });
+      if (!(await special.validate())) return;
+      const link = document.createElement("a");
+      link.href = preview;
+      link.download = `JIDOKAAN-${model}-special-${Date.now()}.jpg`;
+      link.click();
+    } catch { toast.error("시안을 저장하지 못했습니다. 다시 시도해주세요."); }
+    finally { setSavingSpecial(false); }
+  }
 
   function handleConfirm() {
     setConfirming(true);
@@ -112,6 +132,7 @@ function CustomizePage() {
         <LayerSimulator
           colors={draftParts}
           colorNames={colorNames}
+          layerOverrides={special.overrides}
           showGuide={showGuide}
           onGuideChange={setShowGuide}
           onPreviewClick={() => setZoomed(true)}
@@ -161,8 +182,17 @@ function CustomizePage() {
                       : { high: "High-cut", mid: "Mid-cut", low: "Low-cut · Soon" }[value]}
                 </button>
               ))}
+              {special.available && (
+                <button
+                  type="button"
+                  aria-pressed={special.enabled}
+                  onClick={() => { special.toggle(); setShowKrOrder(false); }}
+                  className={cn("min-h-9 rounded-md px-3 text-sm font-bold", special.enabled ? "bg-black text-white" : "text-black hover:bg-neutral-100")}
+                >스페셜</button>
+              )}
             </div>
           </div>
+          {special.enabled && <p role="status" className="mt-2 text-[11px] text-neutral-600">{special.busy ? "스페셜 소재 불러오는 중…" : "관리자 전용 · 스페셜 시안"}</p>}
           <p className="mt-1.5 mb-0 hidden md:flex items-center text-[11px] font-semibold tracking-[0.5px] text-[#d0021b]">
             <span className="mr-1.5 text-sm">ⓘ</span>
             {dict.custom.guide2d}
@@ -191,16 +221,19 @@ function CustomizePage() {
                     <div className="grid grid-cols-5 gap-1.5 md:grid-cols-4 md:gap-2">
                       {pal.map((opt) => {
                         const active =
-                          (colorNames?.[part.id] ?? PHOTO_NATIVE[part.id]) === opt.name;
+                          (colorNames?.[part.id] ?? PHOTO_NATIVE[part.id]) === opt.name && !special.flowers[part.id];
                         return (
                           <button
                             key={`${part.id}-${opt.name}`}
                             type="button"
                             title={opt.name}
+                            disabled={special.enabled && !special.swatch}
+                            aria-pressed={active}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              setPartColor(part.id, opt.color, opt.name);
+                              if (special.enabled) special.select(part.id, opt.name);
+                              else setPartColor(part.id, opt.color, opt.name);
                             }}
                             className={cn(
                               "relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition",
@@ -228,6 +261,20 @@ function CustomizePage() {
                           </button>
                         );
                       })}
+                      {special.enabled && special.layers[part.id] && special.swatch && (
+                        <button
+                          type="button"
+                          title={FLOWER_A}
+                          aria-pressed={Boolean(special.flowers[part.id])}
+                          onClick={() => special.select(part.id, FLOWER_A)}
+                          className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", special.flowers[part.id] ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
+                          style={{ backgroundImage: `url(${special.swatch})`, backgroundSize: "cover", backgroundPosition: "center" }}
+                        >
+                          <span className="absolute inset-0 flex items-center justify-center text-center text-[8px] font-bold md:text-[10px]">
+                            <span className="rounded bg-white/85 px-1 py-0.5 text-black">{FLOWER_A}</span>
+                          </span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -289,7 +336,11 @@ function CustomizePage() {
         </div>
 
         <div className="shrink-0 border-t border-[#ddd] bg-white px-3 py-2 md:space-y-2 md:p-4">
-          {showKrOrder ? (
+          {special.enabled ? (
+            <Button type="button" className="h-11 w-full rounded-[6px] bg-black text-white hover:bg-neutral-800" disabled={savingSpecial || special.busy || !special.swatch} onClick={() => void saveSpecial()}>
+              {savingSpecial ? "저장 중…" : "스페셜 시안 저장"}
+            </Button>
+          ) : showKrOrder ? (
             <div className="space-y-3 py-1">
               <p className="text-[13px] leading-relaxed text-[#222] md:text-sm">
                 {dict.custom.krOrderHint}
@@ -369,6 +420,7 @@ function CustomizePage() {
           <LayerSimulator
             colors={draftParts}
             colorNames={colorNames}
+            layerOverrides={special.overrides}
             showGuide={false}
             hideChrome
             onPreviewClick={() => setZoomed(false)}

@@ -37,6 +37,7 @@ import { Route as ApiOrdersRouteImport } from './routes/api/orders'
 import { Route as ApiPaypalRouteImport } from './routes/api/paypal'
 import { Route as ApiProfileRouteImport } from './routes/api/profile'
 import { Route as ApiReviewsRouteImport } from './routes/api/reviews'
+import { Route as ApiSimulatorSpecialRouteImport } from './routes/api/simulator-special'
 import { Route as ProductsProductIdRouteImport } from './routes/products/$productId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ProductsUploadSplatRouteImport } from './routes/products/upload/$'
@@ -182,6 +183,11 @@ const ApiReviewsRoute = ApiReviewsRouteImport.update({
   path: '/api/reviews',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSimulatorSpecialRoute = ApiSimulatorSpecialRouteImport.update({
+  id: '/api/simulator-special',
+  path: '/api/simulator-special',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProductsProductIdRoute = ProductsProductIdRouteImport.update({
   id: '/products/$productId',
   path: '/products/$productId',
@@ -232,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/api/paypal': typeof ApiPaypalRoute
   '/api/profile': typeof ApiProfileRoute
   '/api/reviews': typeof ApiReviewsRoute
+  '/api/simulator-special': typeof ApiSimulatorSpecialRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/products/upload/$': typeof ProductsUploadSplatRoute
@@ -266,6 +273,7 @@ export interface FileRoutesByTo {
   '/api/paypal': typeof ApiPaypalRoute
   '/api/profile': typeof ApiProfileRoute
   '/api/reviews': typeof ApiReviewsRoute
+  '/api/simulator-special': typeof ApiSimulatorSpecialRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/products/upload/$': typeof ProductsUploadSplatRoute
@@ -301,6 +309,7 @@ export interface FileRoutesById {
   '/api/paypal': typeof ApiPaypalRoute
   '/api/profile': typeof ApiProfileRoute
   '/api/reviews': typeof ApiReviewsRoute
+  '/api/simulator-special': typeof ApiSimulatorSpecialRoute
   '/products/$productId': typeof ProductsProductIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/products/upload/$': typeof ProductsUploadSplatRoute
@@ -337,6 +346,7 @@ export interface FileRouteTypes {
     | '/api/paypal'
     | '/api/profile'
     | '/api/reviews'
+    | '/api/simulator-special'
     | '/products/$productId'
     | '/api/auth/$'
     | '/products/upload/$'
@@ -371,6 +381,7 @@ export interface FileRouteTypes {
     | '/api/paypal'
     | '/api/profile'
     | '/api/reviews'
+    | '/api/simulator-special'
     | '/products/$productId'
     | '/api/auth/$'
     | '/products/upload/$'
@@ -405,6 +416,7 @@ export interface FileRouteTypes {
     | '/api/paypal'
     | '/api/profile'
     | '/api/reviews'
+    | '/api/simulator-special'
     | '/products/$productId'
     | '/api/auth/$'
     | '/products/upload/$'
@@ -440,6 +452,7 @@ export interface RootRouteChildren {
   ApiPaypalRoute: typeof ApiPaypalRoute
   ApiProfileRoute: typeof ApiProfileRoute
   ApiReviewsRoute: typeof ApiReviewsRoute
+  ApiSimulatorSpecialRoute: typeof ApiSimulatorSpecialRoute
   ProductsProductIdRoute: typeof ProductsProductIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ProductsUploadSplatRoute: typeof ProductsUploadSplatRoute
@@ -644,6 +657,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReviewsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/simulator-special': {
+      id: '/api/simulator-special'
+      path: '/api/simulator-special'
+      fullPath: '/api/simulator-special'
+      preLoaderRoute: typeof ApiSimulatorSpecialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/products/$productId': {
       id: '/products/$productId'
       path: '/products/$productId'
@@ -704,6 +724,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPaypalRoute: ApiPaypalRoute,
   ApiProfileRoute: ApiProfileRoute,
   ApiReviewsRoute: ApiReviewsRoute,
+  ApiSimulatorSpecialRoute: ApiSimulatorSpecialRoute,
   ProductsProductIdRoute: ProductsProductIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ProductsUploadSplatRoute: ProductsUploadSplatRoute,

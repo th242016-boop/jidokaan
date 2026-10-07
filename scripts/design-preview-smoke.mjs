@@ -122,6 +122,14 @@ try {
     assert.ok(draws.every(d => !d.src.includes("/g-") && !d.src.includes("guide")));
     assert.equal(peak, 1);
   });
+  await check("special export replaces the selected layer at the same geometry", async () => {
+    const floral = "data:image/png;base64,FLOWER_TEST";
+    assert.equal(await design.captureDesign(names, { layerOverrides: { b: floral } }), validJpeg);
+    assert.ok(draws.some(d => d.src === floral));
+    assert.ok(draws.every(d => d.src !== sim.REAL_LAYERS.b.GOLD));
+    assert.equal(draws.filter(d => d.src === floral).length, 1);
+    assert.equal(peak, 1);
+  });
   await check(
     "large JPEG falls back without losing the design or exceeding payload limit",
     async () => {

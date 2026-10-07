@@ -20,6 +20,7 @@ export function LayerSimulator({
   onGuideChange,
   hideChrome,
   onPreviewClick,
+  layerOverrides,
 }: {
   colors: PartColors;
   colorNames?: PartColorNames;
@@ -28,6 +29,7 @@ export function LayerSimulator({
   onGuideChange?: (v: boolean) => void;
   hideChrome?: boolean;
   onPreviewClick?: () => void;
+  layerOverrides?: Partial<Record<PartId, string>>;
 }) {
   const [internalGuide, setInternalGuide] = useState(false);
   const showGuide = controlledGuide ?? internalGuide;
@@ -79,7 +81,7 @@ export function LayerSimulator({
           .map((part) => {
             const name =
               colorNames?.[part.id as PartId] ?? PHOTO_NATIVE[part.id as PartId] ?? "WHITE";
-            const src = photoLayerFor(part.id, name, colorNames);
+            const src = layerOverrides?.[part.id] ?? photoLayerFor(part.id, name, colorNames);
             if (!src) return null;
             return (
               <img

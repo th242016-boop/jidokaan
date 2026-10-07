@@ -10,6 +10,7 @@ import {
   linkedLColor,
   type PartColorNames,
   type PartColors,
+  type PartId,
 } from "./simulator-config";
 
 export const ORDER_TERMS_VERSION = "2026-10-01-shipping-buffer-v2";
@@ -96,13 +97,13 @@ function loadDesignImage(src: string, signal: AbortSignal | undefined, deadline:
  */
 export async function captureDesign(
   names: PartColorNames,
-  options: { signal?: AbortSignal } = {},
+  options: { signal?: AbortSignal; layerOverrides?: Partial<Record<PartId, string>> } = {},
 ): Promise<string> {
   if (!completeDesign(names)) throw new Error("DESIGN_REQUIRED");
   const sources = [
     photoBaseFor(names),
     ...partsForModel(names)
-      .map((p) => photoLayerFor(p.id, names[p.id], names))
+      .map((p) => options.layerOverrides?.[p.id] ?? photoLayerFor(p.id, names[p.id], names))
       .filter((s): s is string => Boolean(s)),
   ];
   const canvas = document.createElement("canvas");
