@@ -24,6 +24,7 @@ try {
   const special = await server.ssrLoadModule("/src/lib/simulator-special.ts");
   const sim = await server.ssrLoadModule("/src/lib/simulator-config.ts");
   const palette = await server.ssrLoadModule("/src/lib/mesh-laces.ts");
+  const solids = await server.ssrLoadModule("/src/lib/special-solids.ts");
   const design = await server.ssrLoadModule("/src/lib/design-order.ts");
   const call = body => api.handleSpecialRequest(new Request("http://localhost/api/simulator-special", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -101,6 +102,42 @@ try {
       assert.equal(special.selectLaces(initial, "GREEN"), initial);
       assert.equal(special.selectMesh(initial, "GOLD"), initial);
       assert.deepEqual(initial.names, { ...normal, model });
+    }
+  });
+  await check("special GRAY stays separate, replaces FLOWER, and follows hidden line linkage", async () => {
+    for (const model of ["high", "mid"]) {
+      const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
+      const supported = solids.specialSolidPartsFor(model);
+      assert.equal(supported.length, model === "high" ? 9 : 8);
+      assert.equal(supported.includes("g"), model === "high");
+      const layers = Object.fromEntries([...supported, "l"].map(part => [part, `gray-${part}`]));
+      for (const part of supported) {
+        const gray = special.selectSpecial(initial, part, "GRAY");
+        assert.equal(gray.solids[part], "GRAY");
+        assert.equal(special.specialSolidOverrides(gray, layers)[part], `gray-${part}`);
+        assert.ok(design.completeDesign(gray.names));
+        assert.equal(sim.photoLayerFor(part, "GRAY", initial.names), undefined);
+        assert.equal(design.completeDesign({ ...initial.names, [part]: "GRAY" }), null);
+        const red = special.selectSpecial(gray, part, "RED");
+        assert.equal(red.solids[part], undefined);
+        assert.equal(special.specialSolidOverrides(red, layers)[part], undefined);
+      }
+      for (const part of ["a", "k", "l", ...(model === "mid" ? ["g"] : [])])
+        assert.equal(special.selectSpecial(initial, part, "GRAY"), initial);
+      const grayB = special.selectSpecial(initial, "b", "GRAY");
+      const floral = special.selectSpecial(grayB, "b", "FLOWER A");
+      assert.equal(floral.solids.b, undefined); assert.equal(floral.flowers.b, true);
+      const grayAgain = special.selectSpecial(floral, "b", "GRAY");
+      assert.equal(grayAgain.flowers.b, false); assert.equal(grayAgain.solids.b, "GRAY");
+      const grayI = special.selectSpecial(initial, "i", "GRAY");
+      assert.equal(special.specialSolidOverrides(grayI, layers).l, "gray-l");
+      const grayD = special.selectSpecial(grayI, "d", "GRAY");
+      assert.equal(grayD.names.l, "WHITE");
+      assert.equal(special.specialSolidOverrides(grayD, layers).l, undefined);
+      assert.ok(design.completeDesign(grayD.names));
+      const restored = special.selectSpecial(grayD, "d", "WHITE");
+      assert.equal(special.specialSolidOverrides(restored, layers).l, "gray-l");
+      assert.deepEqual(initial.names, { ...sim.defaultPartNames(), model });
     }
   });
   await check("logout immediately revokes asset access on the server", async () => {

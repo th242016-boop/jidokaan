@@ -1,5 +1,6 @@
 import { useSpecialSimulator } from "@/lib/use-special-simulator";
 import { FLOWER_A } from "@/lib/simulator-special";
+import { SPECIAL_SOLID_COLORS, isSpecialSolid, specialSolidPartsFor } from "@/lib/special-solids";
 import { MESH_COLORS, LACE_COLORS, type MeshColor } from "@/lib/mesh-laces";
 import { captureDesign } from "@/lib/design-order";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -94,7 +95,7 @@ function CustomizePage() {
   }, [size, sizes, setDraftSize]);
 
   async function saveSpecial() {
-    if (savingSpecial || special.busy || !special.swatch || !special.meshReady) return;
+    if (savingSpecial || special.busy || !special.swatch || !special.previewReady) return;
     setSavingSpecial(true);
     try {
       if (!(await special.validate())) return;
@@ -194,6 +195,7 @@ function CustomizePage() {
               )}
             </div>
           </div>
+          {special.enabled && special.solidsFailed && <p role="alert" className="mt-2 text-xs text-red-700">GRAY 이미지를 불러오지 못했습니다. 스페셜을 다시 눌러주세요.</p>}
           {special.enabled && <p role="status" className="mt-2 text-[11px] text-neutral-600">{special.busy ? "스페셜 소재 불러오는 중…" : "관리자 전용 · 스페셜 시안"}</p>}
           <p className="mt-1.5 mb-0 hidden md:flex items-center text-[11px] font-semibold tracking-[0.5px] text-[#d0021b]">
             <span className="mr-1.5 text-sm">ⓘ</span>
@@ -212,9 +214,12 @@ function CustomizePage() {
               .filter((p) => PICKABLE_PARTS.includes(p.id))
               .map((part) => {
                 const supplied = REAL_LAYERS[part.id];
-                const pal = special.enabled && part.id === "a" ? MESH_COLORS.map(name => colorByName(name)!) : supplied
+                const standardPalette = supplied
                   ? paletteFor(part).filter((o) => o.name === "WHITE" || Boolean(supplied[o.name]))
                   : paletteFor(part);
+                const pal = special.enabled && part.id === "a" ? MESH_COLORS.map(name => colorByName(name)!)
+                  : special.enabled && specialSolidPartsFor(model).includes(part.id) ? [...standardPalette, ...SPECIAL_SOLID_COLORS]
+                  : standardPalette;
                 return (
                   <div key={part.id} data-part={part.id} className="mb-3.5 md:mb-8">
                     <div className="mb-1.5 flex items-center border-l-4 border-black pl-2 text-[13px] font-bold text-black md:mb-2.5 md:pl-2.5 md:text-sm">
@@ -223,13 +228,13 @@ function CustomizePage() {
                     <div className="grid grid-cols-5 gap-1.5 md:grid-cols-4 md:gap-2">
                       {pal.map((opt) => {
                         const active =
-                          (special.enabled && part.id === "a" ? special.mesh : (colorNames?.[part.id] ?? PHOTO_NATIVE[part.id])) === opt.name && !special.flowers[part.id];
+                          (special.enabled && part.id === "a" ? special.mesh : (special.solids[part.id] ?? colorNames?.[part.id] ?? PHOTO_NATIVE[part.id])) === opt.name && !special.flowers[part.id];
                         return (
                           <button
                             key={`${part.id}-${opt.name}`}
                             type="button"
                             title={opt.name}
-                            disabled={special.enabled && (!special.swatch || (part.id === "a" && !special.meshReady))}
+                            disabled={special.enabled && (!special.swatch || (part.id === "a" && !special.meshReady) || (part.id !== "a" && isSpecialSolid(opt.name) && !special.solidsReady))}
                             aria-pressed={active}
                             onClick={(e) => {
                               e.preventDefault();
@@ -357,7 +362,7 @@ function CustomizePage() {
 
         <div className="shrink-0 border-t border-[#ddd] bg-white px-3 py-2 md:space-y-2 md:p-4">
           {special.enabled ? (
-            <Button type="button" className="h-11 w-full rounded-[6px] bg-black text-white hover:bg-neutral-800" disabled={savingSpecial || special.busy || !special.swatch || !special.meshReady} onClick={() => void saveSpecial()}>
+            <Button type="button" className="h-11 w-full rounded-[6px] bg-black text-white hover:bg-neutral-800" disabled={savingSpecial || special.busy || !special.swatch || !special.previewReady} onClick={() => void saveSpecial()}>
               {savingSpecial ? "저장 중…" : "스페셜 시안 저장"}
             </Button>
           ) : showKrOrder ? (

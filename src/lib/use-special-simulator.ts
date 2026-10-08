@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ADMIN_SESSION_EVENT, readAdminToken } from "./admin-session";
 import { type BootModel, type PartColorNames, type PartId } from "./simulator-config";
-import { selectSpecial, specialOverrides, meshSelection, laceSelection, selectMesh, selectLaces, type SpecialAssets, type SpecialDraft } from "./simulator-special";
+import { selectSpecial, specialOverrides, specialSolidOverrides, meshSelection, laceSelection, selectMesh, selectLaces, type SpecialAssets, type SpecialDraft } from "./simulator-special";
 import type { MeshColor, LaceColor } from "./mesh-laces";
 import { useMeshLaces } from "./use-mesh-laces";
+import { useSpecialSolids } from "./use-special-solids";
+import { isSpecialSolid } from "./special-solids";
 
 export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames) {
   const [available, setAvailable] = useState(false);
@@ -82,15 +84,20 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
   const draft = enabled ? drafts[model] : undefined;
   const mesh = meshSelection(draft), laces = laceSelection(draft);
   const split = useMeshLaces(Boolean(enabled && currentAssets && draft), model, mesh, laces);
+  const solids = useSpecialSolids(Boolean(enabled && currentAssets && draft), model);
+  const needsSolids = Object.keys(draft?.solids ?? {}).length > 0;
   return {
-    available, enabled, busy: busy || split.loading, validate,
+    available, enabled, busy: busy || split.loading || solids.loading, validate,
     mesh, laces, meshReady: split.ready, meshFailed: split.failed,
+    solidsReady: solids.ready, solidsFailed: solids.failed,
+    previewReady: split.ready && (!needsSolids || solids.ready),
     toggle: () => { setEnabled(value => !value); },
     names: draft?.names ?? baseNames,
     swatch: currentAssets?.swatch,
     flowers: draft?.flowers ?? {},
+    solids: draft?.solids ?? {},
     layers: currentAssets?.layers ?? {},
-    overrides: { ...specialOverrides(draft, currentAssets), ...(split.layer ? { a: split.layer } : {}) },
+    overrides: { ...specialOverrides(draft, currentAssets), ...specialSolidOverrides(draft, solids.layers), ...(split.layer ? { a: split.layer } : {}) },
     selectMesh: (color: MeshColor) => {
       if (!currentAssets || !split.ready) return;
       setDrafts(prev => ({ ...prev, [model]: selectMesh(prev[model]!, color) }));
@@ -100,7 +107,7 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
       setDrafts(prev => ({ ...prev, [model]: selectLaces(prev[model]!, color) }));
     },
     select: (part: PartId, name: string) => {
-      if (!currentAssets || busy) return;
+      if (!currentAssets || busy || (isSpecialSolid(name) && !solids.ready)) return;
       setDrafts(prev => ({ ...prev, [model]: selectSpecial(prev[model]!, part, name) }));
     },
   };

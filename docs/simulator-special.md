@@ -74,3 +74,27 @@ alpha for all 110 model/color combinations, unchanged all-white/all-black source
 pixels, photograph-reviewed points in previously severed ribbons, exposed mesh
 points, and independent color changes. Pixel assertions supplement enlarged
 before/after visual review; they do not establish pixel-perfect segmentation.
+
+## Special GRAY patent color
+
+Administrator special mode also offers GRAY for high B–J and mid B/C/D/E/F/H/I/J.
+It uses the existing #7a7d84 swatch. The browser derives each layer from that
+model's native RED photograph, replacing red chroma while retaining neutral
+highlights, shading, stitching, dimensions and alpha. It is a color preview of
+the existing glossy material, not SILVER and not the matte mesh renderer.
+Do not use the legacy public photo/tints/*-gray.png files; they are not suitable
+transparent layers. No new public color or checkout option is introduced.
+
+GRAY selections live in each special draft's solids map, mutually exclusive
+with FLOWER A. The ordinary backing name stays RED so existing capture/order
+validation stays valid. Hidden L follows GRAY I only when D is WHITE or BLACK;
+GRAY D retains the existing colored-D linkage. Model changes wait for the
+matching gray layers, and export waits for selected preview layers to be ready.
+
+Verified on 2026-10-08: typecheck, production build, 8 isolated authorization/state
+checks, and the actual local production UI with a protected floral fixture.
+`node scripts/special-gray-browser-smoke.mjs` checks all 17 selectable gray
+layers, native alpha, shading, FLOWER A transitions, model isolation, JPEG export,
+mobile layout, ordinary-mode restoration and logout. Run against a local server
+only; set CHROMIUM_EXECUTABLE_PATH if needed. Screenshots and exported JPEGs
+were also reviewed visually for both models.
