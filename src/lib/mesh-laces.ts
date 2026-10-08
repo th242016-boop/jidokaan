@@ -22,33 +22,39 @@ export const MESH_TINTS = {
 } as const;
 export const MESH_COLORS: readonly MeshColor[] = ["RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE", "PINK", "GRAY", "WHITE", "BLACK"];
 export const LACE_COLORS: readonly LaceColor[] = ["RED", "BLUE", "YELLOW", "WHITE", "BLACK"];
-// These paths describe only the exposed tongue between the laces. The outer
-// silhouette always comes from the supplied A PNG, including its original alpha.
-// Coordinates are native photo pixels (1424 x 1392), never display coordinates.
-const lowerTongue = [
-    "M 632 577 Q 643 590 663 601 Q 635 596 611 585 Z",
-    "M 599 599 Q 613 615 651 625 L 614 642 Q 611 619 599 599 Z",
-    "M 658 640 Q 665 653 669 672 Q 651 664 638 653 Z",
-    "M 630 674 Q 646 685 674 696 L 671 728 Q 647 708 637 692 Z",
-    "M 614 672 Q 618 691 626 704 L 613 710 Q 615 690 614 672 Z",
-    "M 618 732 Q 635 748 659 764 Q 658 778 654 786 L 638 791 Q 625 778 617 759 Z",
-    "M 644 790 L 658 784 Q 655 797 651 809 Z",
-    "M 606 741 Q 607 760 610 776 L 599 779 Q 604 757 606 741 Z",
-    "M 602 800 Q 618 819 643 839 Q 636 853 631 864 L 614 869 Q 599 850 596 834 Z",
-    "M 622 867 L 631 863 L 626 879 Z",
-    "M 587 814 Q 588 828 591 840 L 578 843 Z",
-    "M 578 872 Q 598 881 623 898 Q 612 914 603 924 L 588 930 Q 578 914 574 895 Z",
-    "M 594 927 L 605 922 L 600 938 Z",
-    "M 561 891 Q 562 907 569 918 L 556 912 Z",
-    "M 542 944 Q 560 950 582 960 Q 565 973 545 964 Q 540 957 542 944 Z",
+// Native-photo contours for individual lace ribbons. Each closed outline follows
+// the complete strand, including its narrow return into the next crossing.
+// The original A component still clips all outlines at the outside silhouette.
+const lowerLaces = [
+  "M 568 580 Q 601 574 639 549 L 649 570 Q 614 592 572 607 Z",
+  "M 603 578 Q 647 610 709 601 Q 727 610 715 627 C 676 636 631 621 607 599 Z",
+  "M 594 643 Q 636 629 674 607 L 686 632 Q 643 652 598 671 Z",
+  "M 616 633 C 642 658 679 664 713 672 Q 729 685 713 698 C 674 705 636 682 620 663 Z",
+  "M 597 709 Q 635 696 675 678 L 679 704 Q 641 724 598 737 Z",
+  "M 619 646 L 635 653 C 626 686 661 726 706 747 Q 724 759 708 773 C 696 783 657 752 633 727 C 614 706 610 692 619 646 Z",
+  "M 572 778 Q 617 765 667 749 L 669 779 Q 616 794 570 810 Z",
+  "M 617 719 C 613 748 638 778 670 802 L 689 827 Q 692 834 674 844 C 657 848 621 811 607 789 C 594 769 592 750 605 722 Z",
+  "M 541 845 Q 578 838 630 817 L 632 843 Q 591 862 538 875 Z",
+  "M 598 781 C 580 806 607 847 651 878 Q 672 900 649 909 C 632 914 598 878 583 852 C 571 833 574 812 585 786 Z",
+  "M 530 926 Q 567 916 608 897 L 610 921 Q 573 938 530 949 Z",
+  "M 583 843 C 558 868 568 904 599 940 L 612 961 L 593 973 C 576 952 552 924 548 901 Q 545 878 566 847 Z",
+  "M 501 901 C 545 915 584 938 608 952 Q 620 966 599 975 C 571 965 536 947 507 945 Z",
+] as const;
+const highLaces: readonly [string, number][] = [
+  ["M 407 417 Q 426 434 460 434", 28],
+  ["M 499 384 Q 479 418 451 449", 32],
+  ["M 467 447 Q 509 476 555 439", 32],
+  ["M 500 491 Q 514 480 528 457", 29],
+  ["M 520 489 Q 566 532 614 492", 32],
+  ["M 548 536 Q 565 523 586 504", 29],
+  ["M 563 536 Q 613 583 668 550", 32],
 ];
-const upperHighTongue = [
-    "M 469 460 Q 482 468 499 471 L 485 485 Q 477 473 469 460 Z",
-    "M 531 471 Q 543 486 559 498 Q 536 494 520 483 Z",
-    "M 505 502 Q 517 513 540 518 L 524 533 Q 514 518 505 502 Z",
-    "M 577 525 Q 592 542 610 553 Q 582 548 560 536 Z",
-    "M 550 548 Q 565 564 586 576 L 571 584 Q 565 567 550 548 Z",
+const midLaces: readonly [string, number][] = [
+  ["M 523 526 Q 545 543 577 541", 27],
+  ["M 614 489 Q 590 518 565 556", 33],
+  ["M 597 548 Q 629 576 668 550", 32],
 ];
+
 export function meshSourceUrls(model: BootModel) {
     return model === "mid" ? {
         white: "/simulator/mid/a/white.png?v=1",
@@ -118,13 +124,23 @@ export function splitMeshLacePixels(white: HTMLImageElement, black: HTMLImageEle
     if (tail < 25000 || tail > 55000)
         throw new Error("LACE_COMPONENT_CHANGED");
     ctx.clearRect(0, 0, width, height);
+    ctx.strokeStyle = "white";
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     ctx.fillStyle = "white";
-    for (const path of [...lowerTongue, ...(model === "high" ? upperHighTongue : [])])
-        ctx.fill(new Path2D(path));
-    const gaps = ctx.getImageData(0, 0, width, height).data;
+    ctx.lineWidth = 2;
+    for (const path of lowerLaces) {
+        const ribbon = new Path2D(path);
+        ctx.fill(ribbon);
+        ctx.stroke(ribbon);
+    }
+    for (const [path, strokeWidth] of (model === "high" ? highLaces : midLaces)) {
+        ctx.lineWidth = strokeWidth;
+        ctx.stroke(new Path2D(path));
+    }
+    const ribbons = ctx.getImageData(0, 0, width, height).data;
     for (let p = 0; p < lace.length; p++)
-        if (lace[p])
-            lace[p] = 255 - gaps[p * 4 + 3];
+        if (lace[p]) lace[p] = ribbons[p * 4 + 3];
     canvas.width = canvas.height = 0;
     return { width, height, white: w, black: b, lace };
 }

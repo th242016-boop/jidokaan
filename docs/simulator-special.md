@@ -43,8 +43,11 @@ and mid models keep independent in-memory selections; standard ordering remains
 unchanged. L is an existing hidden line layer and is not renamed or repurposed.
 
 The renderer uses native 1424×1392 source pixels and original A alpha. The internal
-lace mask is the existing prototype accepted for color expansion; no contour was
-changed for additional colors. Exposed tongue gaps use traced paths. The user
+lace mask was refined on 2026-10-08 after triangular tongue cutouts were found
+to cross the lower lace ribbons. It now follows complete strands, with separate
+upper contours for high and mid and shared lower contours. The existing native
+A silhouette still clips the mask; source PNGs, dimensions and alpha are unchanged.
+Outer-edge irregularities already present in A therefore remain. The user
 approved administrator deployment on 2026-10-07. Solid tints retain source luminance; they
 are previews, not photographs of the new physical lace colors.
 
@@ -63,3 +66,11 @@ Verified: TypeScript and production build; 7 isolated authentication/state check
 model drafts, zoom and mobile layout. The browser test also verifies normal order
 data is unchanged and logout removes the preview. Production deployment status
 and commit should be checked in Railway when taking over this project.
+
+Boundary regression check: `node scripts/simulator-lace-boundaries-smoke.mjs`.
+It uses local source images in a real browser Canvas and no server/session.
+Set `CHROMIUM_EXECUTABLE_PATH` when using a system Chromium. It checks native
+alpha for all 110 model/color combinations, unchanged all-white/all-black source
+pixels, photograph-reviewed points in previously severed ribbons, exposed mesh
+points, and independent color changes. Pixel assertions supplement enlarged
+before/after visual review; they do not establish pixel-perfect segmentation.
