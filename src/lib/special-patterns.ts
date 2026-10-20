@@ -28,7 +28,16 @@ const TILE_SIZE: Partial<Record<SpecialPatternName, number>> = {
   "FLOWER B": 540, "FLOWER C": 650, "BLACK SNAKE": 420, "WHITE SNAKE": 420,
   "NATURAL SNAKE": 520, "HOT PINK SNAKE": 520, "ORANGE SNAKE": 520,
   "SKY BLUE SNAKE": 520, "GREEN SNAKE": 520, "YELLOW SNAKE": 520,
-  "SILVER WEAVE": 420, "MICRO HOUNDSTOOTH": 220,
+  "SILVER WEAVE": 294, "MICRO HOUNDSTOOTH": 220,
+};
+
+// Each leather panel represents a separately cut piece. Keep the grain direction
+// and motif size, but start at a different point so prints do not join at seams.
+// Fixed offsets also keep previews, model switching and exports reproducible.
+const PANEL_CUT_OFFSETS: Partial<Record<PartId, readonly [number, number]>> = {
+  b: [0, 0], c: [0.37, 0.61], d: [0.73, 0.23],
+  e: [0.19, 0.83], f: [0.61, 0.43], g: [0.89, 0.71],
+  h: [0.43, 0.17], i: [0.11, 0.53], j: [0.79, 0.97],
 };
 
 // Shared black scale topology is recolored monotonically: raised bright rims
@@ -43,7 +52,7 @@ export const whiteSnakeSurface = (r: number, g: number, b: number) =>
  * are not copied directly. Leather finishes use shared neutral microtexture and
  * independent base colors, with broad low-intensity light for surface curvature.
  */
-export function renderPatternPixels(source: ImageData, material: ImageData, name: SpecialPatternName, softReflection?: ImageData, fineDetail?: ImageData): ImageData {
+export function renderPatternPixels(source: ImageData, material: ImageData, name: SpecialPatternName, softReflection?: ImageData, fineDetail?: ImageData, part: PartId = "b"): ImageData {
   const { width, height, data: src } = source;
   const out = new ImageData(width, height);
   const finish = finishFor(name);
@@ -51,6 +60,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   // Recolor before mapping; swatches use this identical pixel transfer.
   const surface = snake ? recolorSnakePixels(material, snake.name) : material;
   const tile = TILE_SIZE[name] ?? (finish?.kind === "suede" ? 420 : 600);
+  const [cutU, cutV] = finish ? [0, 0] : PANEL_CUT_OFFSETS[part] ?? [0, 0];
   // Neutral maps carry surface character only. Normalizing their average avoids
   // baking a black/gray photograph into all colors, especially white and yellow.
   let materialMean = 0;
@@ -71,8 +81,8 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
     if (!alpha) continue;
     // A small smooth warp avoids a visibly flat, rigid texture on rounded panels.
     const dx = x - 700, dy = y - 700;
-    const u = (cos * dx - sin * dy + 18 * Math.sin(dy / 230)) / tile;
-    const v = (sin * dx + cos * dy + 12 * Math.sin(dx / 190)) / tile;
+    const u = (cos * dx - sin * dy + 18 * Math.sin(dy / 230)) / tile + cutU;
+    const v = (sin * dx + cos * dy + 12 * Math.sin(dx / 190)) / tile + cutV;
     const tx = mirror(Math.floor(u * material.width), material.width);
     const ty = mirror(Math.floor(v * material.height), material.height);
     const t = (ty * material.width + tx) * 4;
@@ -192,7 +202,7 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
         softReflection = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
       }
       const result = renderPatternPixels(sourcePixels,
-        textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection, fineDetail);
+        textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection, fineDetail, part);
       await applyMaterialStitches(result, sourcePixels, model, part,
         name === "FLOWER B" || snakeMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH"
           ? "dense" : name === "FLOWER C" ? "regular" : undefined);

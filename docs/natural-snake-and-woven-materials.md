@@ -2,8 +2,8 @@
 
 The user supplied a gray/ivory python-pattern leather and a photograph of dyed
 stock, then requested two further monochrome materials. This extends the existing
-administrator Special configurator; ordinary colors and existing materials are
-unchanged.
+administrator Special configurator. The initial release left ordinary colors
+and existing materials unchanged; the later panel-placement update is noted below.
 
 ## Choices and source references
 
@@ -42,6 +42,18 @@ The micro houndstooth map uses a 220-native-pixel repeat after visual comparison
 against the photographed finger/print proportions; the initial 480px repeat was
 too large. Long material labels wrap within the existing compact centered
 buttons, including MICRO HOUNDSTOOTH on mobile.
+
+### Later adjustment: independent panel cuts
+
+At the user's request, all generated printed/embossed patterns now use fixed,
+different texture origins for each leather panel B–J. B retains its original
+origin; C/D and the other panels sample separate portions of the same material,
+without rotating the grain or changing the physical silhouettes. This prevents
+the artificial continuous print across adjacent seams while keeping repeat
+selection, model switching and image export deterministic. FLOWER A's supplied
+layers and matte/suede rendering are unchanged. The SILVER WEAVE repeat is now
+294px instead of 420px: each motif's linear dimensions are 30% smaller.
+Source alpha and the photographed stitch-restoration pass remain unchanged.
 
 Textures are protected server-only assets under `src/lib/special-assets/`:
 
@@ -98,7 +110,9 @@ maximum swatch/render hue difference was 1.285 degrees and maximum JPEG versus
 displayed-composition mean error was 1.942/255. All eight mobile labels fit,
 model drafts were restored, logout returned to the unchanged ordinary designs,
 and no browser errors or unintended external requests occurred. The eight
-legacy BLACK/WHITE SNAKE B/C images matched prior verified outputs pixel for pixel.
+legacy BLACK/WHITE SNAKE B/C images matched prior verified outputs pixel for pixel
+at the initial release. The later independent-cut update intentionally changes
+pattern placement on C and the other offset panels, including those snake choices.
 
 Full-shoe previews and B/C seam crops were visually inspected. The original
 coarser houndstooth rendering was superseded and rechecked after the 220px scale
