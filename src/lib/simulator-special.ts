@@ -2,16 +2,25 @@ import { linkedLColor, type BootModel, type PartColorNames, type PartId } from "
 import { MESH_COLORS, LACE_COLORS, type MeshColor, type LaceColor } from "./mesh-laces";
 import { isSpecialSolid, specialSolidPartsFor, type SpecialSolid, type SpecialSolidLayers } from "./special-solids";
 import { isSpecialPattern, patternPartsFor, type SpecialPatternName, type SpecialPatternAssets } from "./special-patterns";
+import { BEAD_COLORS, type BeadSelection } from "./bead-material";
 
 export const FLOWER_A = "FLOWER A";
 export const flowerPartsFor = (model: BootModel): PartId[] =>
   model === "mid" ? ["b", "c", "d", "i", "j"] : ["b", "c", "d", "e", "f", "g", "h", "i", "j"];
 
 export type SpecialAssets = { swatch: string; layers: Partial<Record<PartId, string>>; patterns?: SpecialPatternAssets };
-export type SpecialDraft = { names: PartColorNames; flowers: Partial<Record<PartId, boolean>>; solids?: Partial<Record<PartId, SpecialSolid>>; patterns?: Partial<Record<PartId, SpecialPatternName>>; mesh?: MeshColor; laces?: LaceColor };
+export type SpecialDraft = { names: PartColorNames; flowers: Partial<Record<PartId, boolean>>; solids?: Partial<Record<PartId, SpecialSolid>>; patterns?: Partial<Record<PartId, SpecialPatternName>>; mesh?: MeshColor; laces?: LaceColor; beads?: BeadSelection };
 
 export const meshSelection = (draft?: SpecialDraft): MeshColor => draft?.mesh ?? (draft?.names.a === "BLACK" ? "BLACK" : "WHITE");
 export const laceSelection = (draft?: SpecialDraft): LaceColor => draft?.laces ?? (draft?.names.a === "BLACK" ? "BLACK" : "WHITE");
+export const beadSelection = (draft?: SpecialDraft): BeadSelection => draft?.names.model === "mid" ? "NONE" : draft?.beads ?? "NONE";
+
+// Visible L is the optional upper-window bead material. Store it independently
+// from names.l, the legacy hidden line linked to A/I, and from shoelaces.
+export function selectBeads(draft: SpecialDraft, beads: BeadSelection): SpecialDraft {
+  if (draft.names.model === "mid" || (beads !== "NONE" && !BEAD_COLORS.includes(beads))) return draft;
+  return { ...draft, beads };
+}
 
 export function selectMesh(draft: SpecialDraft, mesh: MeshColor): SpecialDraft {
   if (!MESH_COLORS.includes(mesh)) return draft;

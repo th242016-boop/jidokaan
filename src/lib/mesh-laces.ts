@@ -167,14 +167,16 @@ export function renderMeshLaces(source: MeshLacePixels, mesh: MeshColor, laces: 
     }
     return out;
 }
-export function meshLaceDataUrl(source: MeshLacePixels, mesh: MeshColor, laces: LaceColor) {
+export function meshLaceDataUrl(source: MeshLacePixels, mesh: MeshColor, laces: LaceColor, decorate?: (result: ImageData) => void) {
     const canvas = document.createElement("canvas");
     canvas.width = source.width;
     canvas.height = source.height;
     const ctx = canvas.getContext("2d");
     if (!ctx)
         throw new Error("MESH_CANVAS");
-    ctx.putImageData(renderMeshLaces(source, mesh, laces), 0, 0);
+    const result = renderMeshLaces(source, mesh, laces);
+    decorate?.(result);
+    ctx.putImageData(result, 0, 0);
     try {
         return canvas.toDataURL("image/png");
     }

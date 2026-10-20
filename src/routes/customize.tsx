@@ -1,13 +1,14 @@
 import { useSpecialSimulator } from "@/lib/use-special-simulator";
 import { FLOWER_A } from "@/lib/simulator-special";
 import { SPECIAL_SOLID_COLORS, isSpecialSolid, specialSolidPartsFor } from "@/lib/special-solids";
-import { SPECIAL_PATTERNS, patternPartsFor } from "@/lib/special-patterns";
+import { SPECIAL_PATTERNS, patternPartsFor, WHITE_SNAKE_SWATCH_FILTER } from "@/lib/special-patterns";
 import { finishFor } from "@/lib/special-finishes";
+import { BEAD_COLORS, beadColorHex, beadSwatchDataUrl, type BeadSelection } from "@/lib/bead-material";
 import { MESH_COLORS, LACE_COLORS, type MeshColor } from "@/lib/mesh-laces";
 import { captureDesign } from "@/lib/design-order";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Check, ShoppingBag, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { LocaleSync } from "@/components/locale-sync";
 import { LayerSimulator } from "@/components/customizer/layer-simulator";
@@ -72,6 +73,8 @@ function CustomizePage() {
   const [showKrOrder, setShowKrOrder] = useState(false);
   const model = modelOf(draftPartNames);
   const special = useSpecialSimulator(model, draftPartNames);
+  const beadSwatches = useMemo(() => special.enabled && model === "high"
+    ? Object.fromEntries(BEAD_COLORS.map(color => [color, beadSwatchDataUrl(color)])) : {}, [special.enabled, model]);
   const colorNames = special.names;
   const [savingSpecial, setSavingSpecial] = useState(false);
   const setDraftModel = useStore((s) => s.setDraftModel);
@@ -291,6 +294,7 @@ function CustomizePage() {
                         if (!asset || !patternPartsFor(model, pattern.name).includes(part.id)) return null;
                         const active = special.patterns[part.id] === pattern.name;
                         const finish = finishFor(pattern.name);
+                        const whiteSnake = pattern.name === "WHITE SNAKE";
                         return (
                           <button
                             key={pattern.name}
@@ -299,11 +303,11 @@ function CustomizePage() {
                             aria-pressed={active}
                             onClick={() => special.select(part.id, pattern.name)}
                             className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", active ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
-                            style={{ backgroundColor: finish?.color, backgroundImage: finish ? undefined : `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center", isolation: "isolate" }}
+                            style={{ backgroundColor: whiteSnake ? "#eeeae5" : finish?.color, backgroundImage: finish || whiteSnake ? undefined : `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center", isolation: "isolate" }}
                           >
-                            {finish && <span aria-hidden="true" className="pointer-events-none absolute inset-0" style={{
+                            {(finish || whiteSnake) && <span aria-hidden="true" className="pointer-events-none absolute inset-0" style={{
                               backgroundImage: `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center",
-                              mixBlendMode: "multiply", filter: "brightness(1.4)", opacity: finish.kind === "matte" ? 0.12 : 0.45,
+                              mixBlendMode: whiteSnake ? undefined : "multiply", filter: whiteSnake ? WHITE_SNAKE_SWATCH_FILTER : "brightness(1.4)", opacity: whiteSnake ? 1 : finish?.kind === "matte" ? 0.12 : 0.45,
                             }} />}
                             <span className="absolute inset-0 flex items-center justify-center p-px text-center text-[6.5px] font-bold leading-[1.1] md:text-[8px]">
                               <span className="min-w-0 max-w-full whitespace-normal rounded bg-white/85 px-0.5 py-0.5 text-black">{pattern.label}</span>
@@ -332,6 +336,27 @@ function CustomizePage() {
                   </div>
                 );
               })}
+
+            {special.enabled && model === "high" && (
+              <div data-part="beads" role="group" aria-label="L 비즈 색상" className="mb-3.5 md:mb-8">
+                <div className="mb-1.5 border-l-4 border-black pl-2 text-[13px] font-bold text-black md:mb-2.5 md:pl-2.5 md:text-sm">{locale === "ko" ? "L · 비즈" : "L · Beads"}</div>
+                <div className="mb-2 text-[10px] text-neutral-500">{locale === "ko" ? "E · F · G · H 사이 상단 공간" : "Upper window between E · F · G · H"}</div>
+                <div className="grid grid-cols-10 gap-1 md:grid-cols-8">
+                  {(["NONE", ...BEAD_COLORS] as BeadSelection[]).map(name => {
+                    const opt = name === "NONE" ? undefined : colorByName(name);
+                    const active = special.beads === name;
+                    return <button key={name} type="button" title={name} disabled={!special.meshReady}
+                      aria-pressed={active} onClick={() => special.selectBeads(name)}
+                      className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", active ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
+                      style={{ backgroundColor: name === "NONE" ? "#fff" : beadColorHex(name), backgroundImage: opt ? `url(${beadSwatches[name]})` : undefined, backgroundSize: "cover", backgroundPosition: "center" }}>
+                      <span className="absolute inset-0 flex items-center justify-center p-px text-center text-[6.5px] font-bold leading-[1.1] md:text-[8px]">
+                        <span className="max-w-full rounded bg-white/85 px-0.5 py-0.5 text-black">{name === "NONE" ? (locale === "ko" ? "없음" : "NONE") : name}</span>
+                      </span>
+                    </button>;
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="border-t border-[#eee] pt-6">
               <div className="mb-2.5 flex flex-wrap items-center gap-2">

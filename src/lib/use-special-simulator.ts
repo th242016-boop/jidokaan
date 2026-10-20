@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ADMIN_SESSION_EVENT, readAdminToken } from "./admin-session";
 import { type BootModel, type PartColorNames, type PartId } from "./simulator-config";
-import { selectSpecial, specialOverrides, specialSolidOverrides, meshSelection, laceSelection, selectMesh, selectLaces, type SpecialAssets, type SpecialDraft } from "./simulator-special";
+import { selectSpecial, specialOverrides, specialSolidOverrides, meshSelection, laceSelection, beadSelection, selectMesh, selectLaces, selectBeads, type SpecialAssets, type SpecialDraft } from "./simulator-special";
 import type { MeshColor, LaceColor } from "./mesh-laces";
+import type { BeadSelection } from "./bead-material";
 import { useMeshLaces } from "./use-mesh-laces";
 import { useSpecialSolids } from "./use-special-solids";
 import { isSpecialSolid } from "./special-solids";
@@ -85,14 +86,15 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
   const currentAssets = enabled && assets?.model === model ? assets : null;
   const draft = enabled ? drafts[model] : undefined;
   const mesh = meshSelection(draft), laces = laceSelection(draft);
-  const split = useMeshLaces(Boolean(enabled && currentAssets && draft), model, mesh, laces);
+  const beads = beadSelection(draft);
+  const split = useMeshLaces(Boolean(enabled && currentAssets && draft), model, mesh, laces, beads);
   const solids = useSpecialSolids(Boolean(enabled && currentAssets && draft), model);
   const patterns = useSpecialPatterns(Boolean(enabled && currentAssets && draft), model, draft?.patterns ?? {}, currentAssets?.patterns);
   const needsSolids = Object.keys(draft?.solids ?? {}).length > 0;
   const needsPatterns = Object.keys(draft?.patterns ?? {}).length > 0;
   return {
     available, enabled, busy: busy || split.loading || solids.loading || patterns.loading, validate,
-    mesh, laces, meshReady: split.ready, meshFailed: split.failed,
+    mesh, laces, beads, meshReady: split.ready, meshFailed: split.failed,
     solidsReady: solids.ready, solidsFailed: solids.failed,
     patternsReady: patterns.ready, patternsFailed: patterns.failed,
     previewReady: split.ready && (!needsSolids || solids.ready) && (!needsPatterns || patterns.ready),
@@ -112,6 +114,10 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
     selectLaces: (color: LaceColor) => {
       if (!currentAssets || !split.ready) return;
       setDrafts(prev => ({ ...prev, [model]: selectLaces(prev[model]!, color) }));
+    },
+    selectBeads: (color: BeadSelection) => {
+      if (!currentAssets || !split.ready || model !== "high") return;
+      setDrafts(prev => ({ ...prev, [model]: selectBeads(prev[model]!, color) }));
     },
     select: (part: PartId, name: string) => {
       if (!currentAssets || busy || (isSpecialSolid(name) && !solids.ready) || (isSpecialPattern(name) && !currentAssets.patterns?.[name])) return;

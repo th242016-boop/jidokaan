@@ -6,6 +6,7 @@ export const SPECIAL_PATTERNS = [
   { name: "FLOWER B", label: "FLOWER B" },
   { name: "FLOWER C", label: "FLOWER C" },
   { name: "BLACK SNAKE", label: "BLACK SNAKE" },
+  { name: "WHITE SNAKE", label: "WHITE SNAKE" },
   ...SPECIAL_FINISHES,
 ] as const;
 export type SpecialPatternName = typeof SPECIAL_PATTERNS[number]["name"];
@@ -14,15 +15,21 @@ export type PatternSelections = Partial<Record<PartId, SpecialPatternName>>;
 export type PatternLayers = Partial<Record<PartId, string>>;
 export const isSpecialPattern = (name: string): name is SpecialPatternName =>
   SPECIAL_PATTERNS.some(pattern => pattern.name === name);
-export const patternPartsFor = (model: BootModel, name?: SpecialPatternName): PartId[] =>
-  partsForModel({ model }).filter(part => part.type === "full" && part.id !== "l"
-    && (!(name && finishFor(name)) || part.id === "b" || part.id === "c")).map(part => part.id);
+export const patternPartsFor = (model: BootModel, _name?: SpecialPatternName): PartId[] =>
+  partsForModel({ model }).filter(part => part.type === "full" && part.id !== "l").map(part => part.id);
 
 // Approximate motif sizes in the 1424×1392 photograph. They are visual previews,
 // not a physical cutting layout; the references are finished shoes, not flat scans.
 const TILE_SIZE: Partial<Record<SpecialPatternName, number>> = {
-  "FLOWER B": 540, "FLOWER C": 650, "BLACK SNAKE": 420,
+  "FLOWER B": 540, "FLOWER C": 650, "BLACK SNAKE": 420, "WHITE SNAKE": 420,
 };
+
+// Shared black scale topology is recolored monotonically: raised bright rims
+// remain bright and recessed cells remain darker. Never invert the relief.
+// The filter uses the same linear transfer for the protected source swatch.
+export const WHITE_SNAKE_SWATCH_FILTER = "grayscale(1) contrast(0.15) brightness(1.92)";
+export const whiteSnakeSurface = (r: number, g: number, b: number) =>
+  Math.min(255, 208.08 + 0.288 * (0.2126 * r + 0.7152 * g + 0.0722 * b));
 
 /** Map a flat material into the existing native silhouette, including lace holes.
  * RED provides the mask and diffuse dark details. Its neutral patent reflections
@@ -91,6 +98,19 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       out.data[i + 3] = alpha;
       continue;
     }
+    if (name === "WHITE SNAKE") {
+      const albedo = whiteSnakeSurface(material.data[t], material.data[t + 1], material.data[t + 2]);
+      const broadRed = softReflection?.data[i] ?? src[i];
+      const shape = 0.72 + 0.28 * Math.pow(Math.min(1.03, broadRed / 220), 0.9);
+      const darkDetail = 0.32 + 0.68 * Math.pow(Math.min(1, src[i] / 155), 0.9);
+      const light = softReflection
+        ? Math.pow(Math.min(1, Math.min(softReflection.data[i + 1], softReflection.data[i + 2]) / 180), 1.1)
+        : 0;
+      const value = Math.min(255, Math.round(albedo * shape * darkDetail + 18 * light));
+      out.data[i] = out.data[i + 1] = out.data[i + 2] = value;
+      out.data[i + 3] = alpha;
+      continue;
+    }
     // This leather has shallow embossing and a low, continuous satin reflection.
     // Blur the photograph's neutral light before reusing a restrained amount;
     // the hard patent highlight is never copied. Floral materials stay unchanged.
@@ -140,7 +160,7 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
         ctx.filter = "none";
         fineDetail = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
       }
-      if (name === "BLACK SNAKE" || finish) {
+      if (name === "BLACK SNAKE" || name === "WHITE SNAKE" || finish) {
         ctx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
         ctx.filter = `blur(${finish ? (finish.kind === "matte" ? 32 : 42) : 18}px)`;
         ctx.drawImage(source, 0, 0);

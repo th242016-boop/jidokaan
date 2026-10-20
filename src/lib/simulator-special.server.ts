@@ -28,7 +28,7 @@ function patternAssets(): SpecialPatternAssets {
   try {
     const decoded = new Map<string, { texture: string; swatch: string }>();
     return Object.fromEntries(SPECIAL_PATTERNS.map(({ name }) => {
-      const file = finishFor(name)?.assetKey ?? name.toLowerCase().replaceAll(" ", "-");
+      const file = finishFor(name)?.assetKey ?? (name === "WHITE SNAKE" ? "black-snake" : name.toLowerCase().replaceAll(" ", "-"));
       if (!decoded.has(file)) decoded.set(file, {
           texture: image(`material-${file}`, "SIMULATOR_SPECIAL_PATTERN_KEY", "image/jpeg"),
           swatch: image(`material-${file}-swatch`, "SIMULATOR_SPECIAL_PATTERN_KEY", "image/jpeg"),

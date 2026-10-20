@@ -24,6 +24,7 @@ try {
   const special = await server.ssrLoadModule("/src/lib/simulator-special.ts");
   const sim = await server.ssrLoadModule("/src/lib/simulator-config.ts");
   const palette = await server.ssrLoadModule("/src/lib/mesh-laces.ts");
+  const beads = await server.ssrLoadModule("/src/lib/bead-material.ts");
   const solids = await server.ssrLoadModule("/src/lib/special-solids.ts");
   const patterns = await server.ssrLoadModule("/src/lib/special-patterns.ts");
   const finishes = await server.ssrLoadModule("/src/lib/special-finishes.ts");
@@ -69,6 +70,7 @@ try {
             const shared = finish.kind === "matte" ? "MATTE BLACK" : "BLACK SUEDE";
             assert.deepEqual(body.patterns[finish.name], body.patterns[shared], "All colors reuse the neutral material");
           }
+          assert.deepEqual(body.patterns["WHITE SNAKE"], body.patterns["BLACK SNAKE"], "White snake shares protected scale topology");
         } else assert.deepEqual(body.patterns, {});
         for (const data of [body.swatch, ...Object.values(body.layers)]) {
           const png = Buffer.from(data.split(",")[1], "base64");
@@ -117,6 +119,57 @@ try {
       assert.deepEqual(initial.names, { ...normal, model });
     }
   });
+  await check("upper-window beads stay high-only and independent of mesh, laces and legacy L", async () => {
+    assert.deepEqual(beads.BEAD_COLORS, ["GOLD", "SILVER", "RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE"]);
+    const initial = { names: { ...sim.defaultPartNames(), model: "high" }, flowers: {} };
+    assert.equal(special.beadSelection(initial), "NONE");
+    for (const color of beads.BEAD_COLORS) {
+      const selected = special.selectBeads(initial, color);
+      assert.equal(special.beadSelection(selected), color);
+      assert.deepEqual(selected.names, initial.names, "Beads never replace legacy linked names.l");
+      assert.ok(design.completeDesign(selected.names));
+      const mesh = special.selectMesh(selected, "RED");
+      const laces = special.selectLaces(mesh, "BLUE");
+      const finish = special.selectSpecial(laces, "f", "MATTE KHAKI");
+      assert.equal(special.beadSelection(finish), color);
+      assert.equal(special.meshSelection(finish), "RED");
+      assert.equal(special.laceSelection(finish), "BLUE");
+      assert.equal(finish.names.l, sim.linkedLColor(finish.names.d, "", finish.names.i, "", finish.names.a, "").name);
+      const removed = special.selectBeads(finish, "NONE");
+      assert.equal(special.beadSelection(removed), "NONE");
+      assert.deepEqual(removed.names, finish.names);
+      assert.deepEqual(removed.patterns, finish.patterns);
+      const mid = { ...selected, names: { ...selected.names, model: "mid" } };
+      assert.equal(special.beadSelection(mid), "NONE", "Stale high bead state cannot appear on mid");
+      assert.equal(special.selectBeads(mid, color), mid);
+    }
+    assert.equal(special.selectBeads(initial, "PINK"), initial);
+    assert.equal(special.selectBeads(initial, "WHITE"), initial);
+    assert.equal(special.beadSelection(initial), "NONE");
+  });
+  await check("public AQUA is selectable, serializable and order-valid on every available leather panel", async () => {
+    const mintIndex = sim.FULL_COLORS.findIndex(color => color.name === "MINT");
+    assert.equal(sim.FULL_COLORS[mintIndex + 1].name, "AQUA");
+    assert.notEqual(sim.colorByName("AQUA").color, sim.colorByName("MINT").color);
+    for (const model of ["high", "mid"]) {
+      const initial = { ...sim.defaultPartNames(), model };
+      const supported = patterns.patternPartsFor(model);
+      for (const part of supported) {
+        const names = { ...initial, [part]: "AQUA" };
+        names.l = sim.linkedLColor(names.d, "", names.i, "", names.a, "").name;
+        const complete = design.completeDesign(JSON.parse(JSON.stringify(names)));
+        assert.ok(complete, `${model} ${part}: AQUA ordinary order is complete`);
+        assert.equal(complete[part], "AQUA");
+        assert.match(design.designKey(complete), new RegExp(`${part}:AQUA`));
+        const url = sim.photoLayerFor(part, "AQUA", names);
+        assert.match(url, /aqua\.png/);
+        const png = await readFile(resolve(root, "public", url.split("?")[0].slice(1)));
+        assert.equal(png.subarray(1, 4).toString(), "PNG");
+      }
+      for (const part of ["a", "k"]) assert.equal(design.completeDesign({ ...initial, [part]: "AQUA" }), null);
+      if (model === "mid") assert.equal(design.completeDesign({ ...initial, g: "AQUA" }), null);
+    }
+  });
   await check("special GRAY stays separate, replaces FLOWER, and follows hidden line linkage", async () => {
     for (const model of ["high", "mid"]) {
       const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
@@ -154,7 +207,10 @@ try {
     }
   });
   await check("new materials are model-safe, mutually exclusive, and never ordinary order colors", async () => {
-    assert.deepEqual(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name), ["FLOWER B", "FLOWER C", "BLACK SNAKE", "MATTE BLACK", "MATTE WHITE", "MATTE RED", "MATTE YELLOW", "BLACK SUEDE", "WHITE SUEDE", "RED SUEDE", "YELLOW SUEDE"]);
+    const requestedColors = ["RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE", "KHAKI", "PINK", "WHITE", "BLACK"];
+    const requestedFinishes = [...requestedColors.map(color => `MATTE ${color}`), ...requestedColors.map(color => `${color} SUEDE`)];
+    assert.deepEqual(finishes.SPECIAL_FINISHES.map(finish => finish.name), requestedFinishes);
+    assert.deepEqual(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name), ["FLOWER B", "FLOWER C", "BLACK SNAKE", "WHITE SNAKE", ...requestedFinishes]);
     for (const model of ["high", "mid"]) {
       const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
       const original = structuredClone(initial);
@@ -163,7 +219,7 @@ try {
       assert.equal(supported.includes("g"), model === "high");
       for (const { name } of patterns.SPECIAL_PATTERNS) {
         const allowed = patterns.patternPartsFor(model, name);
-        assert.deepEqual(allowed, finishes.finishFor(name) ? ["b", "c"] : supported);
+        assert.deepEqual(allowed, supported, `${model} ${name}: all existing leather panels`);
         for (const part of allowed) {
           const patterned = special.selectSpecial(initial, part, name);
           assert.equal(patterned.patterns[part], name);

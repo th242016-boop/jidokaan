@@ -102,10 +102,11 @@ try {
 
   for (const model of ["high", "mid"]) {
     if (model === "mid") { await page.getByRole("button", { name: "중목", exact: true }).click(); await ready(); }
+    const leatherParts = (model === "high" ? "bcdefghij" : "bcdefhij").split("");
     for (const name of finishes) {
-      assert.equal(await page.getByTitle(name, { exact: true }).count(), 2, `${name}: B and C only`);
-      for (const part of ["b", "c"]) assert.equal(await option(part, name).count(), 1);
-      for (const part of "adefghijkl".split("").concat("laces")) assert.equal(await option(part, name).count(), 0);
+      assert.equal(await page.getByTitle(name, { exact: true }).count(), leatherParts.length, `${name}: all available leather panels`);
+      for (const part of leatherParts) assert.equal(await option(part, name).count(), 1);
+      for (const part of ["a", "k", "l", "laces", "beads"]) assert.equal(await option(part, name).count(), 0);
     }
     await select("d", "BLUE"); await select("e", "GREEN");
     await select("b", "BLACK"); await select("c", "BLACK");
