@@ -1,6 +1,7 @@
 import { useSpecialSimulator } from "@/lib/use-special-simulator";
 import { FLOWER_A } from "@/lib/simulator-special";
 import { SPECIAL_SOLID_COLORS, isSpecialSolid, specialSolidPartsFor } from "@/lib/special-solids";
+import { SPECIAL_PATTERNS, patternPartsFor } from "@/lib/special-patterns";
 import { MESH_COLORS, LACE_COLORS, type MeshColor } from "@/lib/mesh-laces";
 import { captureDesign } from "@/lib/design-order";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -196,6 +197,7 @@ function CustomizePage() {
             </div>
           </div>
           {special.enabled && special.solidsFailed && <p role="alert" className="mt-2 text-xs text-red-700">GRAY 이미지를 불러오지 못했습니다. 스페셜을 다시 눌러주세요.</p>}
+          {special.enabled && special.patternsFailed && <p role="alert" className="mt-2 text-xs text-red-700">무늬 이미지를 불러오지 못했습니다. 스페셜을 다시 눌러주세요.</p>}
           {special.enabled && <p role="status" className="mt-2 text-[11px] text-neutral-600">{special.busy ? "스페셜 소재 불러오는 중…" : "관리자 전용 · 스페셜 시안"}</p>}
           <p className="mt-1.5 mb-0 hidden md:flex items-center text-[11px] font-semibold tracking-[0.5px] text-[#d0021b]">
             <span className="mr-1.5 text-sm">ⓘ</span>
@@ -228,7 +230,7 @@ function CustomizePage() {
                     <div className="grid grid-cols-5 gap-1.5 md:grid-cols-4 md:gap-2">
                       {pal.map((opt) => {
                         const active =
-                          (special.enabled && part.id === "a" ? special.mesh : (special.solids[part.id] ?? colorNames?.[part.id] ?? PHOTO_NATIVE[part.id])) === opt.name && !special.flowers[part.id];
+                          (special.enabled && part.id === "a" ? special.mesh : (special.solids[part.id] ?? colorNames?.[part.id] ?? PHOTO_NATIVE[part.id])) === opt.name && !special.flowers[part.id] && !special.patterns[part.id];
                         return (
                           <button
                             key={`${part.id}-${opt.name}`}
@@ -283,6 +285,26 @@ function CustomizePage() {
                           </span>
                         </button>
                       )}
+                      {special.enabled && patternPartsFor(model).includes(part.id) && SPECIAL_PATTERNS.map(pattern => {
+                        const asset = special.patternAssets[pattern.name];
+                        if (!asset) return null;
+                        const active = special.patterns[part.id] === pattern.name;
+                        return (
+                          <button
+                            key={pattern.name}
+                            type="button"
+                            title={pattern.name}
+                            aria-pressed={active}
+                            onClick={() => special.select(part.id, pattern.name)}
+                            className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", active ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
+                            style={{ backgroundImage: `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center" }}
+                          >
+                            <span className="absolute inset-0 flex items-center justify-center p-0.5 text-center text-[8px] font-bold leading-[1.1] md:text-[10px]">
+                              <span className="rounded bg-white/85 px-1 py-0.5 text-black">{pattern.label}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                     {special.enabled && part.id === "a" && (
                       <div data-part="laces" role="group" aria-label="신발끈 색상" className="mt-4">

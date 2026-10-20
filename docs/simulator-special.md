@@ -98,3 +98,14 @@ layers, native alpha, shading, FLOWER A transitions, model isolation, JPEG expor
 mobile layout, ordinary-mode restoration and logout. Run against a local server
 only; set CHROMIUM_EXECUTABLE_PATH if needed. Screenshots and exported JPEGs
 were also reviewed visually for both models.
+
+## Additional special patterns
+
+FLOWER B, FLOWER C and BLACK SNAKE were added on 2026-10-20 for high B–J and
+mid B/C/D/E/F/H/I/J. See `docs/special-pattern-materials.md` for source references,
+generation prompts, preview limitations and the separate server-only encryption
+key. They use the existing native PNG silhouette and are mutually exclusive with
+ordinary colors, GRAY and FLOWER A. Pattern selections are administrator preview
+state only. The normal ordering, mesh/laces and existing FLOWER A source assets
+are unchanged. Browser verification: `scripts/special-patterns-browser-smoke.mjs`
+against an isolated local app and supplied local material fixture JSON.

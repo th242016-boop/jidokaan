@@ -7,6 +7,8 @@ import type { MeshColor, LaceColor } from "./mesh-laces";
 import { useMeshLaces } from "./use-mesh-laces";
 import { useSpecialSolids } from "./use-special-solids";
 import { isSpecialSolid } from "./special-solids";
+import { isSpecialPattern } from "./special-patterns";
+import { useSpecialPatterns } from "./use-special-patterns";
 
 export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames) {
   const [available, setAvailable] = useState(false);
@@ -85,19 +87,24 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
   const mesh = meshSelection(draft), laces = laceSelection(draft);
   const split = useMeshLaces(Boolean(enabled && currentAssets && draft), model, mesh, laces);
   const solids = useSpecialSolids(Boolean(enabled && currentAssets && draft), model);
+  const patterns = useSpecialPatterns(Boolean(enabled && currentAssets && draft), model, draft?.patterns ?? {}, currentAssets?.patterns);
   const needsSolids = Object.keys(draft?.solids ?? {}).length > 0;
+  const needsPatterns = Object.keys(draft?.patterns ?? {}).length > 0;
   return {
-    available, enabled, busy: busy || split.loading || solids.loading, validate,
+    available, enabled, busy: busy || split.loading || solids.loading || patterns.loading, validate,
     mesh, laces, meshReady: split.ready, meshFailed: split.failed,
     solidsReady: solids.ready, solidsFailed: solids.failed,
-    previewReady: split.ready && (!needsSolids || solids.ready),
+    patternsReady: patterns.ready, patternsFailed: patterns.failed,
+    previewReady: split.ready && (!needsSolids || solids.ready) && (!needsPatterns || patterns.ready),
     toggle: () => { setEnabled(value => !value); },
     names: draft?.names ?? baseNames,
     swatch: currentAssets?.swatch,
     flowers: draft?.flowers ?? {},
     solids: draft?.solids ?? {},
+    patterns: draft?.patterns ?? {},
+    patternAssets: currentAssets?.patterns ?? {},
     layers: currentAssets?.layers ?? {},
-    overrides: { ...specialOverrides(draft, currentAssets), ...specialSolidOverrides(draft, solids.layers), ...(split.layer ? { a: split.layer } : {}) },
+    overrides: { ...specialOverrides(draft, currentAssets), ...specialSolidOverrides(draft, solids.layers), ...patterns.layers, ...(split.layer ? { a: split.layer } : {}) },
     selectMesh: (color: MeshColor) => {
       if (!currentAssets || !split.ready) return;
       setDrafts(prev => ({ ...prev, [model]: selectMesh(prev[model]!, color) }));
@@ -107,7 +114,7 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
       setDrafts(prev => ({ ...prev, [model]: selectLaces(prev[model]!, color) }));
     },
     select: (part: PartId, name: string) => {
-      if (!currentAssets || busy || (isSpecialSolid(name) && !solids.ready)) return;
+      if (!currentAssets || busy || (isSpecialSolid(name) && !solids.ready) || (isSpecialPattern(name) && !currentAssets.patterns?.[name])) return;
       setDrafts(prev => ({ ...prev, [model]: selectSpecial(prev[model]!, part, name) }));
     },
   };

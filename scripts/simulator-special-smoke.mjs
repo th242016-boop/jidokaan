@@ -25,6 +25,7 @@ try {
   const sim = await server.ssrLoadModule("/src/lib/simulator-config.ts");
   const palette = await server.ssrLoadModule("/src/lib/mesh-laces.ts");
   const solids = await server.ssrLoadModule("/src/lib/special-solids.ts");
+  const patterns = await server.ssrLoadModule("/src/lib/special-patterns.ts");
   const design = await server.ssrLoadModule("/src/lib/design-order.ts");
   const call = body => api.handleSpecialRequest(new Request("http://localhost/api/simulator-special", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -57,6 +58,13 @@ try {
         assert.equal(res.status, 200);
         const body = await res.json();
         assert.deepEqual(Object.keys(body.layers), special.flowerPartsFor(model));
+        if (process.env.SIMULATOR_SPECIAL_PATTERN_KEY) {
+          assert.deepEqual(Object.keys(body.patterns).sort(), patterns.SPECIAL_PATTERNS.map(pattern => pattern.name).sort());
+          for (const pattern of patterns.SPECIAL_PATTERNS) {
+            assert.match(body.patterns[pattern.name].texture, /^data:image\/(png|jpeg|webp);base64,/);
+            assert.match(body.patterns[pattern.name].swatch, /^data:image\/(png|jpeg|webp);base64,/);
+          }
+        } else assert.deepEqual(body.patterns, {});
         for (const data of [body.swatch, ...Object.values(body.layers)]) {
           const png = Buffer.from(data.split(",")[1], "base64");
           assert.equal(png.subarray(1, 4).toString(), "PNG");
@@ -138,6 +146,55 @@ try {
       const restored = special.selectSpecial(grayD, "d", "WHITE");
       assert.equal(special.specialSolidOverrides(restored, layers).l, "gray-l");
       assert.deepEqual(initial.names, { ...sim.defaultPartNames(), model });
+    }
+  });
+  await check("new materials are model-safe, mutually exclusive, and never ordinary order colors", async () => {
+    assert.deepEqual(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name), ["FLOWER B", "FLOWER C", "BLACK SNAKE"]);
+    for (const model of ["high", "mid"]) {
+      const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
+      const original = structuredClone(initial);
+      const supported = patterns.patternPartsFor(model);
+      assert.equal(supported.length, model === "high" ? 9 : 8);
+      assert.equal(supported.includes("g"), model === "high");
+      for (const { name } of patterns.SPECIAL_PATTERNS) {
+        for (const part of supported) {
+          const patterned = special.selectSpecial(initial, part, name);
+          assert.equal(patterned.patterns[part], name);
+          assert.equal(patterned.names[part], "WHITE");
+          assert.equal(patterned.flowers[part], false);
+          assert.equal(patterned.solids[part], undefined);
+          assert.ok(design.completeDesign(patterned.names));
+          assert.equal(sim.photoLayerFor(part, name, initial.names), undefined);
+          assert.equal(design.completeDesign({ ...initial.names, [part]: name }), null);
+          const gray = special.selectSpecial(patterned, part, "GRAY");
+          assert.equal(gray.patterns[part], undefined);
+          assert.equal(gray.solids[part], "GRAY");
+          const patternedAgain = special.selectSpecial(gray, part, name);
+          assert.equal(patternedAgain.solids[part], undefined);
+          assert.equal(patternedAgain.patterns[part], name);
+          const blue = special.selectSpecial(patternedAgain, part, "BLUE");
+          assert.equal(blue.patterns[part], undefined);
+          assert.equal(blue.names[part], "BLUE");
+        }
+        for (const part of ["a", "k", "l", ...(model === "mid" ? ["g"] : [])])
+          assert.equal(special.selectSpecial(initial, part, name), initial);
+      }
+      const patterned = special.selectSpecial(initial, "b", "FLOWER B");
+      const flowerA = special.selectSpecial(patterned, "b", "FLOWER A");
+      assert.equal(flowerA.patterns.b, undefined);
+      assert.equal(flowerA.flowers.b, true);
+      const flowerC = special.selectSpecial(flowerA, "b", "FLOWER C");
+      assert.equal(flowerC.flowers.b, false);
+      assert.equal(flowerC.patterns.b, "FLOWER C");
+      const snake = special.selectSpecial(flowerC, "b", "BLACK SNAKE");
+      assert.equal(snake.patterns.b, "BLACK SNAKE");
+      const secondPart = special.selectSpecial(snake, "c", "FLOWER B");
+      assert.equal(secondPart.patterns.b, "BLACK SNAKE");
+      assert.equal(secondPart.patterns.c, "FLOWER B");
+      const redMesh = special.selectMesh(secondPart, "RED");
+      const blueLaces = special.selectLaces(redMesh, "BLUE");
+      assert.deepEqual(blueLaces.patterns, secondPart.patterns);
+      assert.deepEqual(initial, original);
     }
   });
   await check("logout immediately revokes asset access on the server", async () => {
