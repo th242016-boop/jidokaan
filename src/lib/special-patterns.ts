@@ -20,9 +20,10 @@ const TILE_SIZE: Record<SpecialPatternName, number> = { "FLOWER B": 540, "FLOWER
 
 /** Map a flat material into the existing native silhouette, including lace holes.
  * RED provides the mask and diffuse dark details. Its neutral patent reflections
- * are deliberately not added: each material already carries its own texture.
+ * are not copied directly: BLACK SNAKE alone receives a softened low-intensity
+ * reflection; floral materials carry only their own texture.
  */
-export function renderPatternPixels(source: ImageData, material: ImageData, name: SpecialPatternName): ImageData {
+export function renderPatternPixels(source: ImageData, material: ImageData, name: SpecialPatternName, softReflection?: ImageData): ImageData {
   const { width, height, data: src } = source;
   const out = new ImageData(width, height);
   const tile = TILE_SIZE[name];
@@ -46,7 +47,13 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
     // Red-channel darkness retains seam/stitch detail without reusing the broad
     // white enamel highlights. The texture's own grain/specular detail remains.
     const shade = 0.2 + 0.8 * Math.pow(Math.min(1.04, src[i] / 235), 0.8);
-    for (let c = 0; c < 3; c++) out.data[i + c] = Math.min(255, Math.round(material.data[t + c] * shade));
+    // This leather has shallow embossing and a low, continuous satin reflection.
+    // Blur the photograph's neutral light before reusing a restrained amount;
+    // the hard patent highlight is never copied. Floral materials stay unchanged.
+    const sheen = name === "BLACK SNAKE" && softReflection
+      ? 60 * Math.pow(Math.min(1, Math.min(softReflection.data[i + 1], softReflection.data[i + 2]) / 180), 1.1)
+      : 0;
+    for (let c = 0; c < 3; c++) out.data[i + c] = Math.min(255, Math.round(material.data[t + c] * shade + sheen));
     out.data[i + 3] = alpha;
   }
   return out;
@@ -78,8 +85,17 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
       const textureCtx = materialCanvas.getContext("2d", { willReadFrequently: true });
       if (!ctx || !textureCtx) throw new Error("PATTERN_CANVAS");
       ctx.drawImage(source, 0, 0); textureCtx.drawImage(material, 0, 0);
-      const result = renderPatternPixels(ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height),
-        textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name);
+      const sourcePixels = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+      let softReflection: ImageData | undefined;
+      if (name === "BLACK SNAKE") {
+        ctx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
+        ctx.filter = "blur(18px)";
+        ctx.drawImage(source, 0, 0);
+        ctx.filter = "none";
+        softReflection = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+      }
+      const result = renderPatternPixels(sourcePixels,
+        textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection);
       ctx.putImageData(result, 0, 0);
       return sourceCanvas.toDataURL("image/png");
     } finally {
