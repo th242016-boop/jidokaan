@@ -1,12 +1,16 @@
 import { partsForModel, photoLayerFor, type BootModel, type PartId } from "./simulator-config";
 import { SPECIAL_FINISHES, finishFor } from "./special-finishes";
 import { applyMaterialStitches } from "./material-stitches";
+import { SNAKE_MATERIALS, recolorSnakePixels, snakeMaterialFor } from "./snake-materials";
 
 export const SPECIAL_PATTERNS = [
   { name: "FLOWER B", label: "FLOWER B" },
   { name: "FLOWER C", label: "FLOWER C" },
   { name: "BLACK SNAKE", label: "BLACK SNAKE" },
   { name: "WHITE SNAKE", label: "WHITE SNAKE" },
+  ...SNAKE_MATERIALS,
+  { name: "SILVER WEAVE", label: "SILVER WEAVE" },
+  { name: "MICRO HOUNDSTOOTH", label: "MICRO HOUNDSTOOTH" },
   ...SPECIAL_FINISHES,
 ] as const;
 export type SpecialPatternName = typeof SPECIAL_PATTERNS[number]["name"];
@@ -22,6 +26,9 @@ export const patternPartsFor = (model: BootModel, _name?: SpecialPatternName): P
 // not a physical cutting layout; the references are finished shoes, not flat scans.
 const TILE_SIZE: Partial<Record<SpecialPatternName, number>> = {
   "FLOWER B": 540, "FLOWER C": 650, "BLACK SNAKE": 420, "WHITE SNAKE": 420,
+  "NATURAL SNAKE": 520, "HOT PINK SNAKE": 520, "ORANGE SNAKE": 520,
+  "SKY BLUE SNAKE": 520, "GREEN SNAKE": 520, "YELLOW SNAKE": 520,
+  "SILVER WEAVE": 420, "MICRO HOUNDSTOOTH": 220,
 };
 
 // Shared black scale topology is recolored monotonically: raised bright rims
@@ -40,6 +47,9 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   const { width, height, data: src } = source;
   const out = new ImageData(width, height);
   const finish = finishFor(name);
+  const snake = snakeMaterialFor(name);
+  // Recolor before mapping; swatches use this identical pixel transfer.
+  const surface = snake ? recolorSnakePixels(material, snake.name) : material;
   const tile = TILE_SIZE[name] ?? (finish?.kind === "suede" ? 420 : 600);
   // Neutral maps carry surface character only. Normalizing their average avoids
   // baking a black/gray photograph into all colors, especially white and yellow.
@@ -111,6 +121,20 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       out.data[i + 3] = alpha;
       continue;
     }
+    if (snake || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH") {
+      // The neutral reference carries scale/thread relief and printed markings.
+      // Broad shape light gives curvature without copying sharp patent bands.
+      const broadRed = softReflection?.data[i] ?? src[i];
+      const shape = 0.72 + 0.28 * Math.pow(Math.min(1.03, broadRed / 220), 0.9);
+      const darkDetail = 0.32 + 0.68 * Math.pow(Math.min(1, src[i] / 155), 0.9);
+      const light = softReflection
+        ? Math.pow(Math.min(1, Math.min(softReflection.data[i + 1], softReflection.data[i + 2]) / 180), 1.1)
+        : 0;
+      const sheen = light * (name === "SILVER WEAVE" ? 19 : name === "MICRO HOUNDSTOOTH" ? 8 : 14);
+      for (let c = 0; c < 3; c++) out.data[i + c] = Math.min(255, Math.round(surface.data[t + c] * shape * darkDetail + sheen));
+      out.data[i + 3] = alpha;
+      continue;
+    }
     // This leather has shallow embossing and a low, continuous satin reflection.
     // Blur the photograph's neutral light before reusing a restrained amount;
     // the hard patent highlight is never copied. Floral materials stay unchanged.
@@ -160,7 +184,7 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
         ctx.filter = "none";
         fineDetail = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
       }
-      if (name === "BLACK SNAKE" || name === "WHITE SNAKE" || finish) {
+      if (name === "BLACK SNAKE" || name === "WHITE SNAKE" || snakeMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || finish) {
         ctx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
         ctx.filter = `blur(${finish ? (finish.kind === "matte" ? 32 : 42) : 18}px)`;
         ctx.drawImage(source, 0, 0);
@@ -170,7 +194,8 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
       const result = renderPatternPixels(sourcePixels,
         textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection, fineDetail);
       await applyMaterialStitches(result, sourcePixels, model, part,
-        name === "FLOWER B" ? "dense" : name === "FLOWER C" ? "regular" : undefined);
+        name === "FLOWER B" || snakeMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH"
+          ? "dense" : name === "FLOWER C" ? "regular" : undefined);
       ctx.putImageData(result, 0, 0);
       return sourceCanvas.toDataURL("image/png");
     } finally {

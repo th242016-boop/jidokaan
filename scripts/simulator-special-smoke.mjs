@@ -28,6 +28,7 @@ try {
   const solids = await server.ssrLoadModule("/src/lib/special-solids.ts");
   const patterns = await server.ssrLoadModule("/src/lib/special-patterns.ts");
   const finishes = await server.ssrLoadModule("/src/lib/special-finishes.ts");
+  const snakes = await server.ssrLoadModule("/src/lib/snake-materials.ts");
   const design = await server.ssrLoadModule("/src/lib/design-order.ts");
   const call = body => api.handleSpecialRequest(new Request("http://localhost/api/simulator-special", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -71,6 +72,9 @@ try {
             assert.deepEqual(body.patterns[finish.name], body.patterns[shared], "All colors reuse the neutral material");
           }
           assert.deepEqual(body.patterns["WHITE SNAKE"], body.patterns["BLACK SNAKE"], "White snake shares protected scale topology");
+          for (const snake of snakes.SNAKE_MATERIALS)
+            assert.deepEqual(body.patterns[snake.name], body.patterns["NATURAL SNAKE"], "Natural and dyed snakes share the protected python topology");
+          assert.notDeepEqual(body.patterns["NATURAL SNAKE"], body.patterns["BLACK SNAKE"], "Natural python is a separate material from the existing embossed snake");
         } else assert.deepEqual(body.patterns, {});
         for (const data of [body.swatch, ...Object.values(body.layers)]) {
           const png = Buffer.from(data.split(",")[1], "base64");
@@ -210,7 +214,10 @@ try {
     const requestedColors = ["RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE", "KHAKI", "PINK", "WHITE", "BLACK"];
     const requestedFinishes = [...requestedColors.map(color => `MATTE ${color}`), ...requestedColors.map(color => `${color} SUEDE`)];
     assert.deepEqual(finishes.SPECIAL_FINISHES.map(finish => finish.name), requestedFinishes);
-    assert.deepEqual(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name), ["FLOWER B", "FLOWER C", "BLACK SNAKE", "WHITE SNAKE", ...requestedFinishes]);
+    const requestedSnakes = ["NATURAL SNAKE", "HOT PINK SNAKE", "ORANGE SNAKE", "SKY BLUE SNAKE", "GREEN SNAKE", "YELLOW SNAKE"];
+    assert.deepEqual(snakes.SNAKE_MATERIALS.map(snake => snake.name), requestedSnakes);
+    assert.equal(patterns.SPECIAL_PATTERNS.length, 34);
+    assert.deepEqual(new Set(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name)), new Set(["FLOWER B", "FLOWER C", "BLACK SNAKE", "WHITE SNAKE", ...requestedSnakes, "SILVER WEAVE", "MICRO HOUNDSTOOTH", ...requestedFinishes]));
     for (const model of ["high", "mid"]) {
       const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
       const original = structuredClone(initial);
@@ -283,6 +290,29 @@ try {
       assert.deepEqual(blueLaces.patterns, secondPart.patterns);
       assert.deepEqual(initial, original);
     }
+  });
+  await check("python dye families preserve tonal ordering and natural neutral relief", async () => {
+    const mean = rgb => rgb.reduce((sum, channel) => sum + channel, 0) / 3;
+    const samples = [25, 65, 110, 170, 225].map(value => [value, value, value]);
+    for (const snake of snakes.SNAKE_MATERIALS) {
+      const rendered = samples.map(rgb => snakes.snakeSurface(...rgb, snake.name));
+      for (const rgb of rendered) {
+        assert.equal(rgb.length, 3);
+        for (const channel of rgb) assert.ok(Number.isFinite(channel) && channel >= 0 && channel <= 255);
+      }
+      for (let i = 1; i < rendered.length; i++)
+        assert.ok(mean(rendered[i]) > mean(rendered[i - 1]), `${snake.name}: raised light scales cannot invert into dark cells`);
+      const [r, g, b] = rendered[3];
+      if (snake.name === "NATURAL SNAKE") assert.deepEqual(snakes.snakeSurface(130, 115, 90, snake.name), [130, 115, 90]);
+      if (snake.name === "HOT PINK SNAKE") assert.ok(r > g * 1.4 && b > g * 1.1);
+      if (snake.name === "ORANGE SNAKE") assert.ok(r > g * 1.25 && g > b * 1.25);
+      if (snake.name === "SKY BLUE SNAKE") assert.ok(b > r * 1.25 && g > r * 1.1);
+      if (snake.name === "GREEN SNAKE") assert.ok(g > r * 1.2 && g > b * 1.1);
+      if (snake.name === "YELLOW SNAKE") assert.ok(r > b * 1.5 && g > b * 1.4);
+    }
+    assert.equal(snakes.snakeMaterialFor("BLACK SNAKE"), undefined);
+    assert.equal(snakes.snakeMaterialFor("WHITE SNAKE"), undefined);
+    assert.equal(snakes.snakeMaterialFor("SKY BLUE"), undefined);
   });
   await check("logout immediately revokes asset access on the server", async () => {
     await auth.destroySession(token);

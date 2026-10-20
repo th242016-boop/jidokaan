@@ -2,6 +2,7 @@ import { useSpecialSimulator } from "@/lib/use-special-simulator";
 import { FLOWER_A } from "@/lib/simulator-special";
 import { SPECIAL_SOLID_COLORS, isSpecialSolid, specialSolidPartsFor } from "@/lib/special-solids";
 import { SPECIAL_PATTERNS, patternPartsFor, WHITE_SNAKE_SWATCH_FILTER } from "@/lib/special-patterns";
+import { loadSnakeSwatches, snakeMaterialFor, type SnakeSwatches } from "@/lib/snake-materials";
 import { finishFor } from "@/lib/special-finishes";
 import { BEAD_COLORS, beadColorHex, beadSwatchDataUrl, type BeadSelection } from "@/lib/bead-material";
 import { MESH_COLORS, LACE_COLORS, type MeshColor } from "@/lib/mesh-laces";
@@ -73,12 +74,23 @@ function CustomizePage() {
   const [showKrOrder, setShowKrOrder] = useState(false);
   const model = modelOf(draftPartNames);
   const special = useSpecialSimulator(model, draftPartNames);
+  const [snakeSwatches, setSnakeSwatches] = useState<{ assets: typeof special.patternAssets; images: SnakeSwatches } | null>(null);
   const beadSwatches = useMemo(() => special.enabled && model === "high"
     ? Object.fromEntries(BEAD_COLORS.map(color => [color, beadSwatchDataUrl(color)])) : {}, [special.enabled, model]);
   const colorNames = special.names;
   const [savingSpecial, setSavingSpecial] = useState(false);
   const setDraftModel = useStore((s) => s.setDraftModel);
   const sizes = fit === "women" ? WOMEN_SIZES : MEN_SIZES;
+
+  useEffect(() => {
+    let cancelled = false;
+    const assets = special.patternAssets;
+    if (!special.enabled || !assets["NATURAL SNAKE"]) { setSnakeSwatches(null); return; }
+    void loadSnakeSwatches(assets).then(images => {
+      if (!cancelled) setSnakeSwatches({ assets, images });
+    }).catch(() => { if (!cancelled) setSnakeSwatches(null); });
+    return () => { cancelled = true; };
+  }, [special.enabled, special.patternAssets]);
 
   useEffect(() => {
     try {
@@ -295,6 +307,10 @@ function CustomizePage() {
                         const active = special.patterns[part.id] === pattern.name;
                         const finish = finishFor(pattern.name);
                         const whiteSnake = pattern.name === "WHITE SNAKE";
+                        const snake = snakeMaterialFor(pattern.name);
+                        const swatch = snake
+                          ? snakeSwatches?.assets === special.patternAssets ? snakeSwatches.images[snake.name] : undefined
+                          : asset.swatch;
                         return (
                           <button
                             key={pattern.name}
@@ -303,14 +319,14 @@ function CustomizePage() {
                             aria-pressed={active}
                             onClick={() => special.select(part.id, pattern.name)}
                             className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", active ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
-                            style={{ backgroundColor: whiteSnake ? "#eeeae5" : finish?.color, backgroundImage: finish || whiteSnake ? undefined : `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center", isolation: "isolate" }}
+                            style={{ backgroundColor: whiteSnake ? "#eeeae5" : finish?.color ?? snake?.color, backgroundImage: finish || whiteSnake || !swatch ? undefined : `url(${swatch})`, backgroundSize: "cover", backgroundPosition: "center", isolation: "isolate" }}
                           >
                             {(finish || whiteSnake) && <span aria-hidden="true" className="pointer-events-none absolute inset-0" style={{
                               backgroundImage: `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center",
                               mixBlendMode: whiteSnake ? undefined : "multiply", filter: whiteSnake ? WHITE_SNAKE_SWATCH_FILTER : "brightness(1.4)", opacity: whiteSnake ? 1 : finish?.kind === "matte" ? 0.12 : 0.45,
                             }} />}
                             <span className="absolute inset-0 flex items-center justify-center p-px text-center text-[6.5px] font-bold leading-[1.1] md:text-[8px]">
-                              <span className="min-w-0 max-w-full whitespace-normal rounded bg-white/85 px-0.5 py-0.5 text-black">{pattern.label}</span>
+                              <span className="min-w-0 max-w-full break-words whitespace-normal rounded bg-white/85 px-0.5 py-0.5 text-black">{pattern.label}</span>
                             </span>
                           </button>
                         );
