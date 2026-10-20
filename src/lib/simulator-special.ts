@@ -28,7 +28,7 @@ export function selectLaces(draft: SpecialDraft, laces: LaceColor): SpecialDraft
 export function selectSpecial(draft: SpecialDraft, part: PartId, name: string): SpecialDraft {
   const model = draft.names.model ?? "high";
   if (isSpecialSolid(name) && !specialSolidPartsFor(model).includes(part)) return draft;
-  if (isSpecialPattern(name) && !patternPartsFor(model).includes(part)) return draft;
+  if (isSpecialPattern(name) && !patternPartsFor(model, name).includes(part)) return draft;
   if (name === FLOWER_A && !flowerPartsFor(model).includes(part)) return draft;
   const solids = { ...draft.solids };
   const patterns = { ...draft.patterns };

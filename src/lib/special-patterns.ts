@@ -4,6 +4,8 @@ export const SPECIAL_PATTERNS = [
   { name: "FLOWER B", label: "FLOWER B" },
   { name: "FLOWER C", label: "FLOWER C" },
   { name: "BLACK SNAKE", label: "BLACK SNAKE" },
+  { name: "MATTE BLACK", label: "MATTE BLACK" },
+  { name: "BLACK SUEDE", label: "BLACK SUEDE" },
 ] as const;
 export type SpecialPatternName = typeof SPECIAL_PATTERNS[number]["name"];
 export type SpecialPatternAssets = Partial<Record<SpecialPatternName, { texture: string; swatch: string }>>;
@@ -11,12 +13,16 @@ export type PatternSelections = Partial<Record<PartId, SpecialPatternName>>;
 export type PatternLayers = Partial<Record<PartId, string>>;
 export const isSpecialPattern = (name: string): name is SpecialPatternName =>
   SPECIAL_PATTERNS.some(pattern => pattern.name === name);
-export const patternPartsFor = (model: BootModel): PartId[] =>
-  partsForModel({ model }).filter(part => part.type === "full" && part.id !== "l").map(part => part.id);
+export const patternPartsFor = (model: BootModel, name?: SpecialPatternName): PartId[] =>
+  partsForModel({ model }).filter(part => part.type === "full" && part.id !== "l"
+    && (!(name === "MATTE BLACK" || name === "BLACK SUEDE") || part.id === "b")).map(part => part.id);
 
 // Approximate motif sizes in the 1424×1392 photograph. They are visual previews,
 // not a physical cutting layout; the references are finished shoes, not flat scans.
-const TILE_SIZE: Record<SpecialPatternName, number> = { "FLOWER B": 540, "FLOWER C": 650, "BLACK SNAKE": 420 };
+const TILE_SIZE: Record<SpecialPatternName, number> = {
+  "FLOWER B": 540, "FLOWER C": 650, "BLACK SNAKE": 420,
+  "MATTE BLACK": 600, "BLACK SUEDE": 600,
+};
 
 /** Map a flat material into the existing native silhouette, including lace holes.
  * RED provides the mask and diffuse dark details. Its neutral patent reflections
@@ -63,7 +69,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
 // Cache encoded layers only; avoid retaining dozens of full RGBA photographs.
 const caches = new WeakMap<SpecialPatternAssets, Map<string, Promise<string>>>();
 export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPatternName, assets: SpecialPatternAssets): Promise<string> {
-  if (!patternPartsFor(model).includes(part)) return Promise.reject(new Error("PATTERN_PART"));
+  if (!patternPartsFor(model, name).includes(part)) return Promise.reject(new Error("PATTERN_PART"));
   const texture = assets[name]?.texture;
   const url = photoLayerFor(part, "RED", { model });
   if (!texture || !url) return Promise.reject(new Error("PATTERN_UNAVAILABLE"));

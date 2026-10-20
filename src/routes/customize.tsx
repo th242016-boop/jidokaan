@@ -287,7 +287,7 @@ function CustomizePage() {
                       )}
                       {special.enabled && patternPartsFor(model).includes(part.id) && SPECIAL_PATTERNS.map(pattern => {
                         const asset = special.patternAssets[pattern.name];
-                        if (!asset) return null;
+                        if (!asset || !patternPartsFor(model, pattern.name).includes(part.id)) return null;
                         const active = special.patterns[part.id] === pattern.name;
                         return (
                           <button

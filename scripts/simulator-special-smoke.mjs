@@ -149,7 +149,7 @@ try {
     }
   });
   await check("new materials are model-safe, mutually exclusive, and never ordinary order colors", async () => {
-    assert.deepEqual(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name), ["FLOWER B", "FLOWER C", "BLACK SNAKE"]);
+    assert.deepEqual(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name), ["FLOWER B", "FLOWER C", "BLACK SNAKE", "MATTE BLACK", "BLACK SUEDE"]);
     for (const model of ["high", "mid"]) {
       const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
       const original = structuredClone(initial);
@@ -157,7 +157,9 @@ try {
       assert.equal(supported.length, model === "high" ? 9 : 8);
       assert.equal(supported.includes("g"), model === "high");
       for (const { name } of patterns.SPECIAL_PATTERNS) {
-        for (const part of supported) {
+        const allowed = patterns.patternPartsFor(model, name);
+        assert.deepEqual(allowed, ["MATTE BLACK", "BLACK SUEDE"].includes(name) ? ["b"] : supported);
+        for (const part of allowed) {
           const patterned = special.selectSpecial(initial, part, name);
           assert.equal(patterned.patterns[part], name);
           assert.equal(patterned.names[part], "WHITE");
@@ -176,7 +178,7 @@ try {
           assert.equal(blue.patterns[part], undefined);
           assert.equal(blue.names[part], "BLUE");
         }
-        for (const part of ["a", "k", "l", ...(model === "mid" ? ["g"] : [])])
+        for (const part of "abcdefghijkl".split("").filter(part => !allowed.includes(part)))
           assert.equal(special.selectSpecial(initial, part, name), initial);
       }
       const patterned = special.selectSpecial(initial, "b", "FLOWER B");
@@ -191,6 +193,23 @@ try {
       const secondPart = special.selectSpecial(snake, "c", "FLOWER B");
       assert.equal(secondPart.patterns.b, "BLACK SNAKE");
       assert.equal(secondPart.patterns.c, "FLOWER B");
+      for (const finish of ["MATTE BLACK", "BLACK SUEDE"]) {
+        const trial = special.selectSpecial(secondPart, "b", finish);
+        assert.equal(trial.patterns.b, finish);
+        assert.equal(trial.patterns.c, "FLOWER B");
+        assert.equal(trial.flowers.b, false);
+        assert.ok(design.completeDesign(trial.names));
+        const floral = special.selectSpecial(trial, "b", "FLOWER A");
+        assert.equal(floral.patterns.b, undefined);
+        assert.equal(floral.flowers.b, true);
+        const restored = special.selectSpecial(floral, "b", finish);
+        assert.equal(restored.patterns.b, finish);
+        assert.equal(restored.flowers.b, false);
+        const black = special.selectSpecial(restored, "b", "BLACK");
+        assert.equal(black.patterns.b, undefined);
+        assert.equal(black.names.b, "BLACK");
+        assert.equal(black.patterns.c, "FLOWER B");
+      }
       const redMesh = special.selectMesh(secondPart, "RED");
       const blueLaces = special.selectLaces(redMesh, "BLUE");
       assert.deepEqual(blueLaces.patterns, secondPart.patterns);
