@@ -26,6 +26,7 @@ try {
   const palette = await server.ssrLoadModule("/src/lib/mesh-laces.ts");
   const solids = await server.ssrLoadModule("/src/lib/special-solids.ts");
   const patterns = await server.ssrLoadModule("/src/lib/special-patterns.ts");
+  const finishes = await server.ssrLoadModule("/src/lib/special-finishes.ts");
   const design = await server.ssrLoadModule("/src/lib/design-order.ts");
   const call = body => api.handleSpecialRequest(new Request("http://localhost/api/simulator-special", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -63,6 +64,10 @@ try {
           for (const pattern of patterns.SPECIAL_PATTERNS) {
             assert.match(body.patterns[pattern.name].texture, /^data:image\/(png|jpeg|webp);base64,/);
             assert.match(body.patterns[pattern.name].swatch, /^data:image\/(png|jpeg|webp);base64,/);
+          }
+          for (const finish of finishes.SPECIAL_FINISHES) {
+            const shared = finish.kind === "matte" ? "MATTE BLACK" : "BLACK SUEDE";
+            assert.deepEqual(body.patterns[finish.name], body.patterns[shared], "All colors reuse the neutral material");
           }
         } else assert.deepEqual(body.patterns, {});
         for (const data of [body.swatch, ...Object.values(body.layers)]) {
@@ -149,7 +154,7 @@ try {
     }
   });
   await check("new materials are model-safe, mutually exclusive, and never ordinary order colors", async () => {
-    assert.deepEqual(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name), ["FLOWER B", "FLOWER C", "BLACK SNAKE", "MATTE BLACK", "BLACK SUEDE"]);
+    assert.deepEqual(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name), ["FLOWER B", "FLOWER C", "BLACK SNAKE", "MATTE BLACK", "MATTE WHITE", "MATTE RED", "MATTE YELLOW", "BLACK SUEDE", "WHITE SUEDE", "RED SUEDE", "YELLOW SUEDE"]);
     for (const model of ["high", "mid"]) {
       const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
       const original = structuredClone(initial);
@@ -158,7 +163,7 @@ try {
       assert.equal(supported.includes("g"), model === "high");
       for (const { name } of patterns.SPECIAL_PATTERNS) {
         const allowed = patterns.patternPartsFor(model, name);
-        assert.deepEqual(allowed, ["MATTE BLACK", "BLACK SUEDE"].includes(name) ? ["b"] : supported);
+        assert.deepEqual(allowed, finishes.finishFor(name) ? ["b", "c"] : supported);
         for (const part of allowed) {
           const patterned = special.selectSpecial(initial, part, name);
           assert.equal(patterned.patterns[part], name);
@@ -193,7 +198,7 @@ try {
       const secondPart = special.selectSpecial(snake, "c", "FLOWER B");
       assert.equal(secondPart.patterns.b, "BLACK SNAKE");
       assert.equal(secondPart.patterns.c, "FLOWER B");
-      for (const finish of ["MATTE BLACK", "BLACK SUEDE"]) {
+      for (const { name: finish } of finishes.SPECIAL_FINISHES) {
         const trial = special.selectSpecial(secondPart, "b", finish);
         assert.equal(trial.patterns.b, finish);
         assert.equal(trial.patterns.c, "FLOWER B");
@@ -209,6 +214,13 @@ try {
         assert.equal(black.patterns.b, undefined);
         assert.equal(black.names.b, "BLACK");
         assert.equal(black.patterns.c, "FLOWER B");
+        const mixed = special.selectSpecial(trial, "c", "YELLOW SUEDE");
+        assert.equal(mixed.patterns.b, finish);
+        assert.equal(mixed.patterns.c, "YELLOW SUEDE");
+        const cWhite = special.selectSpecial(mixed, "c", "WHITE");
+        assert.equal(cWhite.patterns.b, finish);
+        assert.equal(cWhite.patterns.c, undefined);
+        assert.equal(cWhite.names.c, "WHITE");
       }
       const redMesh = special.selectMesh(secondPart, "RED");
       const blueLaces = special.selectLaces(redMesh, "BLUE");

@@ -2,6 +2,7 @@ import { createDecipheriv } from "node:crypto";
 import { assertSession, AUTH_HEADERS } from "./admin-auth.server";
 import { flowerPartsFor } from "./simulator-special";
 import { SPECIAL_PATTERNS, type SpecialPatternAssets } from "./special-patterns";
+import { finishFor } from "./special-finishes";
 
 // Encrypted source assets are safe to keep in the public repository. Only the server
 // has the key; nothing here belongs in public/ or in a client-side import.
@@ -25,12 +26,14 @@ function patternAssets(): SpecialPatternAssets {
   // A missing new material key must not disable the existing FLOWER A studio.
   if (!process.env.SIMULATOR_SPECIAL_PATTERN_KEY) return {};
   try {
+    const decoded = new Map<string, { texture: string; swatch: string }>();
     return Object.fromEntries(SPECIAL_PATTERNS.map(({ name }) => {
-      const file = name.toLowerCase().replaceAll(" ", "-");
-      return [name, {
-        texture: image(`material-${file}`, "SIMULATOR_SPECIAL_PATTERN_KEY", "image/jpeg"),
-        swatch: image(`material-${file}-swatch`, "SIMULATOR_SPECIAL_PATTERN_KEY", "image/jpeg"),
-      }];
+      const file = finishFor(name)?.assetKey ?? name.toLowerCase().replaceAll(" ", "-");
+      if (!decoded.has(file)) decoded.set(file, {
+          texture: image(`material-${file}`, "SIMULATOR_SPECIAL_PATTERN_KEY", "image/jpeg"),
+          swatch: image(`material-${file}-swatch`, "SIMULATOR_SPECIAL_PATTERN_KEY", "image/jpeg"),
+        });
+      return [name, decoded.get(file)!];
     }));
   } catch {
     console.error("Special pattern assets unavailable");

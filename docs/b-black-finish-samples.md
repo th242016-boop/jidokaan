@@ -1,5 +1,7 @@
 # B-part black finish samples — 2026-10-20
 
+**Superseded:** the user rejected this matte grain as too coarse. See [B/C finish color samples](bc-finish-color-samples.md) for the current smooth matte/suede, four-color B/C implementation. The description below records the initial prototype only.
+
 The user requested only B-part previews to judge material appearance before expanding to other colors or parts. Administrator Special now offers **MATTE BLACK** (fine-grain matte black leather) and **BLACK SUEDE** (short-nap black suede), in both high and mid models. Existing BLACK remains the patent reference. These are generated concept samples without a supplied real material scan; do not describe them as a validated representation of stock material.
 
 The same B photograph and exact source alpha are used, preserving position, edges and stitching. Both finishes carry fine surface texture and use source red-channel dark detail; no patent specular reflection or BLACK SNAKE sheen is applied. Materials are restricted to B in both UI and selection/renderer validation. All other existing colors, patterns, mesh, laces, public availability and order data remain unchanged.

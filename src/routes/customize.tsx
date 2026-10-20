@@ -2,6 +2,7 @@ import { useSpecialSimulator } from "@/lib/use-special-simulator";
 import { FLOWER_A } from "@/lib/simulator-special";
 import { SPECIAL_SOLID_COLORS, isSpecialSolid, specialSolidPartsFor } from "@/lib/special-solids";
 import { SPECIAL_PATTERNS, patternPartsFor } from "@/lib/special-patterns";
+import { finishFor } from "@/lib/special-finishes";
 import { MESH_COLORS, LACE_COLORS, type MeshColor } from "@/lib/mesh-laces";
 import { captureDesign } from "@/lib/design-order";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -289,6 +290,7 @@ function CustomizePage() {
                         const asset = special.patternAssets[pattern.name];
                         if (!asset || !patternPartsFor(model, pattern.name).includes(part.id)) return null;
                         const active = special.patterns[part.id] === pattern.name;
+                        const finish = finishFor(pattern.name);
                         return (
                           <button
                             key={pattern.name}
@@ -297,8 +299,12 @@ function CustomizePage() {
                             aria-pressed={active}
                             onClick={() => special.select(part.id, pattern.name)}
                             className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", active ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
-                            style={{ backgroundImage: `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center" }}
+                            style={{ backgroundColor: finish?.color, backgroundImage: finish ? undefined : `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center", isolation: "isolate" }}
                           >
+                            {finish && <span aria-hidden="true" className="pointer-events-none absolute inset-0" style={{
+                              backgroundImage: `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center",
+                              mixBlendMode: "multiply", filter: "brightness(1.4)", opacity: finish.kind === "matte" ? 0.12 : 0.45,
+                            }} />}
                             <span className="absolute inset-0 flex items-center justify-center p-0.5 text-center text-[8px] font-bold leading-[1.1] md:text-[10px]">
                               <span className="rounded bg-white/85 px-1 py-0.5 text-black">{pattern.label}</span>
                             </span>
