@@ -1,5 +1,6 @@
 import { partsForModel, photoLayerFor, type BootModel, type PartId } from "./simulator-config";
 import { SPECIAL_FINISHES, finishFor } from "./special-finishes";
+import { applyMaterialStitches } from "./material-stitches";
 
 export const SPECIAL_PATTERNS = [
   { name: "FLOWER B", label: "FLOWER B" },
@@ -148,6 +149,8 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
       }
       const result = renderPatternPixels(sourcePixels,
         textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection, fineDetail);
+      await applyMaterialStitches(result, sourcePixels, model, part,
+        name === "FLOWER B" ? "dense" : name === "FLOWER C" ? "regular" : undefined);
       ctx.putImageData(result, 0, 0);
       return sourceCanvas.toDataURL("image/png");
     } finally {

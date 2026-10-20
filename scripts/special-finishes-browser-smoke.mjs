@@ -90,12 +90,15 @@ try {
   };
 
   await page.goto(`${base}/customize`);
+  const ordinaryDesktopWidth = (await option("b", "RED").boundingBox()).width;
   for (const name of finishes) assert.equal(await page.getByTitle(name, { exact: true }).count(), 0);
   assert.equal(await page.getByRole("button", { name: "스페셜", exact: true }).count(), 0);
   await option("b", "BLUE").click(); await option("c", "RED").click();
   await page.evaluate(() => sessionStorage.setItem("jidokaan-admin-token", "local-finish-test"));
   await page.reload();
   await page.getByRole("button", { name: "스페셜", exact: true }).click(); await ready();
+  const specialDesktopWidth = (await option("b", "RED").boundingBox()).width;
+  assert.ok(specialDesktopWidth / ordinaryDesktopWidth > 0.42 && specialDesktopWidth / ordinaryDesktopWidth < 0.58, "Special desktop squares have half the ordinary width");
 
   for (const model of ["high", "mid"]) {
     if (model === "mid") { await page.getByRole("button", { name: "중목", exact: true }).click(); await ready(); }
@@ -170,10 +173,23 @@ try {
   assert.equal(await option("c", "MATTE WHITE").getAttribute("aria-pressed"), "true");
   await page.setViewportSize({ width: 390, height: 844 });
   await select("b", "MATTE BLACK"); await select("c", "YELLOW SUEDE");
+  const specialMobileWidth = (await option("b", "RED").boundingBox()).width;
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  for (const part of ["b", "c"]) {
+    for (const name of finishes) {
+      const layout = await option(part, name).evaluate(button => {
+        const label = button.querySelector("span > span") || button.querySelector("span");
+        const box = button.getBoundingClientRect(), text = label.getBoundingClientRect();
+        return { x: Math.abs((text.left + text.right) / 2 - (box.left + box.right) / 2), y: Math.abs((text.top + text.bottom) / 2 - (box.top + box.bottom) / 2), fits: text.width <= box.width + 1 && text.height <= box.height + 1 };
+      });
+      assert.ok(layout.x < 2 && layout.y < 2 && layout.fits, `${part} ${name}: centered label fits compact mobile square`);
+    }
+  }
   for (const part of ["b", "c"]) await group(part).screenshot({ path: `${output}/mobile-${part}-palette.png` });
   await page.getByRole("button", { name: "장목", exact: true }).click(); await ready();
   await page.getByRole("button", { name: "스페셜", exact: true }).click();
+  const ordinaryMobileWidth = (await option("b", "RED").boundingBox()).width;
+  assert.ok(specialMobileWidth / ordinaryMobileWidth > 0.42 && specialMobileWidth / ordinaryMobileWidth < 0.58, "Special mobile squares have half the ordinary width");
   for (const name of finishes) assert.equal(await page.getByTitle(name, { exact: true }).count(), 0);
   assert.equal(await option("b", "BLUE").getAttribute("aria-pressed"), "true", "Public B design remains unchanged");
   assert.equal(await option("c", "RED").getAttribute("aria-pressed"), "true", "Public C design remains unchanged");

@@ -228,7 +228,7 @@ function CustomizePage() {
                     <div className="mb-1.5 flex items-center border-l-4 border-black pl-2 text-[13px] font-bold text-black md:mb-2.5 md:pl-2.5 md:text-sm">
                       {special.enabled && part.id === "a" ? (locale === "ko" ? "A · 메쉬" : "A · Mesh") : part.label}
                     </div>
-                    <div className="grid grid-cols-5 gap-1.5 md:grid-cols-4 md:gap-2">
+                    <div className={cn("grid", special.enabled ? "grid-cols-10 gap-1 md:grid-cols-8" : "grid-cols-5 gap-1.5 md:grid-cols-4 md:gap-2")}>
                       {pal.map((opt) => {
                         const active =
                           (special.enabled && part.id === "a" ? special.mesh : (special.solids[part.id] ?? colorNames?.[part.id] ?? PHOTO_NATIVE[part.id])) === opt.name && !special.flowers[part.id] && !special.patterns[part.id];
@@ -264,7 +264,7 @@ function CustomizePage() {
                             }}
                           >
                             <span
-                              className="absolute inset-0 flex items-center justify-center p-0.5 text-center text-[8px] font-bold leading-[1.1] break-words md:text-[10px]"
+                              className={cn("absolute inset-0 flex items-center justify-center text-center font-bold leading-[1.1] break-words", special.enabled ? "p-px text-[6.5px] md:text-[8px]" : "p-0.5 text-[8px] md:text-[10px]")}
                               style={{ color: opt.isBright ? "#000" : "#fff" }}
                             >
                               {opt.name}
@@ -281,8 +281,8 @@ function CustomizePage() {
                           className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", special.flowers[part.id] ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
                           style={{ backgroundImage: `url(${special.swatch})`, backgroundSize: "cover", backgroundPosition: "center" }}
                         >
-                          <span className="absolute inset-0 flex items-center justify-center text-center text-[8px] font-bold md:text-[10px]">
-                            <span className="rounded bg-white/85 px-1 py-0.5 text-black">{FLOWER_A}</span>
+                          <span className="absolute inset-0 flex items-center justify-center p-px text-center text-[6.5px] font-bold leading-[1.1] md:text-[8px]">
+                            <span className="min-w-0 max-w-full whitespace-normal rounded bg-white/85 px-0.5 py-0.5 text-black">{FLOWER_A}</span>
                           </span>
                         </button>
                       )}
@@ -305,8 +305,8 @@ function CustomizePage() {
                               backgroundImage: `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center",
                               mixBlendMode: "multiply", filter: "brightness(1.4)", opacity: finish.kind === "matte" ? 0.12 : 0.45,
                             }} />}
-                            <span className="absolute inset-0 flex items-center justify-center p-0.5 text-center text-[8px] font-bold leading-[1.1] md:text-[10px]">
-                              <span className="rounded bg-white/85 px-1 py-0.5 text-black">{pattern.label}</span>
+                            <span className="absolute inset-0 flex items-center justify-center p-px text-center text-[6.5px] font-bold leading-[1.1] md:text-[8px]">
+                              <span className="min-w-0 max-w-full whitespace-normal rounded bg-white/85 px-0.5 py-0.5 text-black">{pattern.label}</span>
                             </span>
                           </button>
                         );
@@ -315,14 +315,14 @@ function CustomizePage() {
                     {special.enabled && part.id === "a" && (
                       <div data-part="laces" role="group" aria-label="신발끈 색상" className="mt-4">
                         <div className="mb-1.5 border-l-4 border-black pl-2 text-[13px] font-bold text-black md:mb-2.5 md:text-sm">{locale === "ko" ? "신발끈" : "Shoelaces"}</div>
-                        <div className="grid grid-cols-5 gap-1.5 md:grid-cols-4 md:gap-2">
+                        <div className="grid grid-cols-10 gap-1 md:grid-cols-8">
                           {LACE_COLORS.map(name => {
                             const opt = colorByName(name)!;
                             return <button key={name} type="button" title={name} disabled={!special.meshReady}
                               aria-pressed={special.laces === name} onClick={() => special.selectLaces(name)}
                               className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", special.laces === name ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
                               style={{ backgroundColor: opt.color }}>
-                              <span className="absolute inset-0 flex items-center justify-center p-0.5 text-center text-[8px] font-bold md:text-[10px]" style={{ color: opt.isBright ? "#000" : "#fff" }}>{name}</span>
+                              <span className="absolute inset-0 flex items-center justify-center p-px text-center text-[6.5px] font-bold leading-[1.1] md:text-[8px]" style={{ color: opt.isBright ? "#000" : "#fff" }}>{name}</span>
                             </button>;
                           })}
                         </div>
