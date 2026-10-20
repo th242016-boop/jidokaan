@@ -5,7 +5,7 @@ import { SPECIAL_PATTERNS, patternPartsFor, WHITE_SNAKE_SWATCH_FILTER } from "@/
 import { loadSnakeSwatches, snakeMaterialFor, type SnakeSwatches } from "@/lib/snake-materials";
 import { finishFor } from "@/lib/special-finishes";
 import { BEAD_COLORS, beadColorHex, beadSwatchDataUrl, type BeadSelection } from "@/lib/bead-material";
-import { MESH_COLORS, LACE_COLORS, type MeshColor } from "@/lib/mesh-laces";
+import { MESH_COLORS, LACE_COLORS, LACE_TINTS, type MeshColor } from "@/lib/mesh-laces";
 import { captureDesign } from "@/lib/design-order";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Check, ShoppingBag, X } from "lucide-react";
@@ -337,7 +337,9 @@ function CustomizePage() {
                         <div className="mb-1.5 border-l-4 border-black pl-2 text-[13px] font-bold text-black md:mb-2.5 md:text-sm">{locale === "ko" ? "신발끈" : "Shoelaces"}</div>
                         <div className="grid grid-cols-10 gap-1 md:grid-cols-8">
                           {LACE_COLORS.map(name => {
-                            const opt = colorByName(name)!;
+                            const opt = name === "HOT PINK"
+                              ? { color: `rgb(${LACE_TINTS[name].join(",")})`, isBright: false }
+                              : colorByName(name)!;
                             return <button key={name} type="button" title={name} disabled={!special.meshReady}
                               aria-pressed={special.laces === name} onClick={() => special.selectLaces(name)}
                               className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", special.laces === name ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}

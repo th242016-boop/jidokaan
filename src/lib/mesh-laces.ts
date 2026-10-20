@@ -1,7 +1,7 @@
 import type { BootModel } from "./simulator-config";
 
 export type MeshColor = "WHITE" | "BLACK" | keyof typeof MESH_TINTS;
-export type LaceColor = "WHITE" | "BLACK" | "RED" | "BLUE" | "YELLOW";
+export type LaceColor = "WHITE" | "BLACK" | keyof typeof LACE_TINTS;
 export type MeshLacePixels = {
   width: number; height: number;
   white: Uint8ClampedArray; black: Uint8ClampedArray; lace: Uint8ClampedArray;
@@ -21,7 +21,16 @@ export const MESH_TINTS = {
     GRAY: [122, 125, 132],
 } as const;
 export const MESH_COLORS: readonly MeshColor[] = ["RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE", "PINK", "GRAY", "WHITE", "BLACK"];
-export const LACE_COLORS: readonly LaceColor[] = ["RED", "BLUE", "YELLOW", "WHITE", "BLACK"];
+// Stocked laces have their own palette; deep pink must not extend mesh options.
+export const LACE_TINTS = {
+    RED: MESH_TINTS.RED,
+    BLUE: MESH_TINTS.BLUE,
+    YELLOW: MESH_TINTS.YELLOW,
+    "HOT PINK": [215, 54, 148],
+    GRAY: MESH_TINTS.GRAY,
+    GREEN: MESH_TINTS.GREEN,
+} as const;
+export const LACE_COLORS: readonly LaceColor[] = ["RED", "BLUE", "YELLOW", "WHITE", "BLACK", "HOT PINK", "GRAY", "GREEN"];
 // Native-photo contours for individual lace ribbons. Each closed outline follows
 // the complete strand, including its narrow return into the next crossing.
 // The original A component still clips all outlines at the outside silhouette.
@@ -151,7 +160,7 @@ export function renderMeshLaces(source: MeshLacePixels, mesh: MeshColor, laces: 
     const out = new ImageData(source.width, source.height);
     const { white, black, lace } = source;
     const tint = mesh === "WHITE" || mesh === "BLACK" ? null : MESH_TINTS[mesh];
-    const laceTint = laces === "WHITE" || laces === "BLACK" ? null : MESH_TINTS[laces];
+    const laceTint = laces === "WHITE" || laces === "BLACK" ? null : LACE_TINTS[laces];
     for (let p = 0; p < lace.length; p++) {
         const i = p * 4;
         out.data[i + 3] = white[i + 3];

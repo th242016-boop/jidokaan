@@ -55,26 +55,30 @@ try {
         combinations++;
       }
       const neutral = api.renderMeshLaces(data, "WHITE", "WHITE").data;
-      const blue = api.renderMeshLaces(data, "WHITE", "BLUE").data;
-      const red = api.renderMeshLaces(data, "RED", "BLUE").data;
-      let laceChanges = 0, meshChanges = 0;
-      for (let p = 0; p < data.lace.length; p++) {
-        if (!data.white[p * 4 + 3]) continue;
-        for (let c = 0; c < 3; c++) {
-          const i = p * 4 + c;
-          if (data.lace[p] === 0) expect(neutral[i] === blue[i], "lace selection affected mesh");
-          if (data.lace[p] === 255) expect(blue[i] === red[i], "mesh selection affected lace");
-          if (neutral[i] !== blue[i]) laceChanges++;
-          if (blue[i] !== red[i]) meshChanges++;
+      const independentColors = {};
+      for (const color of ["BLUE", "HOT PINK", "GRAY", "GREEN"]) {
+        const coloredLaces = api.renderMeshLaces(data, "WHITE", color).data;
+        const redMesh = api.renderMeshLaces(data, "RED", color).data;
+        let laceChanges = 0, meshChanges = 0;
+        for (let p = 0; p < data.lace.length; p++) {
+          if (!data.white[p * 4 + 3]) continue;
+          for (let c = 0; c < 3; c++) {
+            const i = p * 4 + c;
+            if (data.lace[p] === 0) expect(neutral[i] === coloredLaces[i], `${color}: lace selection affected mesh`);
+            if (data.lace[p] === 255) expect(coloredLaces[i] === redMesh[i], `${color}: mesh selection affected lace`);
+            if (neutral[i] !== coloredLaces[i]) laceChanges++;
+            if (coloredLaces[i] !== redMesh[i]) meshChanges++;
+          }
         }
+        expect(laceChanges > 0 && meshChanges > 0, `${color}: independent color changes`);
+        independentColors[color] = { laceChanges, meshChanges };
       }
-      expect(laceChanges > 0 && meshChanges > 0, "independent color changes");
-      return { combinations, laceChanges, meshChanges };
+      return { combinations, independentColors };
     }, { model,
       white: await image(model === "high" ? "photo/base.jpg" : "mid/a/white.png"),
       black: await image(model === "high" ? "photo/tints/a-black.png" : "mid/a/black.png"),
     });
-    assert.equal(result.combinations, 55);
-    console.log(`PASS ${model}: native alpha, original WHITE/BLACK, lace continuity, separate mesh and laces, 55 color combinations`);
+    assert.equal(result.combinations, 88);
+    console.log(`PASS ${model}: native alpha, original WHITE/BLACK, lace continuity, separate mesh and laces, 88 color combinations`);
   }
 } finally { await browser.close(); }

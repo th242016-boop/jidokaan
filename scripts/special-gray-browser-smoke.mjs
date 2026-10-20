@@ -34,8 +34,8 @@ try {
     const gray = part => page.locator(`[data-part="${part}"]`).getByTitle("GRAY", { exact: true });
     await gray("b").waitFor();
     await page.waitForFunction(() => !document.querySelector('[data-part="b"] button[title="GRAY"]').disabled);
-    assert.equal(await page.getByTitle("GRAY", { exact: true }).count(), parts.length + 1); // Includes mesh.
-    assert.equal(await page.locator('[data-part="laces"] button[title="GRAY"]').count(), 0);
+    assert.equal(await page.getByTitle("GRAY", { exact: true }).count(), parts.length + 2); // Includes mesh and independent laces.
+    assert.equal(await page.locator('[data-part="laces"] button[title="GRAY"]').count(), 1);
     assert.equal(await page.locator('[data-part="k"] button[title="GRAY"]').count(), 0);
     for (const part of parts) {
       await gray(part).click();

@@ -103,7 +103,7 @@ try {
     assert.equal(design.completeDesign(red.names).b, "RED");
   });
   await check("stocked mesh and lace colors stay independent of each other and orders", async () => {
-    assert.deepEqual(palette.LACE_COLORS, ["RED", "BLUE", "YELLOW", "WHITE", "BLACK"]);
+    assert.deepEqual(palette.LACE_COLORS, ["RED", "BLUE", "YELLOW", "WHITE", "BLACK", "HOT PINK", "GRAY", "GREEN"]);
     for (const model of ["high", "mid"]) {
       const normal = sim.defaultPartNames();
       const initial = { names: { ...normal, model }, flowers: {} };
@@ -118,7 +118,7 @@ try {
         assert.equal(special.laceSelection(c), laces);
         assert.equal(special.laceSelection(special.selectSpecial(b, "b", "BLUE")), laces);
       }
-      assert.equal(special.selectLaces(initial, "GREEN"), initial);
+      assert.equal(special.selectLaces(initial, "GOLD"), initial);
       assert.equal(special.selectMesh(initial, "GOLD"), initial);
       assert.deepEqual(initial.names, { ...normal, model });
     }
