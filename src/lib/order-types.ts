@@ -94,6 +94,7 @@ export type StoreOrder = {
 };
 
 export type InboxItem = {
+  locale?: string;
   id: string;
   createdAt: string;
   name: string;

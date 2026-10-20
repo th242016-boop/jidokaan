@@ -324,58 +324,7 @@ export async function updateOrder(
   return next;
 }
 
-export async function listInbox(token: string): Promise<InboxItem[]> {
-  await assertSession(token);
-  await ensureOrderTables();
-  const sql = await db();
-  const rows = await sql.query<{ data: unknown }>(
-    "select data from store_inbox order by created_at desc limit 200",
-  );
-  return rows.map((r) => asJson<InboxItem>(r.data)).filter((o) => o?.id);
-}
-
-export async function addInbox(input: {
-  name: string;
-  email: string;
-  message: string;
-  trap?: string;
-}) {
-  if (input.trap) return { ok: true };
-  if (!input.message.trim()) throw new Error("BAD_INBOX");
-  await ensureOrderTables();
-  const item: InboxItem = {
-    id: `IN-${Date.now().toString(36).toUpperCase()}`,
-    createdAt: new Date().toISOString(),
-    name: String(input.name).slice(0, 80),
-    email: String(input.email).slice(0, 200),
-    message: String(input.message).slice(0, 2000),
-    status: "new",
-  };
-  const sql = await db();
-  await sql.query("insert into store_inbox (id, data, status) values ($1, $2::jsonb, $3)", [
-    item.id,
-    JSON.stringify(item),
-    item.status,
-  ]);
-  return { ok: true, item };
-}
-
-export async function updateInbox(token: string, id: string, status: "new" | "done") {
-  await assertSession(token);
-  await ensureOrderTables();
-  const sql = await db();
-  const rows = await sql.query<{ data: unknown }>("select data from store_inbox where id = $1", [
-    id,
-  ]);
-  if (!rows[0]) throw new Error("NOT_FOUND");
-  const item = { ...asJson<InboxItem>(rows[0].data), status };
-  await sql.query("update store_inbox set data = $2::jsonb, status = $3 where id = $1", [
-    id,
-    JSON.stringify(item),
-    status,
-  ]);
-  return item;
-}
+export { addInbox, listInbox, updateInbox } from "./inbox.server";
 
 export async function listReviews(token?: string, productId?: string): Promise<StoreReview[]> {
   await ensureOrderTables();

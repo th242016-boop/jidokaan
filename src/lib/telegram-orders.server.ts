@@ -214,6 +214,17 @@ export async function testOrderNotification(token: string) {
   return { ok: true };
 }
 
+/** Reuse the existing recipient without changing pairing or order delivery. */
+export async function sendConnectedTelegram(chatId: string, botId: string, text: string, url: string) {
+  const current = await settings();
+  if (!current.enabled || current.chat_id !== chatId || current.bot_id !== botId) {
+    throw new TelegramError("RECIPIENT_CHANGED");
+  }
+  const bot = await verifyBot();
+  if (String(bot.id) !== botId) throw new TelegramError("WRONG_BOT");
+  return sendText(chatId, text, url);
+}
+
 /** Durable discovery: orders remain the source of truth, including across restarts.
  * No Telegram call or notification-table write runs inside checkout/payment.
  */

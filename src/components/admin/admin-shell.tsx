@@ -47,7 +47,7 @@ const GROUPS: NavGroup[] = [
     title: "판매관리",
     items: [
       { id: "orders", label: "주문조회" },
-      { id: "notifications", label: "주문 알림" },
+      { id: "notifications", label: "주문·문의 알림" },
       { id: "shipstatus", label: "배송현황관리" },
       { id: "claims", label: "취소·반품·교환" },
       { id: "delay", label: "발송지연" },

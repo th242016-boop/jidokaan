@@ -46,6 +46,7 @@ const searchSchema = z.object({
   p: z.string().optional().catch(undefined),
   edit: z.string().optional().catch(undefined),
   order: z.string().max(80).optional().catch(undefined),
+  inquiry: z.string().max(80).optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/admin")({
@@ -415,7 +416,7 @@ function AdminPage() {
       {!editing && page === "claims" ? <ClaimsBoard token={token} /> : null}
       {!editing && page === "delay" ? <DelayBoard token={token} /> : null}
       {!editing && page === "settle" ? <SettleBoard token={token} /> : null}
-      {!editing && page === "inbox" ? <InboxBoard token={token} /> : null}
+      {!editing && page === "inbox" ? <InboxBoard token={token} initialInquiry={search.inquiry} /> : null}
       {!editing && page === "reviews" ? <ReviewBoard token={token} /> : null}
       {!editing && page === "sales" ? <SalesBoard token={token} /> : null}
       {!editing && page === "analytics" ? <AnalyticsBoard token={token} /> : null}

@@ -99,7 +99,7 @@ export function OrderNotifications({ token }: { token: string }) {
     <div className="space-y-5">
       <section className="rounded-lg border border-[#e3e6ea] bg-white p-5 sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-bold">텔레그램 주문 알림</h2>
+          <h2 className="text-lg font-bold">텔레그램 주문·문의 알림</h2>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-sm">
             {status
               ? status.connected && status.configured
@@ -111,8 +111,8 @@ export function OrderNotifications({ token }: { token: string }) {
           </span>
         </div>
         <p className="mt-3 text-sm leading-7 text-slate-600">
-          지도칸 사이트에 직접 접수된 새 주문을 알려드립니다. 결제 완료와 입금 대기를 구분하며,
-          알림의 버튼을 누르면 관리자 로그인 후 확정 디자인과 주문 상세를 볼 수 있습니다.
+          지도칸 사이트에 직접 접수된 새 주문과 새 문의·추가 문의를 알려드립니다. 결제 완료와 입금 대기를 구분하며,
+          알림의 버튼을 누르면 관리자 로그인 후 해당 주문 또는 문의를 확인할 수 있습니다.
         </p>
         <dl className="mt-5 grid grid-cols-[90px_1fr] gap-2 text-sm">
           <dt className="text-slate-500">알림 봇</dt>
@@ -190,7 +190,8 @@ export function OrderNotifications({ token }: { token: string }) {
         </p>
       </section>
       <section className="rounded-lg border border-[#e3e6ea] bg-white p-5 sm:p-7">
-        <h3 className="font-bold">최근 알림 내역</h3>
+        <h3 className="font-bold">최근 주문 알림 내역</h3>
+        <p className="mt-2 text-sm text-slate-500">문의 알림 내역은 문의관리 화면에서 확인할 수 있습니다.</p>
         {!status?.recent.length ? (
           <p className="mt-4 text-sm text-slate-500">아직 주문 알림 내역이 없습니다.</p>
         ) : (
