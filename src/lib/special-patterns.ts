@@ -52,18 +52,30 @@ export const WHITE_SNAKE_SWATCH_FILTER = "grayscale(1) contrast(0.15) brightness
 export const whiteSnakeSurface = (r: number, g: number, b: number) =>
   Math.min(255, 208.08 + 0.288 * (0.2126 * r + 0.7152 * g + 0.0722 * b));
 
+// Apply metal light in linear RGB, not by adding display-encoded gray/white.
+// This keeps the rose/copper reflection colored and preserves highlight detail.
+const LINEAR_RGB = Array.from({ length: 256 }, (_, value) => {
+  const srgb = value / 255;
+  return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+});
+const displayRGB = (value: number) => {
+  const linear = Math.max(0, Math.min(1, value));
+  return Math.round(255 * (linear <= 0.0031308 ? linear * 12.92 : 1.055 * linear ** (1 / 2.4) - 0.055));
+};
+
 /** Map a flat material into the existing native silhouette, including lace holes.
  * RED provides the mask and diffuse dark details. Its neutral patent reflections
  * are not copied directly. Leather finishes use shared neutral microtexture and
  * independent base colors, with broad low-intensity light for surface curvature.
  */
-export function renderPatternPixels(source: ImageData, material: ImageData, name: SpecialPatternName, softReflection?: ImageData, fineDetail?: ImageData, part: PartId = "b"): ImageData {
+export function renderPatternPixels(source: ImageData, material: ImageData, name: SpecialPatternName, softReflection?: ImageData, fineDetail?: ImageData, part: PartId = "b", metalReflection?: ImageData): ImageData {
   const { width, height, data: src } = source;
   const out = new ImageData(width, height);
   const finish = finishFor(name);
   const snake = snakeMaterialFor(name);
   const metallic = isMetallicPattern(name);
-  const metallicSheen = name === "BRONZE" ? [36, 29, 16] : [26, 21, 20];
+  const bronze = name === "BRONZE";
+  const metallicSheen = (bronze ? [255, 211, 143] : [255, 222, 212]).map(value => LINEAR_RGB[value]);
   // Recolor before mapping; swatches use this identical pixel transfer.
   const surface = snake ? recolorSnakePixels(material, snake.name) : material;
   const tile = TILE_SIZE[name] ?? (finish?.kind === "suede" ? 420 : 600);
@@ -71,7 +83,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   // Neutral maps carry surface character only. Normalizing their average avoids
   // baking a black/gray photograph into all colors, especially white and yellow.
   let materialMean = 0;
-  if (finish) {
+  if (finish || metallic) {
     for (let t = 0; t < material.data.length; t += 4) materialMean +=
       (material.data[t] + material.data[t + 1] + material.data[t + 2]) / 3;
     materialMean = Math.max(1, materialMean / (material.width * material.height));
@@ -152,19 +164,39 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       continue;
     }
     if (metallic) {
-      // The separate colored maps carry bronze foil creases or fine rose-gold
-      // grain. Only broad photographed lighting supplies panel curvature; do
-      // not recolor patent red or copy its hard white highlight silhouettes.
+      // GOLD supplies photographed metal reflections following the real panel
+      // curvature. Use one calibration for every part, without copying its hue,
+      // grain or silhouette. This is photographic relighting, not a 3D BRDF.
       const broadRed = softReflection?.data[i] ?? src[i];
-      const shape = 0.76 + 0.24 * Math.pow(Math.min(1.03, broadRed / 220), 0.9);
       const darkDetail = 0.32 + 0.68 * Math.pow(Math.min(1, src[i] / 155), 0.9);
-      const light = softReflection
-        ? Math.pow(Math.min(1, Math.min(softReflection.data[i + 1], softReflection.data[i + 2]) / 180), 1.1)
+      const redLight = softReflection
+        ? Math.min(1, Math.min(softReflection.data[i + 1], softReflection.data[i + 2]) / 180)
         : 0;
-      // Colored, restrained highlights preserve the warm metal character. The
-      // source maps retain their local relief rather than becoming flat RGB.
-      for (let c = 0; c < 3; c++) out.data[i + c] = Math.min(255, Math.round(
-        material.data[t + c] * shape * darkDetail + metallicSheen[c] * light));
+      const fallback = Math.min(1, 0.44 * broadRed / 220 + 0.38 * redLight);
+      // Blurred Canvas RGB is unpremultiplied. Fade to the RED fallback only
+      // where the GOLD reference has insufficient coverage, never to black.
+      const confidence = metalReflection ? Math.min(1, metalReflection.data[i + 3] / 96) : 0;
+      const goldLight = metalReflection
+        ? (0.2126 * metalReflection.data[i] + 0.7152 * metalReflection.data[i + 1] + 0.0722 * metalReflection.data[i + 2]) / 255
+        : fallback;
+      const light = Math.max(0, Math.min(1, (goldLight * confidence + fallback * (1 - confidence) - 0.14) / 0.72));
+      const shape = 0.22 + 1.18 * light ** 1.3;
+      const grain = ((material.data[t] + material.data[t + 1] + material.data[t + 2]) / 3) / materialMean;
+      // Crumpled bronze catches the light on its existing bright creases; the
+      // smoother pink gold gets a broader, gentler lobe with fine grain intact.
+      const relief = bronze ? Math.max(0.35, Math.min(1.4, 0.65 + 0.45 * (grain - 1))) : Math.max(0.9, Math.min(1.1, 1 + 0.08 * (grain - 1)));
+      const reflection = (bronze ? 0.50 * light ** 2.2 : 0.24 * light ** 2) * relief;
+      const detail = darkDetail ** 2;
+      const r = (LINEAR_RGB[material.data[t]] * shape + metallicSheen[0] * reflection) * detail;
+      const g = (LINEAR_RGB[material.data[t + 1]] * shape + metallicSheen[1] * reflection) * detail;
+      const b = (LINEAR_RGB[material.data[t + 2]] * shape + metallicSheen[2] * reflection) * detail;
+      // Roll off bright reflections together, so pink/red does not clip first
+      // and lose grain or shift hue. Midtones and shadows remain untouched.
+      const peak = Math.max(r, g, b), excess = Math.max(0, peak - 0.85);
+      const highlightScale = excess ? (0.85 + 0.15 * excess / (0.15 + excess)) / peak : 1;
+      out.data[i] = displayRGB(r * highlightScale);
+      out.data[i + 1] = displayRGB(g * highlightScale);
+      out.data[i + 2] = displayRGB(b * highlightScale);
       out.data[i + 3] = alpha;
       continue;
     }
@@ -208,7 +240,7 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
   const cached = cache.get(key);
   if (cached) return cached;
   const pending = (async () => {
-    const source = new Image(), material = new Image();
+    const source = new Image(), material = new Image(), metal = new Image();
     const sourceCanvas = document.createElement("canvas"), materialCanvas = document.createElement("canvas");
     try {
       source.src = url; material.src = texture;
@@ -223,8 +255,25 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
       const sourcePixels = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
       let softReflection: ImageData | undefined;
       let fineDetail: ImageData | undefined;
+      let metalReflection: ImageData | undefined;
       const finish = finishFor(name);
       const metallic = isMetallicPattern(name);
+      if (metallic) {
+        const metalUrl = photoLayerFor(part, "GOLD", { model });
+        if (metalUrl) {
+          metal.src = metalUrl;
+          // A missing optional light map must not hide an otherwise available
+          // material. RED remains the fallback and the sole alpha authority.
+          const decoded = await metal.decode().then(() => true, () => false);
+          if (decoded && metal.naturalWidth === source.naturalWidth && metal.naturalHeight === source.naturalHeight) {
+            ctx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
+            ctx.filter = `blur(${name === "BRONZE" ? 6 : 10}px)`;
+            ctx.drawImage(metal, 0, 0);
+            ctx.filter = "none";
+            metalReflection = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+          }
+        }
+      }
       if (finish) {
         ctx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
         ctx.filter = "blur(2px)";
@@ -240,14 +289,14 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
         softReflection = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
       }
       const result = renderPatternPixels(sourcePixels,
-        textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection, fineDetail, part);
+        textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection, fineDetail, part, metalReflection);
       await applyMaterialStitches(result, sourcePixels, model, part,
         name === "FLOWER B" || snakeMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || metallic
           ? "dense" : name === "FLOWER C" ? "regular" : undefined);
       ctx.putImageData(result, 0, 0);
       return sourceCanvas.toDataURL("image/png");
     } finally {
-      source.src = ""; material.src = "";
+      source.src = ""; material.src = ""; metal.src = "";
       sourceCanvas.width = sourceCanvas.height = materialCanvas.width = materialCanvas.height = 0;
     }
   })().catch(error => { cache!.delete(key); throw error; });
