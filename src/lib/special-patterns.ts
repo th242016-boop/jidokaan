@@ -2,12 +2,15 @@ import { partsForModel, photoLayerFor, type BootModel, type PartId } from "./sim
 import { SPECIAL_FINISHES, finishFor } from "./special-finishes";
 import { applyMaterialStitches } from "./material-stitches";
 import { SNAKE_MATERIALS, recolorSnakePixels, snakeMaterialFor } from "./snake-materials";
+import { LIZARD_MATERIALS, lizardMaterialFor, recolorLizardPixels } from "./lizard-materials";
 
 export const SPECIAL_PATTERNS = [
   { name: "FLOWER B", label: "FLOWER B" },
   { name: "FLOWER C", label: "FLOWER C" },
-  { name: "BLACK SNAKE", label: "BLACK SNAKE" },
-  { name: "WHITE SNAKE", label: "WHITE SNAKE" },
+  // Keep the established internal IDs and approved rendering for these two.
+  { name: "BLACK SNAKE", label: "BLACK LIZARD" },
+  { name: "WHITE SNAKE", label: "WHITE LIZARD" },
+  ...LIZARD_MATERIALS,
   ...SNAKE_MATERIALS,
   { name: "SILVER WEAVE", label: "SILVER WEAVE" },
   { name: "MICRO HOUNDSTOOTH", label: "MICRO HOUNDSTOOTH" },
@@ -71,6 +74,7 @@ export function surfaceLightProfile(name: SpecialPatternName) {
   if (finish?.kind === "suede") return { blur: 36, floor: 0.20, peak: 1.18, sheen: 0.002 };
   if (name === "BLACK SNAKE") return { blur: 14, floor: 0.20, peak: 1.18, sheen: 0.055 };
   if (name === "WHITE SNAKE") return { blur: 16, floor: 0.52, peak: 1.22, sheen: 0.025 };
+  if (lizardMaterialFor(name)) return { blur: 14, floor: 0.24, peak: 1.18, sheen: 0.035 };
   if (snakeMaterialFor(name)) return { blur: 16, floor: 0.24, peak: 1.14, sheen: 0.035 };
   if (name === "FLOWER B") return { blur: 22, floor: 0.28, peak: 1.14, sheen: 0.028 };
   if (name === "FLOWER C") return { blur: 26, floor: 0.30, peak: 1.10, sheen: 0.012 };
@@ -89,13 +93,15 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   const out = new ImageData(width, height);
   const finish = finishFor(name);
   const snake = snakeMaterialFor(name);
+  const lizard = lizardMaterialFor(name);
   const metallic = isMetallicPattern(name);
   const lightProfile = surfaceLightProfile(name);
   const bronze = name === "BRONZE";
   const metallicSheen = (bronze ? [255, 211, 143] : [255, 222, 212]).map(value => LINEAR_RGB[value]);
   // Recolor before mapping; swatches use this identical pixel transfer.
-  const surface = snake ? recolorSnakePixels(material, snake.name) : material;
-  const tile = TILE_SIZE[name] ?? (finish?.kind === "suede" ? 420 : 600);
+  const surface = snake ? recolorSnakePixels(material, snake.name)
+    : lizard ? recolorLizardPixels(material, lizard.name) : material;
+  const tile = TILE_SIZE[name] ?? (lizard || finish?.kind === "suede" ? 420 : 600);
   const [cutU, cutV] = finish ? [0, 0] : PANEL_CUT_OFFSETS[part] ?? [0, 0];
   // Neutral maps carry surface character only. Normalizing their average avoids
   // baking a black/gray photograph into all colors, especially white and yellow.
@@ -263,7 +269,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       out.data[i + 3] = alpha;
       continue;
     }
-    if (snake || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH") {
+    if (snake || lizard || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH") {
       // The neutral reference carries scale/thread relief and printed markings.
       // Broad shape light gives curvature without copying sharp patent bands.
       const broadRed = softReflection?.data[i] ?? src[i];

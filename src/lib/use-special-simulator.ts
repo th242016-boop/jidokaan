@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ADMIN_SESSION_EVENT, readAdminToken } from "./admin-session";
 import { type BootModel, type PartColorNames, type PartId } from "./simulator-config";
-import { selectSpecial, specialOverrides, specialSolidOverrides, meshSelection, laceSelection, beadSelection, selectMesh, selectLaces, selectBeads, type SpecialAssets, type SpecialDraft } from "./simulator-special";
+import { createWhiteSpecialDraft, selectSpecial, specialOverrides, specialSolidOverrides, meshSelection, laceSelection, beadSelection, selectMesh, selectLaces, selectBeads, type SpecialAssets, type SpecialDraft } from "./simulator-special";
 import type { MeshColor, LaceColor } from "./mesh-laces";
 import type { BeadSelection } from "./bead-material";
 import { useMeshLaces } from "./use-mesh-laces";
@@ -99,6 +99,9 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
     patternsReady: patterns.ready, patternsFailed: patterns.failed,
     previewReady: split.ready && (!needsSolids || solids.ready) && (!needsPatterns || patterns.ready),
     toggle: () => { setEnabled(value => !value); },
+    // Replace the draft even during loading. The asset response keeps an existing
+    // draft, so a delayed response cannot restore the choices just cleared.
+    reset: () => { setDrafts(prev => ({ ...prev, [model]: createWhiteSpecialDraft(model) })); },
     names: draft?.names ?? baseNames,
     swatch: currentAssets?.swatch,
     flowers: draft?.flowers ?? {},

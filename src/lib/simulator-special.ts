@@ -1,4 +1,4 @@
-import { linkedLColor, type BootModel, type PartColorNames, type PartId } from "./simulator-config";
+import { defaultPartNames, linkedLColor, type BootModel, type PartColorNames, type PartId } from "./simulator-config";
 import { MESH_COLORS, LACE_COLORS, type MeshColor, type LaceColor } from "./mesh-laces";
 import { isSpecialSolid, specialSolidPartsFor, type SpecialSolid, type SpecialSolidLayers } from "./special-solids";
 import { isSpecialPattern, patternPartsFor, type SpecialPatternName, type SpecialPatternAssets } from "./special-patterns";
@@ -10,6 +10,13 @@ export const flowerPartsFor = (model: BootModel): PartId[] =>
 
 export type SpecialAssets = { swatch: string; layers: Partial<Record<PartId, string>>; patterns?: SpecialPatternAssets };
 export type SpecialDraft = { names: PartColorNames; flowers: Partial<Record<PartId, boolean>>; solids?: Partial<Record<PartId, SpecialSolid>>; patterns?: Partial<Record<PartId, SpecialPatternName>>; mesh?: MeshColor; laces?: LaceColor; beads?: BeadSelection };
+
+export function createWhiteSpecialDraft(model: BootModel): SpecialDraft {
+  return {
+    names: { ...defaultPartNames(), ...(model === "mid" ? { model: "mid" as const } : {}) },
+    flowers: {}, solids: {}, patterns: {}, mesh: "WHITE", laces: "WHITE", beads: "NONE",
+  };
+}
 
 export const meshSelection = (draft?: SpecialDraft): MeshColor => draft?.mesh ?? (draft?.names.a === "BLACK" ? "BLACK" : "WHITE");
 export const laceSelection = (draft?: SpecialDraft): LaceColor => draft?.laces ?? (draft?.names.a === "BLACK" ? "BLACK" : "WHITE");

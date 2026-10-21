@@ -4,6 +4,7 @@ import { flowerPartsFor } from "./simulator-special";
 import { SPECIAL_PATTERNS, isMetallicPattern, type SpecialPatternAssets } from "./special-patterns";
 import { finishFor } from "./special-finishes";
 import { snakeMaterialFor } from "./snake-materials";
+import { isLizardPattern } from "./lizard-materials";
 
 // Encrypted source assets are safe to keep in the public repository. Only the server
 // has the key; nothing here belongs in public/ or in a client-side import.
@@ -30,7 +31,7 @@ function patternAssets(): SpecialPatternAssets {
   try {
     const decoded = new Map<string, { texture: string; swatch: string }>();
     patterns = Object.fromEntries(SPECIAL_PATTERNS.filter(({ name }) => !isMetallicPattern(name)).map(({ name }) => {
-      const file = finishFor(name)?.assetKey ?? (snakeMaterialFor(name) ? "natural-snake" : name === "WHITE SNAKE" ? "black-snake" : name.toLowerCase().replaceAll(" ", "-"));
+      const file = finishFor(name)?.assetKey ?? (snakeMaterialFor(name) ? "natural-snake" : isLizardPattern(name) ? "black-snake" : name.toLowerCase().replaceAll(" ", "-"));
       if (!decoded.has(file)) decoded.set(file, {
           texture: image(`material-${file}`, "SIMULATOR_SPECIAL_PATTERN_KEY", "image/jpeg"),
           swatch: image(`material-${file}-swatch`, "SIMULATOR_SPECIAL_PATTERN_KEY", "image/jpeg"),
@@ -42,7 +43,7 @@ function patternAssets(): SpecialPatternAssets {
     return {};
   }
   // New metallic maps have their own key. Missing/invalid new assets must not
-  // disable the established 36 materials, or the other valid metallic option.
+  // disable the established materials, or the other valid metallic option.
   if (process.env.SIMULATOR_SPECIAL_METALLIC_KEY) {
     for (const { name } of SPECIAL_PATTERNS.filter(({ name }) => isMetallicPattern(name))) {
       const file = name.toLowerCase().replaceAll(" ", "-");

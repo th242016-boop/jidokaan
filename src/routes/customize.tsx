@@ -3,12 +3,13 @@ import { FLOWER_A } from "@/lib/simulator-special";
 import { SPECIAL_SOLID_COLORS, isSpecialSolid, specialSolidPartsFor } from "@/lib/special-solids";
 import { SPECIAL_PATTERNS, patternPartsFor, WHITE_SNAKE_SWATCH_FILTER } from "@/lib/special-patterns";
 import { loadSnakeSwatches, snakeMaterialFor, type SnakeSwatches } from "@/lib/snake-materials";
+import { loadLizardSwatches, lizardMaterialFor, type LizardSwatches } from "@/lib/lizard-materials";
 import { finishFor } from "@/lib/special-finishes";
 import { BEAD_COLORS, beadColorHex, beadSwatchDataUrl, type BeadSelection } from "@/lib/bead-material";
 import { MESH_COLORS, LACE_COLORS, LACE_TINTS, type MeshColor } from "@/lib/mesh-laces";
 import { captureDesign } from "@/lib/design-order";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Check, ShoppingBag, X } from "lucide-react";
+import { ArrowLeft, Check, RotateCcw, ShoppingBag, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { LocaleSync } from "@/components/locale-sync";
@@ -61,6 +62,7 @@ function CustomizePage() {
   const size = useStore((s) => s.draftSize);
   const fit = useStore((s) => s.draftFit);
   const setPartColor = useStore((s) => s.setPartColor);
+  const resetDraftColors = useStore((s) => s.resetDraftColors);
   const setDraftSize = useStore((s) => s.setDraftSize);
   const setDraftFit = useStore((s) => s.setDraftFit);
   const addCustomBoot = useStore((s) => s.addCustomBoot);
@@ -75,6 +77,7 @@ function CustomizePage() {
   const model = modelOf(draftPartNames);
   const special = useSpecialSimulator(model, draftPartNames);
   const [snakeSwatches, setSnakeSwatches] = useState<{ assets: typeof special.patternAssets; images: SnakeSwatches } | null>(null);
+  const [lizardSwatches, setLizardSwatches] = useState<{ assets: typeof special.patternAssets; images: LizardSwatches } | null>(null);
   const beadSwatches = useMemo(() => special.enabled && model === "high"
     ? Object.fromEntries(BEAD_COLORS.map(color => [color, beadSwatchDataUrl(color)])) : {}, [special.enabled, model]);
   const colorNames = special.names;
@@ -89,6 +92,16 @@ function CustomizePage() {
     void loadSnakeSwatches(assets).then(images => {
       if (!cancelled) setSnakeSwatches({ assets, images });
     }).catch(() => { if (!cancelled) setSnakeSwatches(null); });
+    return () => { cancelled = true; };
+  }, [special.enabled, special.patternAssets]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const assets = special.patternAssets;
+    if (!special.enabled || !assets["RED LIZARD"]) { setLizardSwatches(null); return; }
+    void loadLizardSwatches(assets).then(images => {
+      if (!cancelled) setLizardSwatches({ assets, images });
+    }).catch(() => { if (!cancelled) setLizardSwatches(null); });
     return () => { cancelled = true; };
   }, [special.enabled, special.patternAssets]);
 
@@ -134,6 +147,13 @@ function CustomizePage() {
     setConfirming(false);
   }
 
+  function handleReset() {
+    if (special.enabled) special.reset();
+    else resetDraftColors();
+    setShowKrOrder(false);
+    toast.success(dict.custom.resetToast);
+  }
+
   return (
     <div className="flex h-[calc(100dvh-var(--grok-banner-h,0px))] flex-col overflow-hidden bg-white font-[Helvetica_Neue,Helvetica,Arial,sans-serif] text-black md:flex-row">
       <LocaleSync requestedLocale={lang} />
@@ -172,44 +192,56 @@ function CustomizePage() {
               </h1>
               <p className="mt-0.5 mb-0 text-[11px] font-medium text-[#999]">Custom Studio</p>
             </div>
-            <div
-              className="flex items-center gap-1 rounded-lg border border-[#ddd] p-1"
-              role="group"
-              aria-label="모델 선택"
-            >
-              {(["high", "mid", "low"] as const).map((value) => (
-                <button
-                  type="button"
-                  key={value}
-                  disabled={value === "low"}
-                  aria-pressed={model === value}
-                  onClick={() => {
-                    if (value === "low") return;
-                    setDraftModel(value);
-                    setShowGuide(false);
-                    setShowKrOrder(false);
-                  }}
-                  className={cn(
-                    "min-h-9 rounded-md px-3 text-sm font-bold",
-                    model === value ? "bg-black text-white" : "text-black hover:bg-neutral-100",
-                    value === "low" && "cursor-default text-neutral-400 hover:bg-transparent",
-                  )}
-                >
-                  {locale === "ko"
-                    ? { high: "장목", mid: "중목", low: "단목 · 준비중" }[value]
-                    : locale === "ja"
-                      ? { high: "ハイ", mid: "ミドル", low: "ロー · 準備中" }[value]
-                      : { high: "High-cut", mid: "Mid-cut", low: "Low-cut · Soon" }[value]}
-                </button>
-              ))}
-              {special.available && (
-                <button
-                  type="button"
-                  aria-pressed={special.enabled}
-                  onClick={() => { special.toggle(); setShowKrOrder(false); }}
-                  className={cn("min-h-9 rounded-md px-3 text-sm font-bold", special.enabled ? "bg-black text-white" : "text-black hover:bg-neutral-100")}
-                >스페셜</button>
-              )}
+            <div className="flex flex-col items-end gap-2">
+              <div
+                className="flex items-center gap-1 rounded-lg border border-[#ddd] p-1"
+                role="group"
+                aria-label="모델 선택"
+              >
+                {(["high", "mid", "low"] as const).map((value) => (
+                  <button
+                    type="button"
+                    key={value}
+                    disabled={value === "low"}
+                    aria-pressed={model === value}
+                    onClick={() => {
+                      if (value === "low") return;
+                      setDraftModel(value);
+                      setShowGuide(false);
+                      setShowKrOrder(false);
+                    }}
+                    className={cn(
+                      "min-h-9 rounded-md px-3 text-sm font-bold",
+                      model === value ? "bg-black text-white" : "text-black hover:bg-neutral-100",
+                      value === "low" && "cursor-default text-neutral-400 hover:bg-transparent",
+                    )}
+                  >
+                    {locale === "ko"
+                      ? { high: "장목", mid: "중목", low: "단목 · 준비중" }[value]
+                      : locale === "ja"
+                        ? { high: "ハイ", mid: "ミドル", low: "ロー · 準備中" }[value]
+                        : { high: "High-cut", mid: "Mid-cut", low: "Low-cut · Soon" }[value]}
+                  </button>
+                ))}
+                {special.available && (
+                  <button
+                    type="button"
+                    aria-pressed={special.enabled}
+                    onClick={() => { special.toggle(); setShowKrOrder(false); }}
+                    className={cn("min-h-9 rounded-md px-3 text-sm font-bold", special.enabled ? "bg-black text-white" : "text-black hover:bg-neutral-100")}
+                  >스페셜</button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={savingSpecial}
+                title={locale === "ko" ? "현재 모델을 올화이트로 초기화" : dict.custom.resetToast}
+                className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-neutral-300 px-3 text-xs font-bold text-neutral-700 hover:bg-neutral-100 disabled:opacity-50"
+              >
+                <RotateCcw className="size-3.5" aria-hidden="true" />
+                {dict.custom.reset}
+              </button>
             </div>
           </div>
           {special.enabled && special.solidsFailed && <p role="alert" className="mt-2 text-xs text-red-700">GRAY 이미지를 불러오지 못했습니다. 스페셜을 다시 눌러주세요.</p>}
@@ -308,18 +340,21 @@ function CustomizePage() {
                         const finish = finishFor(pattern.name);
                         const whiteSnake = pattern.name === "WHITE SNAKE";
                         const snake = snakeMaterialFor(pattern.name);
-                        const swatch = snake
+                        const lizard = lizardMaterialFor(pattern.name);
+                        const swatch = lizard
+                          ? lizardSwatches?.assets === special.patternAssets ? lizardSwatches.images[lizard.name] : undefined
+                          : snake
                           ? snakeSwatches?.assets === special.patternAssets ? snakeSwatches.images[snake.name] : undefined
                           : asset.swatch;
                         return (
                           <button
                             key={pattern.name}
                             type="button"
-                            title={pattern.name}
+                            title={pattern.label}
                             aria-pressed={active}
                             onClick={() => special.select(part.id, pattern.name)}
                             className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", active ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
-                            style={{ backgroundColor: whiteSnake ? "#eeeae5" : finish?.color ?? snake?.color, backgroundImage: finish || whiteSnake || !swatch ? undefined : `url(${swatch})`, backgroundSize: "cover", backgroundPosition: "center", isolation: "isolate" }}
+                            style={{ backgroundColor: whiteSnake ? "#eeeae5" : finish?.color ?? lizard?.color ?? snake?.color, backgroundImage: finish || whiteSnake || !swatch ? undefined : `url(${swatch})`, backgroundSize: "cover", backgroundPosition: "center", isolation: "isolate" }}
                           >
                             {(finish || whiteSnake) && <span aria-hidden="true" className="pointer-events-none absolute inset-0" style={{
                               backgroundImage: `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center",

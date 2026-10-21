@@ -65,6 +65,7 @@ type StoreState = {
   setPartColor: (part: PartId, color: string, name: string) => void;
   setDraftSize: (size: string) => void;
   setDraftFit: (fit: SizeFit) => void;
+  resetDraftColors: () => void;
   resetDraft: () => void;
   addToCart: (
     productId: string,
@@ -183,6 +184,20 @@ export const useStore = create<StoreState>()(
         }),
       setDraftSize: (draftSize) => set({ draftSize }),
       setDraftFit: (draftFit) => set({ draftFit }),
+      resetDraftColors: () =>
+        set((s) => {
+          const model = modelOf(s.draftPartNames);
+          const parts = defaultPartColors();
+          const names: PartColorNames = {
+            ...defaultPartNames(),
+            ...(model === "mid" ? { model: "mid" as const } : {}),
+          };
+          return {
+            draftParts: parts,
+            draftPartNames: names,
+            modelDrafts: { ...s.modelDrafts, [model]: { parts, names } },
+          };
+        }),
       resetDraft: () =>
         set({
           draftParts: defaultPartColors(),
