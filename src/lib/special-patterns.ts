@@ -113,6 +113,19 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       const stitch = 1 + Math.max(-80, Math.min(35, src[i] - fineRed)) / 255 * (specular < 25 ? 1.2 : 0.15);
       const coverage = (softReflection?.data[i + 3] ?? 255) / 255;
       const volume = (0.78 + 0.22 * Math.pow(coverage, 0.7)) * (0.90 + 0.10 * light);
+      if (name === "MATTE WHITE" || name === "WHITE SUEDE") {
+        // White needs a brighter diffuse response: merely changing its RGB to
+        // 255 still leaves it gray after the old shape/volume multiplications.
+        // Lift broad shadows only; retain native dark seams, fine stitches and
+        // short nap, without restoring any of the sharp patent reflections.
+        const whiteLight = 0.965 * Math.pow(Math.min(1, shape * volume), 0.22);
+        const whiteSurface = 1 + (surface - 1) * (matte ? 1 : 0.55);
+        const value = Math.max(0, Math.min(255, Math.round(
+          255 * whiteLight * darkDetail * whiteSurface * stitch + light * (matte ? 3 : 1))));
+        out.data[i] = out.data[i + 1] = out.data[i + 2] = value;
+        out.data[i + 3] = alpha;
+        continue;
+      }
       for (let c = 0; c < 3; c++) out.data[i + c] = Math.max(0, Math.min(255,
         Math.round(finish.rgb[c] * shape * darkDetail * surface * stitch * volume + reflection)));
       out.data[i + 3] = alpha;

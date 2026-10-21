@@ -211,12 +211,12 @@ try {
     }
   });
   await check("new materials are model-safe, mutually exclusive, and never ordinary order colors", async () => {
-    const requestedColors = ["RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE", "KHAKI", "PINK", "WHITE", "BLACK"];
+    const requestedColors = ["RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE", "KHAKI", "PINK", "WHITE", "GRAY", "BLACK"];
     const requestedFinishes = [...requestedColors.map(color => `MATTE ${color}`), ...requestedColors.map(color => `${color} SUEDE`)];
     assert.deepEqual(finishes.SPECIAL_FINISHES.map(finish => finish.name), requestedFinishes);
     const requestedSnakes = ["NATURAL SNAKE", "HOT PINK SNAKE", "ORANGE SNAKE", "SKY BLUE SNAKE", "GREEN SNAKE", "YELLOW SNAKE"];
     assert.deepEqual(snakes.SNAKE_MATERIALS.map(snake => snake.name), requestedSnakes);
-    assert.equal(patterns.SPECIAL_PATTERNS.length, 34);
+    assert.equal(patterns.SPECIAL_PATTERNS.length, 36);
     assert.deepEqual(new Set(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name)), new Set(["FLOWER B", "FLOWER C", "BLACK SNAKE", "WHITE SNAKE", ...requestedSnakes, "SILVER WEAVE", "MICRO HOUNDSTOOTH", ...requestedFinishes]));
     for (const model of ["high", "mid"]) {
       const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };

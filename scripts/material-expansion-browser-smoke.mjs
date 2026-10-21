@@ -9,7 +9,7 @@ assert.ok(["127.0.0.1", "localhost"].includes(new URL(base).hostname));
 const assets = JSON.parse(await readFile(process.env.PATTERN_TEST_ASSETS_JSON, "utf8"));
 const output = process.env.PATTERN_TEST_OUTPUT || "/tmp/jidokaan-material-expansion/qa";
 await mkdir(output, { recursive: true });
-const colors = ["RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE", "KHAKI", "PINK", "WHITE", "BLACK"];
+const colors = ["RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE", "KHAKI", "PINK", "WHITE", "GRAY", "BLACK"];
 const finishes = [...colors.map(c => `MATTE ${c}`), ...colors.map(c => `${c} SUEDE`)];
 const beads = ["GOLD", "SILVER", "RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE"];
 const partsFor = model => (model === "high" ? "bcdefghij" : "bcdefhij").split("");
@@ -134,8 +134,8 @@ try {
     }
     for (const part of parts) {
       const names = await group(part).locator("button[title]").evaluateAll(bs => bs.map(b => b.title));
-      assert.deepEqual(names.filter(n => n.startsWith("MATTE ")), finishes.slice(0, 11));
-      assert.deepEqual(names.filter(n => n.endsWith(" SUEDE")), finishes.slice(11));
+      assert.deepEqual(names.filter(n => n.startsWith("MATTE ")), finishes.slice(0, colors.length));
+      assert.deepEqual(names.filter(n => n.endsWith(" SUEDE")), finishes.slice(colors.length));
     }
     await exportImage(`${model}-aqua-through-capture`);
     for (const part of parts) await select(part, "BLACK");
@@ -155,7 +155,7 @@ try {
     report.palette.push({ model, parts: parts.length, finishCount: finishes.length, whiteSnakeCount: parts.length });
     await select("b", model === "high" ? "MATTE KHAKI" : "PINK SUEDE");
     await select("c", model === "high" ? "PURPLE SUEDE" : "MATTE NAVY");
-    console.log(`PASS ${model}: AQUA persistence/capture, 22 finish options on each leather part, all B color renders, all-part matte/suede/white-snake alpha and exports`);
+    console.log(`PASS ${model}: AQUA persistence/capture, 24 finish options on each leather part, all B color renders, all-part matte/suede/white-snake alpha and exports`);
   }
 
   await page.getByRole("button", { name: "장목", exact: true }).click(); await ready();
