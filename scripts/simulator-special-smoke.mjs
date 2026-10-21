@@ -62,8 +62,10 @@ try {
         const body = await res.json();
         assert.deepEqual(Object.keys(body.layers), special.flowerPartsFor(model));
         if (process.env.SIMULATOR_SPECIAL_PATTERN_KEY) {
-          assert.deepEqual(Object.keys(body.patterns).sort(), patterns.SPECIAL_PATTERNS.map(pattern => pattern.name).sort());
-          for (const pattern of patterns.SPECIAL_PATTERNS) {
+          const expectedPatterns = patterns.SPECIAL_PATTERNS.filter(pattern =>
+            !patterns.isMetallicPattern(pattern.name) || process.env.SIMULATOR_SPECIAL_METALLIC_KEY);
+          assert.deepEqual(Object.keys(body.patterns).sort(), expectedPatterns.map(pattern => pattern.name).sort());
+          for (const pattern of expectedPatterns) {
             assert.match(body.patterns[pattern.name].texture, /^data:image\/(png|jpeg|webp);base64,/);
             assert.match(body.patterns[pattern.name].swatch, /^data:image\/(png|jpeg|webp);base64,/);
           }
@@ -216,8 +218,8 @@ try {
     assert.deepEqual(finishes.SPECIAL_FINISHES.map(finish => finish.name), requestedFinishes);
     const requestedSnakes = ["NATURAL SNAKE", "HOT PINK SNAKE", "ORANGE SNAKE", "SKY BLUE SNAKE", "GREEN SNAKE", "YELLOW SNAKE"];
     assert.deepEqual(snakes.SNAKE_MATERIALS.map(snake => snake.name), requestedSnakes);
-    assert.equal(patterns.SPECIAL_PATTERNS.length, 36);
-    assert.deepEqual(new Set(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name)), new Set(["FLOWER B", "FLOWER C", "BLACK SNAKE", "WHITE SNAKE", ...requestedSnakes, "SILVER WEAVE", "MICRO HOUNDSTOOTH", ...requestedFinishes]));
+    assert.equal(patterns.SPECIAL_PATTERNS.length, 38);
+    assert.deepEqual(new Set(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name)), new Set(["FLOWER B", "FLOWER C", "BLACK SNAKE", "WHITE SNAKE", ...requestedSnakes, "SILVER WEAVE", "MICRO HOUNDSTOOTH", "BRONZE", "PINK GOLD", ...requestedFinishes]));
     for (const model of ["high", "mid"]) {
       const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
       const original = structuredClone(initial);

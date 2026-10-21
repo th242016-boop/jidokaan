@@ -1,7 +1,7 @@
 import { createDecipheriv } from "node:crypto";
 import { assertSession, AUTH_HEADERS } from "./admin-auth.server";
 import { flowerPartsFor } from "./simulator-special";
-import { SPECIAL_PATTERNS, type SpecialPatternAssets } from "./special-patterns";
+import { SPECIAL_PATTERNS, isMetallicPattern, type SpecialPatternAssets } from "./special-patterns";
 import { finishFor } from "./special-finishes";
 import { snakeMaterialFor } from "./snake-materials";
 
@@ -26,9 +26,10 @@ function image(name: string, keyName = "SIMULATOR_SPECIAL_ASSET_KEY", mime = "im
 function patternAssets(): SpecialPatternAssets {
   // A missing new material key must not disable the existing FLOWER A studio.
   if (!process.env.SIMULATOR_SPECIAL_PATTERN_KEY) return {};
+  let patterns: SpecialPatternAssets;
   try {
     const decoded = new Map<string, { texture: string; swatch: string }>();
-    return Object.fromEntries(SPECIAL_PATTERNS.map(({ name }) => {
+    patterns = Object.fromEntries(SPECIAL_PATTERNS.filter(({ name }) => !isMetallicPattern(name)).map(({ name }) => {
       const file = finishFor(name)?.assetKey ?? (snakeMaterialFor(name) ? "natural-snake" : name === "WHITE SNAKE" ? "black-snake" : name.toLowerCase().replaceAll(" ", "-"));
       if (!decoded.has(file)) decoded.set(file, {
           texture: image(`material-${file}`, "SIMULATOR_SPECIAL_PATTERN_KEY", "image/jpeg"),
@@ -40,6 +41,22 @@ function patternAssets(): SpecialPatternAssets {
     console.error("Special pattern assets unavailable");
     return {};
   }
+  // New metallic maps have their own key. Missing/invalid new assets must not
+  // disable the established 36 materials, or the other valid metallic option.
+  if (process.env.SIMULATOR_SPECIAL_METALLIC_KEY) {
+    for (const { name } of SPECIAL_PATTERNS.filter(({ name }) => isMetallicPattern(name))) {
+      const file = name.toLowerCase().replaceAll(" ", "-");
+      try {
+        patterns[name] = {
+          texture: image(`material-${file}`, "SIMULATOR_SPECIAL_METALLIC_KEY", "image/jpeg"),
+          swatch: image(`material-${file}-swatch`, "SIMULATOR_SPECIAL_METALLIC_KEY", "image/jpeg"),
+        };
+      } catch {
+        console.error(`Special metallic asset unavailable: ${name}`);
+      }
+    }
+  }
+  return patterns;
 }
 
 export async function handleSpecialRequest(request: Request) {
