@@ -8,7 +8,7 @@ export const FLOWER_A = "FLOWER A";
 export const flowerPartsFor = (model: BootModel): PartId[] =>
   model === "mid" ? ["b", "c", "d", "i", "j"] : ["b", "c", "d", "e", "f", "g", "h", "i", "j"];
 
-export type SpecialAssets = { swatch: string; layers: Partial<Record<PartId, string>>; patterns?: SpecialPatternAssets };
+export type SpecialAssets = { audience?: "public" | "admin"; swatch?: string; layers: Partial<Record<PartId, string>>; patterns?: SpecialPatternAssets };
 export type SpecialDraft = { names: PartColorNames; flowers: Partial<Record<PartId, boolean>>; solids?: Partial<Record<PartId, SpecialSolid>>; patterns?: Partial<Record<PartId, SpecialPatternName>>; mesh?: MeshColor; laces?: LaceColor; beads?: BeadSelection };
 
 export function createWhiteSpecialDraft(model: BootModel): SpecialDraft {

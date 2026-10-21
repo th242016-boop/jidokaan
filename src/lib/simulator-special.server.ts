@@ -5,6 +5,9 @@ import { SPECIAL_PATTERNS, isMetallicPattern, type SpecialPatternAssets } from "
 import { finishFor } from "./special-finishes";
 import { snakeMaterialFor } from "./snake-materials";
 import { isLizardPattern } from "./lizard-materials";
+import { camouflageMaterialFor } from "./camouflage-materials";
+import { isPublicSpecialPattern, type SimulatorAudience } from "./simulator-catalog";
+import { compactPatternAssets } from "./pattern-asset-wire";
 
 // Encrypted source assets are safe to keep in the public repository. Only the server
 // has the key; nothing here belongs in public/ or in a client-side import.
@@ -24,38 +27,42 @@ function image(name: string, keyName = "SIMULATOR_SPECIAL_ASSET_KEY", mime = "im
   return `data:${mime};base64,${png.toString("base64")}`;
 }
 
-function patternAssets(): SpecialPatternAssets {
-  // A missing new material key must not disable the existing FLOWER A studio.
+function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
+  // Enforce publication before reading/decrypting assets. New names are private
+  // by default, including camouflage; public callers cannot request them by ID.
+  const visiblePatterns = SPECIAL_PATTERNS.filter(({ name }) => audience === "admin" || isPublicSpecialPattern(name));
   if (!process.env.SIMULATOR_SPECIAL_PATTERN_KEY) return {};
-  let patterns: SpecialPatternAssets;
-  try {
-    const decoded = new Map<string, { texture: string; swatch: string }>();
-    patterns = Object.fromEntries(SPECIAL_PATTERNS.filter(({ name }) => !isMetallicPattern(name)).map(({ name }) => {
-      const file = finishFor(name)?.assetKey ?? (snakeMaterialFor(name) ? "natural-snake" : isLizardPattern(name) ? "black-snake" : name.toLowerCase().replaceAll(" ", "-"));
-      if (!decoded.has(file)) decoded.set(file, {
-          texture: image(`material-${file}`, "SIMULATOR_SPECIAL_PATTERN_KEY", "image/jpeg"),
-          swatch: image(`material-${file}-swatch`, "SIMULATOR_SPECIAL_PATTERN_KEY", "image/jpeg"),
-        });
-      return [name, decoded.get(file)!];
-    }));
-  } catch {
-    console.error("Special pattern assets unavailable");
-    return {};
-  }
-  // New metallic maps have their own key. Missing/invalid new assets must not
-  // disable the established materials, or the other valid metallic option.
-  if (process.env.SIMULATOR_SPECIAL_METALLIC_KEY) {
-    for (const { name } of SPECIAL_PATTERNS.filter(({ name }) => isMetallicPattern(name))) {
-      const file = name.toLowerCase().replaceAll(" ", "-");
-      try {
-        patterns[name] = {
-          texture: image(`material-${file}`, "SIMULATOR_SPECIAL_METALLIC_KEY", "image/jpeg"),
-          swatch: image(`material-${file}-swatch`, "SIMULATOR_SPECIAL_METALLIC_KEY", "image/jpeg"),
-        };
-      } catch {
-        console.error(`Special metallic asset unavailable: ${name}`);
+  const patterns: SpecialPatternAssets = {};
+  const decoded = new Map<string, { texture: string; swatch: string }>();
+  const referenceKey = "SIMULATOR_REFERENCE_MATERIALS_20261021_KEY";
+  const pair = (file: string, key: string) => {
+    const id = `${key}:${file}`;
+    if (!decoded.has(id)) decoded.set(id, {
+      texture: image(`material-${file}`, key, "image/jpeg"),
+      swatch: image(`material-${file}-swatch`, key, "image/jpeg"),
+    });
+    return decoded.get(id)!;
+  };
+  for (const { name } of visiblePatterns) {
+    const camouflage = camouflageMaterialFor(name);
+    const revised = isLizardPattern(name) ? "reference-lizard" : name === "SILVER WEAVE" ? "reference-silver-weave" : undefined;
+    if (camouflage || revised) {
+      if (process.env[referenceKey]) {
+        try {
+          patterns[name] = pair(camouflage?.assetKey ?? revised!, referenceKey);
+          continue;
+        } catch { console.error(`Reference material unavailable: ${name}`); }
       }
+      // New private previews have no substitute. Established materials retain
+      // their prior source if the independent reference key is not available.
+      if (camouflage) continue;
     }
+    const metallic = isMetallicPattern(name);
+    const key = metallic ? "SIMULATOR_SPECIAL_METALLIC_KEY" : "SIMULATOR_SPECIAL_PATTERN_KEY";
+    if (!process.env[key]) continue;
+    const file = finishFor(name)?.assetKey ?? (snakeMaterialFor(name) ? "natural-snake" : isLizardPattern(name) ? "black-snake" : name.toLowerCase().replaceAll(" ", "-"));
+    try { patterns[name] = pair(file, key); }
+    catch { console.error(`Special material unavailable: ${name}`); }
   }
   return patterns;
 }
@@ -63,20 +70,31 @@ function patternAssets(): SpecialPatternAssets {
 export async function handleSpecialRequest(request: Request) {
   const json = (data: unknown, status = 200) => Response.json(data, { status, headers: AUTH_HEADERS });
   if (request.method !== "POST") return json({ error: "AUTH" }, 401);
-  let body: { token?: unknown; action?: unknown; model?: unknown };
+  let body: { token?: unknown; action?: unknown; model?: unknown; audience?: unknown; compact?: unknown };
   try { body = await request.json(); } catch { return json({ error: "BAD_REQUEST" }, 400); }
   if (!body || typeof body !== "object") return json({ error: "BAD_REQUEST" }, 400);
-  try { await assertSession(typeof body.token === "string" ? body.token : ""); }
-  catch { return json({ error: "AUTH" }, 401); }
-  if (body.action === "ping") return json({ ok: true });
+  // Anonymous access is an explicit released-catalog operation. The original
+  // admin request remains protected, including a caller with an invalid token.
+  const audience: SimulatorAudience = body.audience === "public" ? "public" : "admin";
+  if (audience === "admin") {
+    try { await assertSession(typeof body.token === "string" ? body.token : ""); }
+    catch { return json({ error: "AUTH" }, 401); }
+  }
+  if (body.action === "ping") return json({ ok: true, audience });
   if (body.action !== "assets" || (body.model !== "high" && body.model !== "mid")) {
     return json({ error: "BAD_REQUEST" }, 400);
   }
   try {
+    // Never decode or send FLOWER A in a public response. Filtering occurs
+    // before texture decoding, not merely in the browser's option buttons.
+    const patterns = patternAssets(audience);
     return json({
-      swatch: image("swatch"),
-      layers: Object.fromEntries(flowerPartsFor(body.model).map(part => [part, image(part)])),
-      patterns: patternAssets(),
+      audience,
+      ...(audience === "admin" ? {
+        swatch: image("swatch"),
+        layers: Object.fromEntries(flowerPartsFor(body.model).map(part => [part, image(part)])),
+      } : { layers: {} }),
+      ...(body.compact === true ? compactPatternAssets(patterns) : { patterns }),
     });
   } catch { return json({ error: "SPECIAL_UNAVAILABLE" }, 503); }
 }

@@ -1,7 +1,8 @@
 import { useSpecialSimulator } from "@/lib/use-special-simulator";
 import { FLOWER_A } from "@/lib/simulator-special";
+import { isPublicSpecialPattern } from "@/lib/simulator-catalog";
 import { SPECIAL_SOLID_COLORS, isSpecialSolid, specialSolidPartsFor } from "@/lib/special-solids";
-import { SPECIAL_PATTERNS, patternPartsFor, WHITE_SNAKE_SWATCH_FILTER } from "@/lib/special-patterns";
+import { SPECIAL_PATTERNS, patternPartsFor } from "@/lib/special-patterns";
 import { loadSnakeSwatches, snakeMaterialFor, type SnakeSwatches } from "@/lib/snake-materials";
 import { loadLizardSwatches, lizardMaterialFor, type LizardSwatches } from "@/lib/lizard-materials";
 import { finishFor } from "@/lib/special-finishes";
@@ -125,7 +126,7 @@ function CustomizePage() {
   }, [size, sizes, setDraftSize]);
 
   async function saveSpecial() {
-    if (savingSpecial || special.busy || !special.swatch || !special.previewReady) return;
+    if (savingSpecial || special.busy || !special.assetsReady || !special.previewReady) return;
     setSavingSpecial(true);
     try {
       if (!(await special.validate())) return;
@@ -246,7 +247,7 @@ function CustomizePage() {
           </div>
           {special.enabled && special.solidsFailed && <p role="alert" className="mt-2 text-xs text-red-700">GRAY 이미지를 불러오지 못했습니다. 스페셜을 다시 눌러주세요.</p>}
           {special.enabled && special.patternsFailed && <p role="alert" className="mt-2 text-xs text-red-700">무늬 이미지를 불러오지 못했습니다. 스페셜을 다시 눌러주세요.</p>}
-          {special.enabled && <p role="status" className="mt-2 text-[11px] text-neutral-600">{special.busy ? "스페셜 소재 불러오는 중…" : "관리자 전용 · 스페셜 시안"}</p>}
+          {special.enabled && <p role="status" className="mt-2 text-[11px] text-neutral-600">{special.busy ? "스페셜 소재 불러오는 중…" : special.isAdmin ? "관리자 · 스페셜 시안" : "스페셜 소재 · 시안 저장"}</p>}
           <p className="mt-1.5 mb-0 hidden md:flex items-center text-[11px] font-semibold tracking-[0.5px] text-[#d0021b]">
             <span className="mr-1.5 text-sm">ⓘ</span>
             {dict.custom.guide2d}
@@ -284,7 +285,7 @@ function CustomizePage() {
                             key={`${part.id}-${opt.name}`}
                             type="button"
                             title={opt.name}
-                            disabled={special.enabled && (!special.swatch || (part.id === "a" && !special.meshReady) || (part.id !== "a" && isSpecialSolid(opt.name) && !special.solidsReady))}
+                            disabled={special.enabled && (!special.assetsReady || (part.id === "a" && !special.meshReady) || (part.id !== "a" && isSpecialSolid(opt.name) && !special.solidsReady))}
                             aria-pressed={active}
                             onClick={(e) => {
                               e.preventDefault();
@@ -319,7 +320,7 @@ function CustomizePage() {
                           </button>
                         );
                       })}
-                      {special.enabled && special.layers[part.id] && special.swatch && (
+                      {special.enabled && special.isAdmin && special.layers[part.id] && special.swatch && (
                         <button
                           type="button"
                           title={FLOWER_A}
@@ -335,10 +336,9 @@ function CustomizePage() {
                       )}
                       {special.enabled && patternPartsFor(model).includes(part.id) && SPECIAL_PATTERNS.map(pattern => {
                         const asset = special.patternAssets[pattern.name];
-                        if (!asset || !patternPartsFor(model, pattern.name).includes(part.id)) return null;
+                        if ((!special.isAdmin && !isPublicSpecialPattern(pattern.name)) || !asset || !patternPartsFor(model, pattern.name).includes(part.id)) return null;
                         const active = special.patterns[part.id] === pattern.name;
                         const finish = finishFor(pattern.name);
-                        const whiteSnake = pattern.name === "WHITE SNAKE";
                         const snake = snakeMaterialFor(pattern.name);
                         const lizard = lizardMaterialFor(pattern.name);
                         const swatch = lizard
@@ -354,11 +354,11 @@ function CustomizePage() {
                             aria-pressed={active}
                             onClick={() => special.select(part.id, pattern.name)}
                             className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", active ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
-                            style={{ backgroundColor: whiteSnake ? "#eeeae5" : finish?.color ?? lizard?.color ?? snake?.color, backgroundImage: finish || whiteSnake || !swatch ? undefined : `url(${swatch})`, backgroundSize: "cover", backgroundPosition: "center", isolation: "isolate" }}
+                            style={{ backgroundColor: finish?.color ?? lizard?.color ?? snake?.color, backgroundImage: finish || !swatch ? undefined : `url(${swatch})`, backgroundSize: "cover", backgroundPosition: "center", isolation: "isolate" }}
                           >
-                            {(finish || whiteSnake) && <span aria-hidden="true" className="pointer-events-none absolute inset-0" style={{
+                            {finish && <span aria-hidden="true" className="pointer-events-none absolute inset-0" style={{
                               backgroundImage: `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center",
-                              mixBlendMode: whiteSnake ? undefined : "multiply", filter: whiteSnake ? WHITE_SNAKE_SWATCH_FILTER : "brightness(1.4)", opacity: whiteSnake ? 1 : finish?.kind === "matte" ? 0.12 : 0.45,
+                              mixBlendMode: "multiply", filter: "brightness(1.4)", opacity: finish.kind === "matte" ? 0.12 : 0.45,
                             }} />}
                             <span className="absolute inset-0 flex items-center justify-center p-px text-center text-[6.5px] font-bold leading-[1.1] md:text-[8px]">
                               <span className="min-w-0 max-w-full break-words whitespace-normal rounded bg-white/85 px-0.5 py-0.5 text-black">{pattern.label}</span>
@@ -468,7 +468,7 @@ function CustomizePage() {
 
         <div className="shrink-0 border-t border-[#ddd] bg-white px-3 py-2 md:space-y-2 md:p-4">
           {special.enabled ? (
-            <Button type="button" className="h-11 w-full rounded-[6px] bg-black text-white hover:bg-neutral-800" disabled={savingSpecial || special.busy || !special.swatch || !special.previewReady} onClick={() => void saveSpecial()}>
+            <Button type="button" className="h-11 w-full rounded-[6px] bg-black text-white hover:bg-neutral-800" disabled={savingSpecial || special.busy || !special.assetsReady || !special.previewReady} onClick={() => void saveSpecial()}>
               {savingSpecial ? "저장 중…" : "스페셜 시안 저장"}
             </Button>
           ) : showKrOrder ? (

@@ -4,10 +4,12 @@ import { applyMaterialStitches } from "./material-stitches";
 import { SNAKE_MATERIALS, recolorSnakePixels, snakeMaterialFor } from "./snake-materials";
 import { LIZARD_MATERIALS, lizardMaterialFor, recolorLizardPixels } from "./lizard-materials";
 
+import { CAMOUFLAGE_MATERIALS, camouflageMaterialFor, CAMOUFLAGE_LIGHT_PROFILE } from "./camouflage-materials";
+
 export const SPECIAL_PATTERNS = [
   { name: "FLOWER B", label: "FLOWER B" },
   { name: "FLOWER C", label: "FLOWER C" },
-  // Keep the established internal IDs and approved rendering for these two.
+  // Keep established IDs for saved selections; all nine share raised relief.
   { name: "BLACK SNAKE", label: "BLACK LIZARD" },
   { name: "WHITE SNAKE", label: "WHITE LIZARD" },
   ...LIZARD_MATERIALS,
@@ -17,6 +19,7 @@ export const SPECIAL_PATTERNS = [
   { name: "BRONZE", label: "BRONZE" },
   { name: "PINK GOLD", label: "PINK GOLD" },
   ...SPECIAL_FINISHES,
+  ...CAMOUFLAGE_MATERIALS,
 ] as const;
 export type SpecialPatternName = typeof SPECIAL_PATTERNS[number]["name"];
 export type SpecialPatternAssets = Partial<Record<SpecialPatternName, { texture: string; swatch: string }>>;
@@ -32,7 +35,7 @@ export const patternPartsFor = (model: BootModel, _name?: SpecialPatternName): P
 // Approximate motif sizes in the 1424×1392 photograph. They are visual previews,
 // not a physical cutting layout; the references are finished shoes, not flat scans.
 const TILE_SIZE: Partial<Record<SpecialPatternName, number>> = {
-  "FLOWER B": 540, "FLOWER C": 650, "BLACK SNAKE": 420, "WHITE SNAKE": 420,
+  "FLOWER B": 540, "FLOWER C": 650, "BLACK SNAKE": 360, "WHITE SNAKE": 360,
   "NATURAL SNAKE": 520, "HOT PINK SNAKE": 520, "ORANGE SNAKE": 520,
   "SKY BLUE SNAKE": 520, "GREEN SNAKE": 520, "YELLOW SNAKE": 520,
   "SILVER WEAVE": 294, "MICRO HOUNDSTOOTH": 220,
@@ -47,13 +50,6 @@ const PANEL_CUT_OFFSETS: Partial<Record<PartId, readonly [number, number]>> = {
   e: [0.19, 0.83], f: [0.61, 0.43], g: [0.89, 0.71],
   h: [0.43, 0.17], i: [0.11, 0.53], j: [0.79, 0.97],
 };
-
-// Shared black scale topology is recolored monotonically: raised bright rims
-// remain bright and recessed cells remain darker. Never invert the relief.
-// The filter uses the same linear transfer for the protected source swatch.
-export const WHITE_SNAKE_SWATCH_FILTER = "grayscale(1) contrast(0.15) brightness(1.92)";
-export const whiteSnakeSurface = (r: number, g: number, b: number) =>
-  Math.min(255, 208.08 + 0.288 * (0.2126 * r + 0.7152 * g + 0.0722 * b));
 
 // Apply metal light in linear RGB, not by adding display-encoded gray/white.
 // This keeps the rose/copper reflection colored and preserves highlight detail.
@@ -72,13 +68,14 @@ export function surfaceLightProfile(name: SpecialPatternName) {
   const finish = finishFor(name);
   if (finish?.kind === "matte") return { blur: 26, floor: 0.18, peak: 1.22, sheen: 0.006 };
   if (finish?.kind === "suede") return { blur: 36, floor: 0.20, peak: 1.18, sheen: 0.002 };
-  if (name === "BLACK SNAKE") return { blur: 14, floor: 0.20, peak: 1.18, sheen: 0.055 };
-  if (name === "WHITE SNAKE") return { blur: 16, floor: 0.52, peak: 1.22, sheen: 0.025 };
-  if (lizardMaterialFor(name)) return { blur: 14, floor: 0.24, peak: 1.18, sheen: 0.035 };
+  if (name === "BLACK SNAKE") return { blur: 12, floor: 0.44, peak: 1.35, sheen: 0.045 };
+  if (name === "WHITE SNAKE") return { blur: 16, floor: 0.62, peak: 1.18, sheen: 0.025 };
+  if (lizardMaterialFor(name)) return { blur: 12, floor: 0.40, peak: 1.25, sheen: 0.035 };
+  if (camouflageMaterialFor(name)) return CAMOUFLAGE_LIGHT_PROFILE;
   if (snakeMaterialFor(name)) return { blur: 16, floor: 0.24, peak: 1.14, sheen: 0.035 };
   if (name === "FLOWER B") return { blur: 22, floor: 0.28, peak: 1.14, sheen: 0.028 };
   if (name === "FLOWER C") return { blur: 26, floor: 0.30, peak: 1.10, sheen: 0.012 };
-  if (name === "SILVER WEAVE") return { blur: 16, floor: 0.18, peak: 1.18, sheen: 0.075 };
+  if (name === "SILVER WEAVE") return { blur: 16, floor: 0.42, peak: 1.20, sheen: 0.045 };
   if (name === "MICRO HOUNDSTOOTH") return { blur: 26, floor: 0.30, peak: 1.10, sheen: 0.006 };
   return undefined; // The approved BRONZE/PINK GOLD response stays unchanged.
 }
@@ -101,7 +98,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   // Recolor before mapping; swatches use this identical pixel transfer.
   const surface = snake ? recolorSnakePixels(material, snake.name)
     : lizard ? recolorLizardPixels(material, lizard.name) : material;
-  const tile = TILE_SIZE[name] ?? (lizard || finish?.kind === "suede" ? 420 : 600);
+  const tile = TILE_SIZE[name] ?? camouflageMaterialFor(name)?.tileSize ?? (lizard ? 360 : finish?.kind === "suede" ? 420 : 600);
   const [cutU, cutV] = finish ? [0, 0] : PANEL_CUT_OFFSETS[part] ?? [0, 0];
   // Neutral maps carry surface character only. Normalizing their average avoids
   // baking a black/gray photograph into all colors, especially white and yellow.
@@ -155,11 +152,9 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
         const specular = fineDetail ? Math.min(fineDetail.data[i + 1], fineDetail.data[i + 2]) : 0;
         stitch = 1 + Math.max(-80, Math.min(35, src[i] - fineRed)) / 255 * (specular < 25 ? 1.2 : 0.15);
       }
-      const whiteSnake = name === "WHITE SNAKE"
-        ? Math.round(whiteSnakeSurface(material.data[t], material.data[t + 1], material.data[t + 2])) : undefined;
-      const r = finish?.rgb[0] ?? whiteSnake ?? surface.data[t];
-      const g = finish?.rgb[1] ?? whiteSnake ?? surface.data[t + 1];
-      const b = finish?.rgb[2] ?? whiteSnake ?? surface.data[t + 2];
+      const r = finish?.rgb[0] ?? surface.data[t];
+      const g = finish?.rgb[1] ?? surface.data[t + 1];
+      const b = finish?.rgb[2] ?? surface.data[t + 2];
       // Retain printed dark patches. Fine raised snake/foil grain catches more
       // light; the diffuse matte/suede families use almost no additive sheen.
       const relief = finish ? 1 : Math.max(0.3, Math.min(1.2, (r + g + b) / (3 * 150)));
@@ -220,7 +215,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       continue;
     }
     if (name === "WHITE SNAKE") {
-      const albedo = whiteSnakeSurface(material.data[t], material.data[t + 1], material.data[t + 2]);
+      const albedo = (surface.data[t] + surface.data[t + 1] + surface.data[t + 2]) / 3;
       const broadRed = softReflection?.data[i] ?? src[i];
       const shape = 0.72 + 0.28 * Math.pow(Math.min(1.03, broadRed / 220), 0.9);
       const darkDetail = 0.32 + 0.68 * Math.pow(Math.min(1, src[i] / 155), 0.9);
@@ -269,7 +264,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       out.data[i + 3] = alpha;
       continue;
     }
-    if (snake || lizard || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH") {
+    if (snake || lizard || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH") {
       // The neutral reference carries scale/thread relief and printed markings.
       // Broad shape light gives curvature without copying sharp patent bands.
       const broadRed = softReflection?.data[i] ?? src[i];
@@ -361,7 +356,7 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
       const result = renderPatternPixels(sourcePixels,
         textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection, fineDetail, part, metalReflection);
       await applyMaterialStitches(result, sourcePixels, model, part,
-        name === "FLOWER B" || snakeMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || metallic
+        name === "FLOWER B" || snakeMaterialFor(name) || lizardMaterialFor(name) || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || metallic
           ? "dense" : name === "FLOWER C" ? "regular" : undefined);
       ctx.putImageData(result, 0, 0);
       return sourceCanvas.toDataURL("image/png");
