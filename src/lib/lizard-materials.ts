@@ -21,16 +21,17 @@ const colorTables = new Map<LizardMaterialName, Uint8ClampedArray>();
 for (const material of LIZARD_MATERIALS) {
   const table = new Uint8ClampedArray(256 * 3);
   for (let luminance = 0; luminance < 256; luminance++) {
-    // The source is black leather (median luminance about 26). Lift its dyed
-    // fields while keeping dark grooves below bright rims, never inverting it.
-    // A smooth shoulder limits bright source glints without erasing the grain.
-    const relief = 0.52 + 0.58 * luminance / (luminance + 12);
-    const glint = 12 * Math.max(0, (luminance - 85) / 170) ** 1.3;
-    const values = material.rgb.map(value => value * relief + glint);
-    const peak = Math.max(...values);
-    const excess = Math.max(0, peak - 240);
-    const shoulder = excess ? (240 + 15 * excess / (15 + excess)) / peak : 1;
-    for (let c = 0; c < 3; c++) table[luminance * 3 + c] = Math.round(values[c] * shoulder);
+    // Preserve the approved black texture's exact scale relief. Its fields
+    // cluster near 26; the much brighter scale rims are neutral reflections,
+    // not more saturated dye. The previous shoulder flattened both together.
+    const dyedRelief = 0.12 + 0.88 * Math.min(1, luminance / 30) ** 0.8;
+    const rimReflection = (Math.max(0, luminance - 30) / 225) ** 0.9;
+    for (let c = 0; c < 3; c++) {
+      const dyed = material.rgb[c] * dyedRelief;
+      // Bounded neutral reflection keeps rims legible even on navy, without
+      // clipping saturated red/yellow or inventing a different scale pattern.
+      table[luminance * 3 + c] = Math.round(dyed + (255 - dyed) * rimReflection);
+    }
   }
   colorTables.set(material.name, table);
 }

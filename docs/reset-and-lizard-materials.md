@@ -27,3 +27,13 @@ Generated catalog: 45 choices, including nine lizards, six python-print snakes, 
 - All seven swatches matched the shared pixel transfer exactly when using the same CPU Canvas decode path as the renderer. Four missing-GOLD fallback cases passed.
 - Twenty-eight part/color UI selections (seven B/C pairs per model), three JPEG exports, ordinary and Special resets, model/mode draft isolation, size/fit/cart preservation, delayed-asset reset, and mobile placement passed. Browser errors: zero.
 - Browser checks used a local production build with mocked administrator responses. Texture fixtures came from the actual earlier material originals; re-encoded pattern JPEGs may differ in compression bytes from the protected production files. FLOWER A used a stand-in only to test selection clearing, not to claim a new visual comparison. Live authenticated administrator rendering was not tested.
+
+## Correction: colored lizard scale contrast
+
+The initial seven dyed variants passed geometry and legacy-output checks, but their color transfer compressed the source scale rims and recesses too severely. The visual review did not catch the weak pattern contrast; it was reported by the owner after deployment.
+
+The corrected transfer retains source-luminance variation below the dyed field and separates the brighter scale-rim reflection from the dye. This preserves neutral rim highlights on dark and saturated colors without clipping or changing the source texture, repeat, panel offsets, photograph-guided lighting or stitch restoration. Rendering and swatches use the same correction. Black/white lizard, other materials and reset behavior are unchanged.
+
+Focused verification compared the previous deployment (`0827b97`) with the correction: all seven colors on high B/C and mid E/H (28 renders), exact 1424×1392 dimensions and RED alpha, no outside pixels, eight byte-identical black/white reference renders, and seven matching swatches. Fine-detail contrast increased in all 28 cases. Before/after B panels and B/C/E stitch close-ups were inspected visually; this check supplements geometry checks rather than assuming that matching masks imply a visible pattern.
+
+The production build and type check passed. A focused local production-UI check selected NAVY LIZARD on high B/C/D/E and RED LIZARD on mid B/C/D/E, inspected the complete shoe views and saved both JPEG exports with no browser errors. Authenticated asset responses were mocked with the same original-texture fixtures as above.
