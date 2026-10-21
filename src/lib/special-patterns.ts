@@ -63,6 +63,22 @@ const displayRGB = (value: number) => {
   return Math.round(255 * (linear <= 0.0031308 ? linear * 12.92 : 1.055 * linear ** (1 / 2.4) - 0.055));
 };
 
+// Reuse the same photographed light direction with a response appropriate to
+// each surface. Matte/suede spread the light broadly instead of looking metallic.
+export function surfaceLightProfile(name: SpecialPatternName) {
+  const finish = finishFor(name);
+  if (finish?.kind === "matte") return { blur: 26, floor: 0.18, peak: 1.22, sheen: 0.006 };
+  if (finish?.kind === "suede") return { blur: 36, floor: 0.20, peak: 1.18, sheen: 0.002 };
+  if (name === "BLACK SNAKE") return { blur: 14, floor: 0.20, peak: 1.18, sheen: 0.055 };
+  if (name === "WHITE SNAKE") return { blur: 16, floor: 0.52, peak: 1.22, sheen: 0.025 };
+  if (snakeMaterialFor(name)) return { blur: 16, floor: 0.24, peak: 1.14, sheen: 0.035 };
+  if (name === "FLOWER B") return { blur: 22, floor: 0.28, peak: 1.14, sheen: 0.028 };
+  if (name === "FLOWER C") return { blur: 26, floor: 0.30, peak: 1.10, sheen: 0.012 };
+  if (name === "SILVER WEAVE") return { blur: 16, floor: 0.18, peak: 1.18, sheen: 0.075 };
+  if (name === "MICRO HOUNDSTOOTH") return { blur: 26, floor: 0.30, peak: 1.10, sheen: 0.006 };
+  return undefined; // The approved BRONZE/PINK GOLD response stays unchanged.
+}
+
 /** Map a flat material into the existing native silhouette, including lace holes.
  * RED provides the mask and diffuse dark details. Its neutral patent reflections
  * are not copied directly. Leather finishes use shared neutral microtexture and
@@ -74,6 +90,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   const finish = finishFor(name);
   const snake = snakeMaterialFor(name);
   const metallic = isMetallicPattern(name);
+  const lightProfile = surfaceLightProfile(name);
   const bronze = name === "BRONZE";
   const metallicSheen = (bronze ? [255, 211, 143] : [255, 222, 212]).map(value => LINEAR_RGB[value]);
   // Recolor before mapping; swatches use this identical pixel transfer.
@@ -108,6 +125,52 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
     // Red-channel darkness retains seam/stitch detail without reusing the broad
     // white enamel highlights. The texture's own grain/specular detail remains.
     const shade = 0.2 + 0.8 * Math.pow(Math.min(1.04, src[i] / 235), 0.8);
+    if (lightProfile && metalReflection) {
+      // The guide is neutral light only: no GOLD hue, grain or alpha is copied.
+      // One shared calibration preserves which faces point toward the light.
+      const broadRed = softReflection?.data[i] ?? src[i];
+      const redLight = softReflection ? Math.min(1, Math.min(softReflection.data[i + 1], softReflection.data[i + 2]) / 180) : 0;
+      const fallback = Math.min(1, 0.44 * broadRed / 220 + 0.38 * redLight);
+      const confidence = Math.min(1, metalReflection.data[i + 3] / 96);
+      const reference = (0.2126 * metalReflection.data[i] + 0.7152 * metalReflection.data[i + 1] + 0.0722 * metalReflection.data[i + 2]) / 255;
+      const light = Math.max(0, Math.min(1, (reference * confidence + fallback * (1 - confidence) - 0.14) / 0.72));
+      const whiteFinish = name === "MATTE WHITE" || name === "WHITE SUEDE";
+      const shape = whiteFinish ? 0.58 + 0.42 * light ** 0.65
+        : lightProfile.floor + (lightProfile.peak - lightProfile.floor) * light ** 0.9;
+      const darkDetail = 0.32 + 0.68 * Math.min(1, src[i] / 155) ** 0.9;
+      let grain = 1, stitch = 1;
+      if (finish) {
+        const luminance = (material.data[t] + material.data[t + 1] + material.data[t + 2]) / 3;
+        grain = 1 + (luminance / materialMean - 1) * (finish.kind === "matte" ? 0.12 : whiteFinish ? 0.65 * 0.55 : 0.65);
+        // Preserve the perceptual nap contrast when moving its multiplier from
+        // display RGB into linear light. Do not use stronger gloss to mimic nap.
+        if (finish.kind === "suede") grain *= grain;
+        const fineRed = fineDetail?.data[i] ?? src[i];
+        const specular = fineDetail ? Math.min(fineDetail.data[i + 1], fineDetail.data[i + 2]) : 0;
+        stitch = 1 + Math.max(-80, Math.min(35, src[i] - fineRed)) / 255 * (specular < 25 ? 1.2 : 0.15);
+      }
+      const whiteSnake = name === "WHITE SNAKE"
+        ? Math.round(whiteSnakeSurface(material.data[t], material.data[t + 1], material.data[t + 2])) : undefined;
+      const r = finish?.rgb[0] ?? whiteSnake ?? surface.data[t];
+      const g = finish?.rgb[1] ?? whiteSnake ?? surface.data[t + 1];
+      const b = finish?.rgb[2] ?? whiteSnake ?? surface.data[t + 2];
+      // Retain printed dark patches. Fine raised snake/foil grain catches more
+      // light; the diffuse matte/suede families use almost no additive sheen.
+      const relief = finish ? 1 : Math.max(0.3, Math.min(1.2, (r + g + b) / (3 * 150)));
+      const reflected = lightProfile.sheen * light ** 2 * relief;
+      const detail = (darkDetail * stitch) ** 2;
+      const diffuse = shape * grain;
+      const red = (LINEAR_RGB[r] * diffuse + reflected) * detail;
+      const green = (LINEAR_RGB[g] * diffuse + reflected) * detail;
+      const blue = (LINEAR_RGB[b] * diffuse + reflected) * detail;
+      const peak = Math.max(red, green, blue), excess = Math.max(0, peak - 0.92);
+      const highlightScale = excess ? (0.92 + 0.08 * excess / (0.08 + excess)) / peak : 1;
+      out.data[i] = displayRGB(red * highlightScale);
+      out.data[i + 1] = displayRGB(green * highlightScale);
+      out.data[i + 2] = displayRGB(blue * highlightScale);
+      out.data[i + 3] = alpha;
+      continue;
+    }
     if (finish) {
       const luminance = (material.data[t] + material.data[t + 1] + material.data[t + 2]) / 3;
       const matte = finish.kind === "matte";
@@ -258,7 +321,8 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
       let metalReflection: ImageData | undefined;
       const finish = finishFor(name);
       const metallic = isMetallicPattern(name);
-      if (metallic) {
+      const lightProfile = surfaceLightProfile(name);
+      if (metallic || lightProfile) {
         const metalUrl = photoLayerFor(part, "GOLD", { model });
         if (metalUrl) {
           metal.src = metalUrl;
@@ -267,7 +331,7 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
           const decoded = await metal.decode().then(() => true, () => false);
           if (decoded && metal.naturalWidth === source.naturalWidth && metal.naturalHeight === source.naturalHeight) {
             ctx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
-            ctx.filter = `blur(${name === "BRONZE" ? 6 : 10}px)`;
+            ctx.filter = `blur(${metallic ? (name === "BRONZE" ? 6 : 10) : lightProfile!.blur}px)`;
             ctx.drawImage(metal, 0, 0);
             ctx.filter = "none";
             metalReflection = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
@@ -281,7 +345,7 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
         ctx.filter = "none";
         fineDetail = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
       }
-      if (name === "BLACK SNAKE" || name === "WHITE SNAKE" || snakeMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || finish || metallic) {
+      if (lightProfile || metallic) {
         ctx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
         ctx.filter = `blur(${finish ? (finish.kind === "matte" ? 32 : 42) : name === "PINK GOLD" ? 26 : 18}px)`;
         ctx.drawImage(source, 0, 0);
