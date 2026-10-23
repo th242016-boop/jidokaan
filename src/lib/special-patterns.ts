@@ -49,7 +49,7 @@ export const patternPartsFor = (model: BootModel, _name?: SpecialPatternName): P
 // Approximate motif sizes in the 1424×1392 photograph. They are visual previews,
 // not a physical cutting layout; the references are finished shoes, not flat scans.
 const TILE_SIZE: Partial<Record<SpecialPatternName, number>> = {
-  "FLOWER B": 540, "FLOWER C": 650, "BLACK SNAKE": 820, "WHITE SNAKE": 360,
+  "FLOWER B": 540, "FLOWER C": 650,
   "NATURAL SNAKE": 520, "HOT PINK SNAKE": 520, "ORANGE SNAKE": 520,
   "SKY BLUE SNAKE": 520, "GREEN SNAKE": 520, "YELLOW SNAKE": 520,
   "SILVER WEAVE": 137, "MICRO HOUNDSTOOTH": 220,
@@ -82,9 +82,10 @@ export function surfaceLightProfile(name: SpecialPatternName) {
   const finish = finishFor(name);
   if (finish?.kind === "matte") return { blur: 26, floor: 0.18, peak: 1.22, sheen: 0.006 };
   if (finish?.kind === "suede") return { blur: 36, floor: 0.20, peak: 1.18, sheen: 0.002 };
-  if (name === "BLACK SNAKE") return { blur: 16, floor: 0.34, peak: 1.10, sheen: 0.16 };
-  if (name === "WHITE SNAKE") return { blur: 16, floor: 0.62, peak: 1.18, sheen: 0.025 };
-  if (lizardMaterialFor(name)) return { blur: 12, floor: 0.40, peak: 1.25, sheen: 0.035 };
+  // Every dye has the same scale-face reflection. White needs a brighter
+  // diffuse floor, but its recessed joints and highlight direction stay shared.
+  if (name === "WHITE SNAKE") return { blur: 16, floor: 0.62, peak: 1.10, sheen: 0.16 };
+  if (lizardMaterialFor(name)) return { blur: 16, floor: 0.34, peak: 1.10, sheen: 0.16 };
   if (camouflageMaterialFor(name)) return CAMOUFLAGE_LIGHT_PROFILE;
   if (snakeMaterialFor(name)) return { blur: 16, floor: 0.24, peak: 1.14, sheen: 0.035 };
   if (name === "FLOWER B") return { blur: 22, floor: 0.28, peak: 1.14, sheen: 0.028 };
@@ -112,7 +113,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   // Recolor before mapping; swatches use this identical pixel transfer.
   const surface = snake ? recolorSnakePixels(material, snake.name)
     : lizard ? recolorLizardPixels(material, lizard.name) : material;
-  const tile = TILE_SIZE[name] ?? camouflageMaterialFor(name)?.tileSize ?? (lizard ? 360 : finish?.kind === "suede" ? 420 : 600);
+  const tile = TILE_SIZE[name] ?? camouflageMaterialFor(name)?.tileSize ?? (lizard ? 820 : finish?.kind === "suede" ? 420 : 600);
   const [cutU, cutV] = finish ? [0, 0] : PANEL_CUT_OFFSETS[part] ?? [0, 0];
   // Neutral maps carry surface character only. Normalizing their average avoids
   // baking a black/gray photograph into all colors, especially white and yellow.
@@ -122,21 +123,21 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       (material.data[t] + material.data[t + 1] + material.data[t + 2]) / 3;
     materialMean = Math.max(1, materialMean / (material.width * material.height));
   }
-  // The weave photograph and black scale map already carry their intended
+  // The weave photograph and shared scale map already carry their intended
   // motif and light direction. Do not rotate those sources a second time.
-  const directionalSource = name === "SILVER WEAVE" || name === "BLACK SNAKE";
+  const directionalSource = name === "SILVER WEAVE" || Boolean(lizard);
   const radians = directionalSource ? 0 : -0.48, cos = Math.cos(radians), sin = Math.sin(radians);
   const mirror = (value: number, size: number) => {
     const doubled = size * 2;
     const mod = ((value % doubled) + doubled) % doubled;
     return Math.min(size - 1, mod < size ? mod : doubled - 1 - mod);
   };
-  // The weave must repeat without inventing diamonds. Black uses a wider atlas
+  // The weave must repeat without inventing diamonds. Lizards use a wider atlas
   // cut once per panel, so no scale is split or mirrored at a repetition seam.
   const repeat = (value: number, size: number) => ((value % size) + size) % size;
   const sample = name === "SILVER WEAVE" ? repeat : mirror;
-  let blackCut: { x: number; y: number; span: number } | undefined;
-  if (name === "BLACK SNAKE") {
+  let lizardCut: { x: number; y: number; span: number } | undefined;
+  if (lizard) {
     let minX = width, minY = height, maxX = 0, maxY = 0;
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
       if (!src[(y * width + x) * 4 + 3]) continue;
@@ -147,7 +148,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
     // source atlas, including sparse edge pixels and the narrow lace-hole strips.
     const extentX = maxX - minX + 37, extentY = maxY - minY + 25;
     const span = Math.max(tile, extentX, extentY);
-    blackCut = {
+    lizardCut = {
       x: minX - 700 - 18 - cutU * (span - extentX),
       y: minY - 700 - 12 - cutV * (span - extentY),
       span,
@@ -161,11 +162,11 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
     const dx = x - 700, dy = y - 700;
     const warpedX = cos * dx - sin * dy + 18 * Math.sin(dy / 230);
     const warpedY = sin * dx + cos * dy + 12 * Math.sin(dx / 190);
-    const u = blackCut ? (warpedX - blackCut.x) / blackCut.span : warpedX / tile + cutU;
-    const v = blackCut ? (warpedY - blackCut.y) / blackCut.span : warpedY / tile + cutV;
-    const tx = blackCut ? Math.max(0, Math.min(material.width - 1, Math.floor(u * material.width)))
+    const u = lizardCut ? (warpedX - lizardCut.x) / lizardCut.span : warpedX / tile + cutU;
+    const v = lizardCut ? (warpedY - lizardCut.y) / lizardCut.span : warpedY / tile + cutV;
+    const tx = lizardCut ? Math.max(0, Math.min(material.width - 1, Math.floor(u * material.width)))
       : sample(Math.floor(u * material.width), material.width);
-    const ty = blackCut ? Math.max(0, Math.min(material.height - 1, Math.floor(v * material.height)))
+    const ty = lizardCut ? Math.max(0, Math.min(material.height - 1, Math.floor(v * material.height)))
       : sample(Math.floor(v * material.height), material.height);
     const t = (ty * material.width + tx) * 4;
     // Red-channel darkness retains seam/stitch detail without reusing the broad
@@ -202,12 +203,16 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       // light; the diffuse matte/suede families use almost no additive sheen.
       const relief = finish ? 1 : Math.max(0.3, Math.min(1.2, (r + g + b) / (3 * 150)));
       let reflected = lightProfile.sheen * light ** 2 * relief;
-      if (name === "BLACK SNAKE") {
-        // Black leather still reflects the light source across the scale face.
-        // Do not multiply that reflection by its near-black diffuse color.
+      if (lizard) {
+        // All colors reflect the light source across the same scale faces.
+        // Use undyed relief, so white does not fill the dark joints with light
+        // and navy retains its reflection independently of its diffuse color.
         // A smooth joint gate keeps the recessed gaps dark; the original GOLD
         // photograph supplies the broad highlight location on the shoe.
-        const luminance = (r + g + b) / 3;
+        // Keep the deployed black calculation byte-identical. Its transfer is
+        // grayscale identity; the other dyes use that same source luminance.
+        const luminance = name === "BLACK SNAKE" ? (r + g + b) / 3
+          : Math.round(0.2126 * material.data[t] + 0.7152 * material.data[t + 1] + 0.0722 * material.data[t + 2]);
         const face = Math.max(0, Math.min(1, (luminance - 6) / 24));
         const faceGate = face * face * (3 - 2 * face);
         const plateResponse = 0.65 + 0.35 * Math.min(1, luminance / 75);
@@ -370,15 +375,15 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
         ? [crop[0] * material.naturalWidth, crop[1] * material.naturalHeight,
           crop[2] * material.naturalWidth, crop[3] * material.naturalHeight]
         : [0, 0, material.naturalWidth, material.naturalHeight];
-      // Match the black map's sampling resolution to its native projected tile.
+      // Match the shared lizard map to its native projected tile in every dye.
       // This suppresses subpixel grain aliasing without blurring panel edges.
-      const textureScale = name === "BLACK SNAKE" ? Math.min(1, TILE_SIZE[name]! / cropWidth) : 1;
+      const textureScale = lizardMaterialFor(name) ? Math.min(1, 820 / cropWidth) : 1;
       materialCanvas.width = Math.round(cropWidth * textureScale); materialCanvas.height = Math.round(cropHeight * textureScale);
       const ctx = sourceCanvas.getContext("2d", { willReadFrequently: true });
       const textureCtx = materialCanvas.getContext("2d", { willReadFrequently: true });
       if (!ctx || !textureCtx) throw new Error("PATTERN_CANVAS");
       ctx.drawImage(source, 0, 0);
-      if (name === "BLACK SNAKE") textureCtx.imageSmoothingQuality = "high";
+      if (lizardMaterialFor(name)) textureCtx.imageSmoothingQuality = "high";
       textureCtx.drawImage(material, cropX, cropY, cropWidth, cropHeight, 0, 0, materialCanvas.width, materialCanvas.height);
       const sourcePixels = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
       let softReflection: ImageData | undefined;

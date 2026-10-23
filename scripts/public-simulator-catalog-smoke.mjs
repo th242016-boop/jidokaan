@@ -49,6 +49,8 @@ const load = async name => {
 };
 const api = await load("simulator-special.server"), policy = await load("simulator-catalog");
 const patterns = await load("special-patterns"), codec = await load("pattern-asset-wire");
+const lizardNames = (await load("lizard-materials")).LIZARD_SURFACES.map(material => material.name);
+assert.equal(lizardNames.length, 9);
 const call = body => api.handleSpecialRequest(new Request("http://fixture/api/simulator-special", {
   method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
 }));
@@ -68,7 +70,7 @@ try {
     assert.equal(Buffer.from(black.texture.split(",")[1], "base64").toString(), "fixture:material-black-lizard-plates.enc");
     assert.equal(Buffer.from(black.swatch.split(",")[1], "base64").toString(), "fixture:material-black-lizard-plates-swatch.enc");
     assert.equal(black.sourceCrop, undefined);
-    assert.notEqual(black.texture, released.patterns["WHITE SNAKE"].texture);
+    for (const name of lizardNames) assert.deepEqual(released.patterns[name], black, `${name} must use the same elongated scale texture and swatch`);
     const weave = released.patterns["SILVER WEAVE"];
     assert.equal(Buffer.from(weave.texture.split(",")[1], "base64").toString(), "fixture:material-silver-weave-photo.enc");
     assert.equal(weave.swatch, weave.texture);
@@ -76,7 +78,7 @@ try {
     assert.equal(released.patternSources, undefined); assert.equal(released.patternRefs, undefined);
     const compact = await payload({ audience: "public", model, compact: true });
     assert.equal(compact.patterns, undefined);
-    assert.equal(compact.patternSources.length, 11);
+    assert.equal(compact.patternSources.length, 10);
     assert.equal(Object.keys(compact.patternRefs).length, 45);
     assertPublic({ ...compact, patterns: codec.expandPatternAssets(compact) });
     assert.deepEqual(codec.expandPatternAssets(compact), released.patterns);
@@ -90,9 +92,8 @@ try {
     assert.deepEqual(codec.expandPatternAssets(compactAdmin), admin.patterns);
     assert.deepEqual(compactAdmin.layers, admin.layers); assert.equal(compactAdmin.swatch, admin.swatch);
     const expanded = codec.expandPatternAssets(compactAdmin);
-    assert.notEqual(expanded["BLACK SNAKE"], expanded["WHITE SNAKE"], "black has an independent decoded source object");
-    for (const name of ["RED LIZARD", "ORANGE LIZARD", "YELLOW LIZARD", "GREEN LIZARD", "BLUE LIZARD", "NAVY LIZARD", "PURPLE LIZARD"])
-      assert.equal(expanded[name], expanded["WHITE SNAKE"], "the other eight lizard colors retain one shared source object");
+    for (const name of lizardNames)
+      assert.equal(expanded[name], expanded["BLACK SNAKE"], "all nine lizard colors share one decoded atlas object");
     assert.equal(expanded["MATTE RED"], expanded["MATTE BLACK"]);
     for (const name of policy.PUBLIC_SPECIAL_PATTERNS) assert.deepEqual(admin.patterns[name], released.patterns[name]);
     for (const name of ["GRAY CAMO", "WOODLAND CAMO"]) {
@@ -101,7 +102,7 @@ try {
   }
   const malformed = codec.expandPatternAssets({ patternSources: [{ texture: "source", swatch: "swatch" }], patternRefs: { "RED LIZARD": 0, "BLUE LIZARD": -1, "GREEN LIZARD": 10, "NAVY LIZARD": "0" } });
   assert.deepEqual(Object.keys(malformed), ["RED LIZARD"]);
-  console.log("PASS legacy/compact round-trip, 45 public references in 11 sources, black-only source, admin private catalog and invalid-reference rejection");
+  console.log("PASS legacy/compact round-trip, 45 public references in 10 sources, one shared lizard atlas, admin private catalog and invalid-reference rejection");
   const cropped = { "FLOWER B": { texture: "same", swatch: "same", sourceCrop: [0, 0, 0.5, 0.5] }, "FLOWER C": { texture: "same", swatch: "same", sourceCrop: [0.5, 0.5, 0.5, 0.5] } };
   assert.deepEqual(codec.expandPatternAssets(codec.compactPatternAssets(cropped)), cropped, "distinct source crops must not share an alias");
   delete process.env.SIMULATOR_SILVER_WEAVE_PHOTO_KEY;
@@ -111,6 +112,19 @@ try {
   process.env.SIMULATOR_SILVER_WEAVE_PHOTO_KEY = keys[4].toString("base64");
   console.log("PASS original-photo selection/crop, independent aliases and prior-source fallback");
   const preferredCatalog = (await payload({ audience: "public" })).patterns;
+  // The preferred atlas must not depend on the retired reference keys. In
+  // particular, colored lizards must not silently fall back while black works.
+  delete process.env.SIMULATOR_BLACK_LIZARD_20261023_KEY;
+  delete process.env.SIMULATOR_REFERENCE_MATERIALS_20261021_KEY;
+  for (const model of ["high", "mid"]) {
+    const independent = await payload({ audience: "public", model, compact: true });
+    const expanded = codec.expandPatternAssets(independent);
+    assertPublic({ ...independent, patterns: expanded });
+    for (const name of lizardNames) assert.deepEqual(expanded[name], preferredCatalog[name]);
+  }
+  process.env.SIMULATOR_BLACK_LIZARD_20261023_KEY = keys[5].toString("base64");
+  process.env.SIMULATOR_REFERENCE_MATERIALS_20261021_KEY = keys[3].toString("base64");
+  console.log("PASS preferred lizard family remains available without either older reference key");
   const expectPlatesFallback = async () => {
     const result = await payload({ audience: "public", compact: true });
     assert.equal(result.patternSources.length, 11);
@@ -119,8 +133,18 @@ try {
     assert.equal(Buffer.from(expanded["BLACK SNAKE"].texture.split(",")[1], "base64").toString(), "fixture:material-black-lizard-20261023.enc");
     assert.equal(Buffer.from(expanded["BLACK SNAKE"].swatch.split(",")[1], "base64").toString(), "fixture:material-black-lizard-20261023-swatch.enc");
     assert.notEqual(expanded["BLACK SNAKE"], expanded["WHITE SNAKE"]);
+    const white = expanded["WHITE SNAKE"];
+    assert.equal(Buffer.from(white.texture.split(",")[1], "base64").toString(), "fixture:material-reference-lizard.enc");
+    assert.equal(Buffer.from(white.swatch.split(",")[1], "base64").toString(), "fixture:material-reference-lizard-swatch.enc");
+    for (const name of lizardNames.filter(name => name !== "BLACK SNAKE"))
+      assert.equal(expanded[name], white, `${name} must retain its complete shared-reference fallback`);
     for (const name of policy.PUBLIC_SPECIAL_PATTERNS) {
-      if (name !== "BLACK SNAKE") assert.deepEqual(expanded[name], preferredCatalog[name], `${name} must not change with the shallow black scale source`);
+      if (!lizardNames.includes(name)) assert.deepEqual(expanded[name], preferredCatalog[name], `${name} must not change with the lizard atlas`);
+    }
+    for (const model of ["high", "mid"]) {
+      const admin = await payload({ audience: "admin", token: "fixture-admin", model, compact: true });
+      const adminPatterns = codec.expandPatternAssets(admin);
+      for (const name of lizardNames) assert.deepEqual(adminPatterns[name], expanded[name], `${name} fallback must be identical for admin and public`);
     }
   };
   delete process.env.SIMULATOR_BLACK_LIZARD_PLATES_KEY;
@@ -142,7 +166,7 @@ try {
     encrypted[filename] = ciphertext;
   }
   assert.deepEqual((await payload({ audience: "public" })).patterns, preferredCatalog);
-  console.log("PASS shallow black scale source preference and missing/invalid key or damaged pair fallback to the prior black source");
+  console.log("PASS all nine lizards prefer the elongated atlas; missing/invalid key and damaged pairs retain complete prior sources for public/admin and both models");
   // Exercise the existing fallback chain independently of the new preferred
   // source, so it cannot mask a regression in an older deployment's key setup.
   delete process.env.SIMULATOR_BLACK_LIZARD_PLATES_KEY;

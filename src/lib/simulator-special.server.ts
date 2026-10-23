@@ -46,18 +46,19 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
     return decoded.get(id)!;
   };
   for (const { name } of visiblePatterns) {
-    if (name === "BLACK SNAKE" && process.env[blackLizardPlatesKey]) {
+    if (isLizardPattern(name) && process.env[blackLizardPlatesKey]) {
       try {
-        // Prefer the shallow scale reference for black only. Preserve the
-        // prior independently keyed source as a complete-pair fallback.
+        // Every lizard color uses the same shallow, elongated scale atlas.
+        // Recoloring happens in the renderer; decode this complete pair once
+        // and retain the existing per-family fallback paths below.
         patterns[name] = pair("black-lizard-plates", blackLizardPlatesKey);
         continue;
-      } catch { console.error("Black LIZARD scale reference unavailable"); }
+      } catch { console.error(`LIZARD scale reference unavailable: ${name}`); }
     }
     if (name === "BLACK SNAKE" && process.env[blackLizardKey]) {
       try {
-        // The black-only reference has its own key/source. Other lizard colors
-        // keep the existing shared reference, including their saved IDs.
+        // Older deployments can fall back to the independent black source;
+        // the remaining lizard colors fall back to their prior shared source.
         patterns[name] = pair("black-lizard-20261023", blackLizardKey);
         continue;
       } catch { console.error("Black LIZARD reference unavailable"); }

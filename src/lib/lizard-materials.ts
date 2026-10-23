@@ -1,4 +1,4 @@
-// All nine lizard colorways use one raised-scale reference. The legacy black /
+// All nine lizard colorways use the same elongated-scale atlas. The legacy black /
 // white internal IDs remain compatible with saved selections; python is separate.
 export const LIZARD_MATERIALS = [
   { name: "RED LIZARD", label: "RED LIZARD", color: "#c51d2b", rgb: [197, 29, 43] },
@@ -27,10 +27,11 @@ const colorTables = new Map<LizardMaterialName, Uint8ClampedArray>();
 for (const material of LIZARD_SURFACES) {
   const table = new Uint8ClampedArray(256 * 3);
   for (let luminance = 0; luminance < 256; luminance++) {
-    // The shared raised-scale map carries both dark grooves and bright rims.
-    // Keep the full range rather than lifting all pixels to nearly one color.
-    const dyedRelief = 0.12 + 0.88 * Math.min(1, luminance / 32) ** 0.8;
-    const rimReflection = (Math.max(0, luminance - 22) / 233) ** 0.78;
+    // The atlas median is about 33, with plate faces extending through 80 and
+    // fine bright rims above that. Preserve face variation instead of flattening
+    // everything above 28/32 to white/full dye, as the former source required.
+    const dyedRelief = 0.15 + 0.85 * Math.min(1, luminance / 52) ** 0.65;
+    const rimReflection = 0.55 * (Math.max(0, luminance - 52) / 203) ** 0.9;
     for (let c = 0; c < 3; c++) {
       let value: number;
       if (material.name === "BLACK SNAKE") {
@@ -38,11 +39,11 @@ for (const material of LIZARD_SURFACES) {
         // Preserve its dark faces instead of lifting the entire skin to gray.
         value = luminance;
       } else if (material.name === "WHITE SNAKE") {
-        // White fields stay white, but the recessed scale boundaries retain
-        // contrast. The former 208 + .288L transfer erased almost all relief.
-        value = luminance <= 28
-          ? material.rgb[c] * (luminance / 28) ** 0.32
-          : material.rgb[c] + (255 - material.rgb[c]) * ((luminance - 28) / 227) ** 0.8;
+        // Bright white faces still need darker shallow grooves and visible rim
+        // detail. The renderer adds the shared broad light after this dye.
+        value = luminance <= 42
+          ? material.rgb[c] * (0.12 + 0.88 * (luminance / 42) ** 0.36)
+          : material.rgb[c] + (255 - material.rgb[c]) * ((luminance - 42) / 213) ** 0.8;
       } else {
         const dyed = material.rgb[c] * dyedRelief;
         value = dyed + (255 - dyed) * rimReflection;
