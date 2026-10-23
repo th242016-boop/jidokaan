@@ -10,18 +10,20 @@ import ts from "typescript";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const nativeRequire = createRequire(import.meta.url);
-const keyNames = ["SIMULATOR_SPECIAL_ASSET_KEY", "SIMULATOR_SPECIAL_PATTERN_KEY", "SIMULATOR_SPECIAL_METALLIC_KEY", "SIMULATOR_REFERENCE_MATERIALS_20261021_KEY", "SIMULATOR_SILVER_WEAVE_PHOTO_KEY", "SIMULATOR_BLACK_LIZARD_20261023_KEY"];
+const keyNames = ["SIMULATOR_SPECIAL_ASSET_KEY", "SIMULATOR_SPECIAL_PATTERN_KEY", "SIMULATOR_SPECIAL_METALLIC_KEY", "SIMULATOR_REFERENCE_MATERIALS_20261021_KEY", "SIMULATOR_SILVER_WEAVE_PHOTO_KEY", "SIMULATOR_BLACK_LIZARD_20261023_KEY", "SIMULATOR_BLACK_LIZARD_PLATES_KEY"];
 for (const name of keyNames) assert.equal(process.env[name], undefined, "Run in isolation without live keys");
 const keys = keyNames.map(() => randomBytes(32));
 const encrypted = {};
 const filenames = new Set(await readdir(resolve(root, "src/lib/special-assets")));
-for (const suffix of ["", "-swatch"])
-  assert.ok(filenames.has(`material-black-lizard-20261023${suffix}.enc`), "independent black texture and swatch must be bundled");
+for (const source of ["black-lizard-20261023", "black-lizard-plates"])
+  for (const suffix of ["", "-swatch"])
+    assert.ok(filenames.has(`material-${source}${suffix}.enc`), "independent black textures and swatches must be bundled");
 for (const name of ["reference-lizard", "reference-silver-weave", "gray-camo", "woodland-camo"])
   for (const suffix of ["", "-swatch"]) filenames.add(`material-${name}${suffix}.enc`);
 for (const filename of filenames) {
   if (!filename.endsWith(".enc")) continue;
-  const keyIndex = /^material-black-lizard-20261023(-swatch)?\.enc$/.test(filename) ? 5
+  const keyIndex = /^material-black-lizard-plates(-swatch)?\.enc$/.test(filename) ? 6
+    : /^material-black-lizard-20261023(-swatch)?\.enc$/.test(filename) ? 5
     : filename === "material-silver-weave-photo.enc" ? 4
     : /^material-(reference-lizard|reference-silver-weave|gray-camo|woodland-camo)(-swatch)?\.enc$/.test(filename) ? 3
     : /^material-(bronze|pink-gold)(-swatch)?\.enc$/.test(filename) ? 2 : filename.startsWith("material-") ? 1 : 0;
@@ -63,8 +65,8 @@ try {
   for (const model of ["high", "mid"]) {
     const released = await payload({ audience: "public", model }); assertPublic(released);
     const black = released.patterns["BLACK SNAKE"];
-    assert.equal(Buffer.from(black.texture.split(",")[1], "base64").toString(), "fixture:material-black-lizard-20261023.enc");
-    assert.equal(Buffer.from(black.swatch.split(",")[1], "base64").toString(), "fixture:material-black-lizard-20261023-swatch.enc");
+    assert.equal(Buffer.from(black.texture.split(",")[1], "base64").toString(), "fixture:material-black-lizard-plates.enc");
+    assert.equal(Buffer.from(black.swatch.split(",")[1], "base64").toString(), "fixture:material-black-lizard-plates-swatch.enc");
     assert.equal(black.sourceCrop, undefined);
     assert.notEqual(black.texture, released.patterns["WHITE SNAKE"].texture);
     const weave = released.patterns["SILVER WEAVE"];
@@ -108,6 +110,43 @@ try {
   assert.equal(Buffer.from(fallbackWeave.texture.split(",")[1], "base64").toString(), "fixture:material-reference-silver-weave.enc");
   process.env.SIMULATOR_SILVER_WEAVE_PHOTO_KEY = keys[4].toString("base64");
   console.log("PASS original-photo selection/crop, independent aliases and prior-source fallback");
+  const preferredCatalog = (await payload({ audience: "public" })).patterns;
+  const expectPlatesFallback = async () => {
+    const result = await payload({ audience: "public", compact: true });
+    assert.equal(result.patternSources.length, 11);
+    const expanded = codec.expandPatternAssets(result);
+    assertPublic({ ...result, patterns: expanded });
+    assert.equal(Buffer.from(expanded["BLACK SNAKE"].texture.split(",")[1], "base64").toString(), "fixture:material-black-lizard-20261023.enc");
+    assert.equal(Buffer.from(expanded["BLACK SNAKE"].swatch.split(",")[1], "base64").toString(), "fixture:material-black-lizard-20261023-swatch.enc");
+    assert.notEqual(expanded["BLACK SNAKE"], expanded["WHITE SNAKE"]);
+    for (const name of policy.PUBLIC_SPECIAL_PATTERNS) {
+      if (name !== "BLACK SNAKE") assert.deepEqual(expanded[name], preferredCatalog[name], `${name} must not change with the shallow black scale source`);
+    }
+  };
+  delete process.env.SIMULATOR_BLACK_LIZARD_PLATES_KEY;
+  await expectPlatesFallback();
+  process.env.SIMULATOR_BLACK_LIZARD_PLATES_KEY = "invalid";
+  await expectPlatesFallback();
+  process.env.SIMULATOR_BLACK_LIZARD_PLATES_KEY = randomBytes(32).toString("base64");
+  await expectPlatesFallback();
+  process.env.SIMULATOR_BLACK_LIZARD_PLATES_KEY = keys[6].toString("base64");
+  for (const suffix of ["", "-swatch"]) {
+    const filename = `./special-assets/material-black-lizard-plates${suffix}.enc`;
+    const ciphertext = encrypted[filename];
+    delete encrypted[filename];
+    await expectPlatesFallback();
+    const damaged = Buffer.from(ciphertext, "base64");
+    damaged[damaged.length - 1] ^= 1;
+    encrypted[filename] = damaged.toString("base64");
+    await expectPlatesFallback();
+    encrypted[filename] = ciphertext;
+  }
+  assert.deepEqual((await payload({ audience: "public" })).patterns, preferredCatalog);
+  console.log("PASS shallow black scale source preference and missing/invalid key or damaged pair fallback to the prior black source");
+  // Exercise the existing fallback chain independently of the new preferred
+  // source, so it cannot mask a regression in an older deployment's key setup.
+  delete process.env.SIMULATOR_BLACK_LIZARD_PLATES_KEY;
+  await expectPlatesFallback();
   const independentCatalog = (await payload({ audience: "public" })).patterns;
   const expectBlackFallback = async () => {
     const result = await payload({ audience: "public", compact: true });

@@ -49,7 +49,7 @@ export const patternPartsFor = (model: BootModel, _name?: SpecialPatternName): P
 // Approximate motif sizes in the 1424×1392 photograph. They are visual previews,
 // not a physical cutting layout; the references are finished shoes, not flat scans.
 const TILE_SIZE: Partial<Record<SpecialPatternName, number>> = {
-  "FLOWER B": 540, "FLOWER C": 650, "BLACK SNAKE": 360, "WHITE SNAKE": 360,
+  "FLOWER B": 540, "FLOWER C": 650, "BLACK SNAKE": 820, "WHITE SNAKE": 360,
   "NATURAL SNAKE": 520, "HOT PINK SNAKE": 520, "ORANGE SNAKE": 520,
   "SKY BLUE SNAKE": 520, "GREEN SNAKE": 520, "YELLOW SNAKE": 520,
   "SILVER WEAVE": 137, "MICRO HOUNDSTOOTH": 220,
@@ -82,7 +82,7 @@ export function surfaceLightProfile(name: SpecialPatternName) {
   const finish = finishFor(name);
   if (finish?.kind === "matte") return { blur: 26, floor: 0.18, peak: 1.22, sheen: 0.006 };
   if (finish?.kind === "suede") return { blur: 36, floor: 0.20, peak: 1.18, sheen: 0.002 };
-  if (name === "BLACK SNAKE") return { blur: 12, floor: 0.46, peak: 1.22, sheen: 0.012 };
+  if (name === "BLACK SNAKE") return { blur: 16, floor: 0.34, peak: 1.10, sheen: 0.16 };
   if (name === "WHITE SNAKE") return { blur: 16, floor: 0.62, peak: 1.18, sheen: 0.025 };
   if (lizardMaterialFor(name)) return { blur: 12, floor: 0.40, peak: 1.25, sheen: 0.035 };
   if (camouflageMaterialFor(name)) return CAMOUFLAGE_LIGHT_PROFILE;
@@ -131,20 +131,42 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
     const mod = ((value % doubled) + doubled) % doubled;
     return Math.min(size - 1, mod < size ? mod : doubled - 1 - mod);
   };
-  // Mirroring the weave invents diamonds; mirroring black scales reverses
-  // their baked rim light. Repeat these directional sources instead.
+  // The weave must repeat without inventing diamonds. Black uses a wider atlas
+  // cut once per panel, so no scale is split or mirrored at a repetition seam.
   const repeat = (value: number, size: number) => ((value % size) + size) % size;
-  const sample = directionalSource ? repeat : mirror;
+  const sample = name === "SILVER WEAVE" ? repeat : mirror;
+  let blackCut: { x: number; y: number; span: number } | undefined;
+  if (name === "BLACK SNAKE") {
+    let minX = width, minY = height, maxX = 0, maxY = 0;
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      if (!src[(y * width + x) * 4 + 3]) continue;
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    }
+    // Include the entire curvature warp in the bounds. The cut stays inside the
+    // source atlas, including sparse edge pixels and the narrow lace-hole strips.
+    const extentX = maxX - minX + 37, extentY = maxY - minY + 25;
+    const span = Math.max(tile, extentX, extentY);
+    blackCut = {
+      x: minX - 700 - 18 - cutU * (span - extentX),
+      y: minY - 700 - 12 - cutV * (span - extentY),
+      span,
+    };
+  }
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     const i = (y * width + x) * 4;
     const alpha = src[i + 3];
     if (!alpha) continue;
     // A small smooth warp avoids a visibly flat, rigid texture on rounded panels.
     const dx = x - 700, dy = y - 700;
-    const u = (cos * dx - sin * dy + 18 * Math.sin(dy / 230)) / tile + cutU;
-    const v = (sin * dx + cos * dy + 12 * Math.sin(dx / 190)) / tile + cutV;
-    const tx = sample(Math.floor(u * material.width), material.width);
-    const ty = sample(Math.floor(v * material.height), material.height);
+    const warpedX = cos * dx - sin * dy + 18 * Math.sin(dy / 230);
+    const warpedY = sin * dx + cos * dy + 12 * Math.sin(dx / 190);
+    const u = blackCut ? (warpedX - blackCut.x) / blackCut.span : warpedX / tile + cutU;
+    const v = blackCut ? (warpedY - blackCut.y) / blackCut.span : warpedY / tile + cutV;
+    const tx = blackCut ? Math.max(0, Math.min(material.width - 1, Math.floor(u * material.width)))
+      : sample(Math.floor(u * material.width), material.width);
+    const ty = blackCut ? Math.max(0, Math.min(material.height - 1, Math.floor(v * material.height)))
+      : sample(Math.floor(v * material.height), material.height);
     const t = (ty * material.width + tx) * 4;
     // Red-channel darkness retains seam/stitch detail without reusing the broad
     // white enamel highlights. The texture's own grain/specular detail remains.
@@ -179,7 +201,18 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       // Retain printed dark patches. Fine raised snake/foil grain catches more
       // light; the diffuse matte/suede families use almost no additive sheen.
       const relief = finish ? 1 : Math.max(0.3, Math.min(1.2, (r + g + b) / (3 * 150)));
-      const reflected = lightProfile.sheen * light ** 2 * relief;
+      let reflected = lightProfile.sheen * light ** 2 * relief;
+      if (name === "BLACK SNAKE") {
+        // Black leather still reflects the light source across the scale face.
+        // Do not multiply that reflection by its near-black diffuse color.
+        // A smooth joint gate keeps the recessed gaps dark; the original GOLD
+        // photograph supplies the broad highlight location on the shoe.
+        const luminance = (r + g + b) / 3;
+        const face = Math.max(0, Math.min(1, (luminance - 6) / 24));
+        const faceGate = face * face * (3 - 2 * face);
+        const plateResponse = 0.65 + 0.35 * Math.min(1, luminance / 75);
+        reflected = lightProfile.sheen * light ** 1.05 * faceGate * plateResponse;
+      }
       const detail = (darkDetail * stitch) ** 2;
       const diffuse = shape * grain;
       const red = (LINEAR_RGB[r] * diffuse + reflected) * detail;
@@ -337,11 +370,15 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
         ? [crop[0] * material.naturalWidth, crop[1] * material.naturalHeight,
           crop[2] * material.naturalWidth, crop[3] * material.naturalHeight]
         : [0, 0, material.naturalWidth, material.naturalHeight];
-      materialCanvas.width = Math.round(cropWidth); materialCanvas.height = Math.round(cropHeight);
+      // Match the black map's sampling resolution to its native projected tile.
+      // This suppresses subpixel grain aliasing without blurring panel edges.
+      const textureScale = name === "BLACK SNAKE" ? Math.min(1, TILE_SIZE[name]! / cropWidth) : 1;
+      materialCanvas.width = Math.round(cropWidth * textureScale); materialCanvas.height = Math.round(cropHeight * textureScale);
       const ctx = sourceCanvas.getContext("2d", { willReadFrequently: true });
       const textureCtx = materialCanvas.getContext("2d", { willReadFrequently: true });
       if (!ctx || !textureCtx) throw new Error("PATTERN_CANVAS");
       ctx.drawImage(source, 0, 0);
+      if (name === "BLACK SNAKE") textureCtx.imageSmoothingQuality = "high";
       textureCtx.drawImage(material, cropX, cropY, cropWidth, cropHeight, 0, 0, materialCanvas.width, materialCanvas.height);
       const sourcePixels = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
       let softReflection: ImageData | undefined;

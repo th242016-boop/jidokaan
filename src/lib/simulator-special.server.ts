@@ -36,6 +36,7 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
   const decoded = new Map<string, { texture: string; swatch: string }>();
   const referenceKey = "SIMULATOR_REFERENCE_MATERIALS_20261021_KEY";
   const blackLizardKey = "SIMULATOR_BLACK_LIZARD_20261023_KEY";
+  const blackLizardPlatesKey = "SIMULATOR_BLACK_LIZARD_PLATES_KEY";
   const pair = (file: string, key: string) => {
     const id = `${key}:${file}`;
     if (!decoded.has(id)) decoded.set(id, {
@@ -45,6 +46,14 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
     return decoded.get(id)!;
   };
   for (const { name } of visiblePatterns) {
+    if (name === "BLACK SNAKE" && process.env[blackLizardPlatesKey]) {
+      try {
+        // Prefer the shallow scale reference for black only. Preserve the
+        // prior independently keyed source as a complete-pair fallback.
+        patterns[name] = pair("black-lizard-plates", blackLizardPlatesKey);
+        continue;
+      } catch { console.error("Black LIZARD scale reference unavailable"); }
+    }
     if (name === "BLACK SNAKE" && process.env[blackLizardKey]) {
       try {
         // The black-only reference has its own key/source. Other lizard colors

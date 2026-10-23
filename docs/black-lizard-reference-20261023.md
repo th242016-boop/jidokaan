@@ -1,5 +1,10 @@
 # Black LIZARD reference correction — 2026-10-23
 
+> Superseded visually by the second correction in `black-lizard-plates-20261023.md`.
+> The owner rejected this first release: its cells looked like rounded pebbles,
+> and broad reflected light on the black faces was too weak. The checks below
+> established technical compatibility, not acceptance of the material likeness.
+
 ## Scope
 
 Only the existing `BLACK SNAKE` saved-material ID (displayed as **BLACK LIZARD**) changes. Applies to high and mid leather panels in both the released and administrator catalogs. White and all seven colored lizards retain their previous shared source and rendering. No catalog visibility, mesh, laces, bead, order, account or database changes.
