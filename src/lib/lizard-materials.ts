@@ -34,9 +34,9 @@ for (const material of LIZARD_SURFACES) {
     for (let c = 0; c < 3; c++) {
       let value: number;
       if (material.name === "BLACK SNAKE") {
-        // Open black midtones so curved cells remain readable at shoe scale;
-        // retain deep crevices and the neutral rim light of the reference.
-        value = 235 * (luminance / 255) ** 0.72;
+        // The dedicated black source already contains directional rim light.
+        // Preserve its dark faces instead of lifting the entire skin to gray.
+        value = luminance;
       } else if (material.name === "WHITE SNAKE") {
         // White fields stay white, but the recessed scale boundaries retain
         // contrast. The former 208 + .288L transfer erased almost all relief.

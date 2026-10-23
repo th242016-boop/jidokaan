@@ -82,7 +82,7 @@ export function surfaceLightProfile(name: SpecialPatternName) {
   const finish = finishFor(name);
   if (finish?.kind === "matte") return { blur: 26, floor: 0.18, peak: 1.22, sheen: 0.006 };
   if (finish?.kind === "suede") return { blur: 36, floor: 0.20, peak: 1.18, sheen: 0.002 };
-  if (name === "BLACK SNAKE") return { blur: 12, floor: 0.44, peak: 1.35, sheen: 0.045 };
+  if (name === "BLACK SNAKE") return { blur: 12, floor: 0.46, peak: 1.22, sheen: 0.012 };
   if (name === "WHITE SNAKE") return { blur: 16, floor: 0.62, peak: 1.18, sheen: 0.025 };
   if (lizardMaterialFor(name)) return { blur: 12, floor: 0.40, peak: 1.25, sheen: 0.035 };
   if (camouflageMaterialFor(name)) return CAMOUFLAGE_LIGHT_PROFILE;
@@ -122,18 +122,19 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       (material.data[t] + material.data[t + 1] + material.data[t + 2]) / 3;
     materialMean = Math.max(1, materialMean / (material.width * material.height));
   }
-  // The real weave photograph already carries its staggered diagonal motif.
-  // Keep its fine dark strands horizontal instead of rotating it a second time.
-  const radians = name === "SILVER WEAVE" ? 0 : -0.48, cos = Math.cos(radians), sin = Math.sin(radians);
+  // The weave photograph and black scale map already carry their intended
+  // motif and light direction. Do not rotate those sources a second time.
+  const directionalSource = name === "SILVER WEAVE" || name === "BLACK SNAKE";
+  const radians = directionalSource ? 0 : -0.48, cos = Math.cos(radians), sin = Math.sin(radians);
   const mirror = (value: number, size: number) => {
     const doubled = size * 2;
     const mod = ((value % doubled) + doubled) % doubled;
     return Math.min(size - 1, mod < size ? mod : doubled - 1 - mod);
   };
-  // Mirroring this directional weave invents large diamond shapes at tile
-  // joins. Repeat the photographed motif in its original direction instead.
+  // Mirroring the weave invents diamonds; mirroring black scales reverses
+  // their baked rim light. Repeat these directional sources instead.
   const repeat = (value: number, size: number) => ((value % size) + size) % size;
-  const sample = name === "SILVER WEAVE" ? repeat : mirror;
+  const sample = directionalSource ? repeat : mirror;
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     const i = (y * width + x) * 4;
     const alpha = src[i + 3];

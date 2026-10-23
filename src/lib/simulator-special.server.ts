@@ -35,6 +35,7 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
   const patterns: SpecialPatternAssets = {};
   const decoded = new Map<string, { texture: string; swatch: string }>();
   const referenceKey = "SIMULATOR_REFERENCE_MATERIALS_20261021_KEY";
+  const blackLizardKey = "SIMULATOR_BLACK_LIZARD_20261023_KEY";
   const pair = (file: string, key: string) => {
     const id = `${key}:${file}`;
     if (!decoded.has(id)) decoded.set(id, {
@@ -44,6 +45,16 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
     return decoded.get(id)!;
   };
   for (const { name } of visiblePatterns) {
+    if (name === "BLACK SNAKE" && process.env[blackLizardKey]) {
+      try {
+        // The black-only reference has its own key/source. Other lizard colors
+        // keep the existing shared reference, including their saved IDs.
+        patterns[name] = pair("black-lizard-20261023", blackLizardKey);
+        continue;
+      } catch { console.error("Black LIZARD reference unavailable"); }
+      // A missing or invalid independent source falls through to the prior
+      // shared reference, then the established legacy source if necessary.
+    }
     if (name === "SILVER WEAVE" && process.env.SIMULATOR_SILVER_WEAVE_PHOTO_KEY) {
       try {
         // Preserve the owner's original JPEG. Both the button and renderer
