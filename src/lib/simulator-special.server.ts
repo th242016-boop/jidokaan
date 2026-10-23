@@ -44,6 +44,18 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
     return decoded.get(id)!;
   };
   for (const { name } of visiblePatterns) {
+    if (name === "SILVER WEAVE" && process.env.SIMULATOR_SILVER_WEAVE_PHOTO_KEY) {
+      try {
+        // Preserve the owner's original JPEG. Both the button and renderer
+        // sample the same exposed leather, excluding the finger and plastic.
+        const photo = image("material-silver-weave-photo", "SIMULATOR_SILVER_WEAVE_PHOTO_KEY", "image/jpeg");
+        patterns[name] = {
+          texture: photo, swatch: photo,
+          sourceCrop: [230 / 484, 340 / 860, 140 / 484, 140 / 860],
+        };
+        continue;
+      } catch { console.error("Original SILVER WEAVE photograph unavailable"); }
+    }
     const camouflage = camouflageMaterialFor(name);
     const revised = isLizardPattern(name) ? "reference-lizard" : name === "SILVER WEAVE" ? "reference-silver-weave" : undefined;
     if (camouflage || revised) {

@@ -10,7 +10,7 @@ import ts from "typescript";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const nativeRequire = createRequire(import.meta.url);
-const keyNames = ["SIMULATOR_SPECIAL_ASSET_KEY", "SIMULATOR_SPECIAL_PATTERN_KEY", "SIMULATOR_SPECIAL_METALLIC_KEY", "SIMULATOR_REFERENCE_MATERIALS_20261021_KEY"];
+const keyNames = ["SIMULATOR_SPECIAL_ASSET_KEY", "SIMULATOR_SPECIAL_PATTERN_KEY", "SIMULATOR_SPECIAL_METALLIC_KEY", "SIMULATOR_REFERENCE_MATERIALS_20261021_KEY", "SIMULATOR_SILVER_WEAVE_PHOTO_KEY"];
 for (const name of keyNames) assert.equal(process.env[name], undefined, "Run in isolation without live keys");
 const keys = keyNames.map(() => randomBytes(32));
 const encrypted = {};
@@ -19,7 +19,8 @@ for (const name of ["reference-lizard", "reference-silver-weave", "gray-camo", "
   for (const suffix of ["", "-swatch"]) filenames.add(`material-${name}${suffix}.enc`);
 for (const filename of filenames) {
   if (!filename.endsWith(".enc")) continue;
-  const keyIndex = /^material-(reference-lizard|reference-silver-weave|gray-camo|woodland-camo)(-swatch)?\.enc$/.test(filename) ? 3
+  const keyIndex = filename === "material-silver-weave-photo.enc" ? 4
+    : /^material-(reference-lizard|reference-silver-weave|gray-camo|woodland-camo)(-swatch)?\.enc$/.test(filename) ? 3
     : /^material-(bronze|pink-gold)(-swatch)?\.enc$/.test(filename) ? 2 : filename.startsWith("material-") ? 1 : 0;
   const iv = randomBytes(12), cipher = createCipheriv("aes-256-gcm", keys[keyIndex], iv);
   const body = Buffer.concat([cipher.update(Buffer.from(`fixture:${filename}`)), cipher.final()]);
@@ -58,6 +59,10 @@ try {
   for (const denied of ["FLOWER A", "GRAY CAMO", "WOODLAND CAMO", "FUTURE MATERIAL"]) assert.equal(policy.isPublicSpecialPattern(denied), false);
   for (const model of ["high", "mid"]) {
     const released = await payload({ audience: "public", model }); assertPublic(released);
+    const weave = released.patterns["SILVER WEAVE"];
+    assert.equal(Buffer.from(weave.texture.split(",")[1], "base64").toString(), "fixture:material-silver-weave-photo.enc");
+    assert.equal(weave.swatch, weave.texture);
+    assert.deepEqual(weave.sourceCrop, [230 / 484, 340 / 860, 140 / 484, 140 / 860]);
     assert.equal(released.patternSources, undefined); assert.equal(released.patternRefs, undefined);
     const compact = await payload({ audience: "public", model, compact: true });
     assert.equal(compact.patterns, undefined);
@@ -85,6 +90,14 @@ try {
   const malformed = codec.expandPatternAssets({ patternSources: [{ texture: "source", swatch: "swatch" }], patternRefs: { "RED LIZARD": 0, "BLUE LIZARD": -1, "GREEN LIZARD": 10, "NAVY LIZARD": "0" } });
   assert.deepEqual(Object.keys(malformed), ["RED LIZARD"]);
   console.log("PASS legacy/compact round-trip, 45 public references in 10 sources, admin private catalog and invalid-reference rejection");
+  const cropped = { "FLOWER B": { texture: "same", swatch: "same", sourceCrop: [0, 0, 0.5, 0.5] }, "FLOWER C": { texture: "same", swatch: "same", sourceCrop: [0.5, 0.5, 0.5, 0.5] } };
+  assert.deepEqual(codec.expandPatternAssets(codec.compactPatternAssets(cropped)), cropped, "distinct source crops must not share an alias");
+  delete process.env.SIMULATOR_SILVER_WEAVE_PHOTO_KEY;
+  const fallbackWeave = (await payload({ audience: "public" })).patterns["SILVER WEAVE"];
+  assert.equal(fallbackWeave.sourceCrop, undefined);
+  assert.equal(Buffer.from(fallbackWeave.texture.split(",")[1], "base64").toString(), "fixture:material-reference-silver-weave.enc");
+  process.env.SIMULATOR_SILVER_WEAVE_PHOTO_KEY = keys[4].toString("base64");
+  console.log("PASS original-photo selection/crop, independent aliases and prior-source fallback");
   // Removing FLOWER A's key and cipher must not affect any customer response.
   delete process.env.SIMULATOR_SPECIAL_ASSET_KEY;
   for (const name of Object.keys(encrypted)) if (!name.includes("/material-")) delete encrypted[name];

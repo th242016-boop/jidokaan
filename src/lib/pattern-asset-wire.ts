@@ -17,11 +17,12 @@ export function compactPatternAssets(patterns: SpecialPatternAssets): CompactPat
     if (!asset) continue;
     let bySwatch = byTexture.get(asset.texture);
     if (!bySwatch) { bySwatch = new Map(); byTexture.set(asset.texture, bySwatch); }
-    let index = bySwatch.get(asset.swatch);
+    const swatchKey = JSON.stringify([asset.swatch, asset.sourceCrop ?? null]);
+    let index = bySwatch.get(swatchKey);
     if (index === undefined) {
       index = patternSources.length;
       patternSources.push(asset);
-      bySwatch.set(asset.swatch, index);
+      bySwatch.set(swatchKey, index);
     }
     patternRefs[name as SpecialPatternName] = index;
   }

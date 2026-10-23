@@ -22,7 +22,21 @@ export const SPECIAL_PATTERNS = [
   ...CAMOUFLAGE_MATERIALS,
 ] as const;
 export type SpecialPatternName = typeof SPECIAL_PATTERNS[number]["name"];
-export type SpecialPatternAssets = Partial<Record<SpecialPatternName, { texture: string; swatch: string }>>;
+export type PatternAsset = {
+  texture: string;
+  swatch: string;
+  /** Normalized x/y/width/height in the unmodified source photograph. */
+  sourceCrop?: readonly [number, number, number, number];
+};
+export type SpecialPatternAssets = Partial<Record<SpecialPatternName, PatternAsset>>;
+export function patternSwatchPlacement(asset: PatternAsset) {
+  if (!asset.sourceCrop) return { backgroundSize: "cover", backgroundPosition: "center" };
+  const [x, y, width, height] = asset.sourceCrop;
+  return {
+    backgroundSize: `${100 / width}% ${100 / height}%`,
+    backgroundPosition: `${width === 1 ? 0 : 100 * x / (1 - width)}% ${height === 1 ? 0 : 100 * y / (1 - height)}%`,
+  };
+}
 export type PatternSelections = Partial<Record<PartId, SpecialPatternName>>;
 export type PatternLayers = Partial<Record<PartId, string>>;
 export const isSpecialPattern = (name: string): name is SpecialPatternName =>
@@ -38,7 +52,7 @@ const TILE_SIZE: Partial<Record<SpecialPatternName, number>> = {
   "FLOWER B": 540, "FLOWER C": 650, "BLACK SNAKE": 360, "WHITE SNAKE": 360,
   "NATURAL SNAKE": 520, "HOT PINK SNAKE": 520, "ORANGE SNAKE": 520,
   "SKY BLUE SNAKE": 520, "GREEN SNAKE": 520, "YELLOW SNAKE": 520,
-  "SILVER WEAVE": 294, "MICRO HOUNDSTOOTH": 220,
+  "SILVER WEAVE": 137, "MICRO HOUNDSTOOTH": 220,
   "BRONZE": 380, "PINK GOLD": 420,
 };
 
@@ -108,12 +122,18 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       (material.data[t] + material.data[t + 1] + material.data[t + 2]) / 3;
     materialMean = Math.max(1, materialMean / (material.width * material.height));
   }
-  const radians = -0.48, cos = Math.cos(radians), sin = Math.sin(radians);
+  // The real weave photograph already carries its staggered diagonal motif.
+  // Keep its fine dark strands horizontal instead of rotating it a second time.
+  const radians = name === "SILVER WEAVE" ? 0 : -0.48, cos = Math.cos(radians), sin = Math.sin(radians);
   const mirror = (value: number, size: number) => {
     const doubled = size * 2;
     const mod = ((value % doubled) + doubled) % doubled;
     return Math.min(size - 1, mod < size ? mod : doubled - 1 - mod);
   };
+  // Mirroring this directional weave invents large diamond shapes at tile
+  // joins. Repeat the photographed motif in its original direction instead.
+  const repeat = (value: number, size: number) => ((value % size) + size) % size;
+  const sample = name === "SILVER WEAVE" ? repeat : mirror;
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     const i = (y * width + x) * 4;
     const alpha = src[i + 3];
@@ -122,8 +142,8 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
     const dx = x - 700, dy = y - 700;
     const u = (cos * dx - sin * dy + 18 * Math.sin(dy / 230)) / tile + cutU;
     const v = (sin * dx + cos * dy + 12 * Math.sin(dx / 190)) / tile + cutV;
-    const tx = mirror(Math.floor(u * material.width), material.width);
-    const ty = mirror(Math.floor(v * material.height), material.height);
+    const tx = sample(Math.floor(u * material.width), material.width);
+    const ty = sample(Math.floor(v * material.height), material.height);
     const t = (ty * material.width + tx) * 4;
     // Red-channel darkness retains seam/stitch detail without reusing the broad
     // white enamel highlights. The texture's own grain/specular detail remains.
@@ -311,11 +331,17 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
       await Promise.all([source.decode(), material.decode()]);
       if (source.naturalWidth !== 1424 || source.naturalHeight !== 1392) throw new Error("PATTERN_SOURCE_SIZE");
       sourceCanvas.width = source.naturalWidth; sourceCanvas.height = source.naturalHeight;
-      materialCanvas.width = material.naturalWidth; materialCanvas.height = material.naturalHeight;
+      const crop = assets[name]?.sourceCrop;
+      const [cropX, cropY, cropWidth, cropHeight] = crop
+        ? [crop[0] * material.naturalWidth, crop[1] * material.naturalHeight,
+          crop[2] * material.naturalWidth, crop[3] * material.naturalHeight]
+        : [0, 0, material.naturalWidth, material.naturalHeight];
+      materialCanvas.width = Math.round(cropWidth); materialCanvas.height = Math.round(cropHeight);
       const ctx = sourceCanvas.getContext("2d", { willReadFrequently: true });
       const textureCtx = materialCanvas.getContext("2d", { willReadFrequently: true });
       if (!ctx || !textureCtx) throw new Error("PATTERN_CANVAS");
-      ctx.drawImage(source, 0, 0); textureCtx.drawImage(material, 0, 0);
+      ctx.drawImage(source, 0, 0);
+      textureCtx.drawImage(material, cropX, cropY, cropWidth, cropHeight, 0, 0, materialCanvas.width, materialCanvas.height);
       const sourcePixels = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
       let softReflection: ImageData | undefined;
       let fineDetail: ImageData | undefined;

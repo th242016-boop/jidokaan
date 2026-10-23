@@ -2,7 +2,7 @@ import { useSpecialSimulator } from "@/lib/use-special-simulator";
 import { FLOWER_A } from "@/lib/simulator-special";
 import { isPublicSpecialPattern } from "@/lib/simulator-catalog";
 import { SPECIAL_SOLID_COLORS, isSpecialSolid, specialSolidPartsFor } from "@/lib/special-solids";
-import { SPECIAL_PATTERNS, patternPartsFor } from "@/lib/special-patterns";
+import { SPECIAL_PATTERNS, patternPartsFor, patternSwatchPlacement } from "@/lib/special-patterns";
 import { loadSnakeSwatches, snakeMaterialFor, type SnakeSwatches } from "@/lib/snake-materials";
 import { loadLizardSwatches, lizardMaterialFor, type LizardSwatches } from "@/lib/lizard-materials";
 import { finishFor } from "@/lib/special-finishes";
@@ -354,7 +354,7 @@ function CustomizePage() {
                             aria-pressed={active}
                             onClick={() => special.select(part.id, pattern.name)}
                             className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", active ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
-                            style={{ backgroundColor: finish?.color ?? lizard?.color ?? snake?.color, backgroundImage: finish || !swatch ? undefined : `url(${swatch})`, backgroundSize: "cover", backgroundPosition: "center", isolation: "isolate" }}
+                            style={{ backgroundColor: finish?.color ?? lizard?.color ?? snake?.color, backgroundImage: finish || !swatch ? undefined : `url(${swatch})`, ...patternSwatchPlacement(asset), backgroundRepeat: "no-repeat", isolation: "isolate" }}
                           >
                             {finish && <span aria-hidden="true" className="pointer-events-none absolute inset-0" style={{
                               backgroundImage: `url(${asset.swatch})`, backgroundSize: "cover", backgroundPosition: "center",
