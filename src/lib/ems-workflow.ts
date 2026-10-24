@@ -271,6 +271,77 @@ export function emsIssues(order: StoreOrder): EmsIssue[] {
   });
   return issues;
 }
+/** Existing posted parcels need consistent order allocation, not a new customs application. */
+export function emsAllocationIssues(order: StoreOrder): EmsIssue[] {
+  const f = order.fulfillment;
+  if (!f) return [{ field: "fulfillment", message: "발송 준비를 먼저 시작해 주세요." }];
+  const issues: EmsIssue[] = [];
+  const add = (field: string, message: string, packageId?: string) =>
+    issues.push({ field, message, packageId });
+  if (!Array.isArray(f.packages) || f.packages.length < 1 || f.packages.length > 30) {
+    return [{ field: "packages", message: "소포 수는 1~30개여야 합니다." }];
+  }
+  if (!Array.isArray(order.items) || !order.items.length)
+    return [{ field: "allocation", message: "원래 주문 상품을 확인할 수 없습니다." }];
+  let expected: number[];
+  try {
+    expected = itemPaidValues(order);
+  } catch {
+    return [{ field: "declaredValue", message: "실제 결제된 상품 금액을 확인할 수 없습니다." }];
+  }
+  const quantities = order.items.map(() => 0),
+    amounts = order.items.map(() => 0),
+    packageIds = new Set<string>();
+  for (const p of f.packages) {
+    if (!p.id || packageIds.has(p.id))
+      add("packages", "소포 구분 정보가 중복되거나 누락되었습니다.", p.id);
+    packageIds.add(p.id);
+    if (!Array.isArray(p.items) || p.items.length < 1 || p.items.length > 30) {
+      add("allocation", "소포에 포함된 주문 상품을 확인해 주세요.", p.id);
+      continue;
+    }
+    const seen = new Set<number>();
+    for (const item of p.items) {
+      if (
+        !Number.isInteger(item.sourceItemIndex) ||
+        !order.items[item.sourceItemIndex] ||
+        seen.has(item.sourceItemIndex)
+      ) {
+        add("allocation", "원래 주문 상품과 연결된 품목을 확인해 주세요.", p.id);
+        continue;
+      }
+      seen.add(item.sourceItemIndex);
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0)
+        add("allocation", "수량은 1 이상의 정수여야 합니다.", p.id);
+      if (
+        !Number.isFinite(item.declaredValue) ||
+        item.declaredValue <= 0 ||
+        money(item.declaredValue) !== item.declaredValue ||
+        item.currency !== order.currency
+      ) {
+        add("allocation", "실제 상품 금액과 결제 통화를 확인해 주세요.", p.id);
+      }
+      quantities[item.sourceItemIndex] += item.quantity;
+      amounts[item.sourceItemIndex] = money(amounts[item.sourceItemIndex] + item.declaredValue);
+    }
+  }
+  order.items.forEach((item, index) => {
+    if (!Number.isInteger(item.qty) || item.qty <= 0 || quantities[index] !== item.qty)
+      add("allocation", `${item.name}: 모든 소포의 합산 수량이 주문 수량과 다릅니다.`);
+    if (
+      !Number.isFinite(expected[index]) ||
+      expected[index] <= 0 ||
+      !Number.isFinite(amounts[index]) ||
+      Math.abs(amounts[index] - expected[index]) > 0.001
+    ) {
+      add(
+        "allocation",
+        `${item.name}: 소포별 상품 금액 합계는 실제 상품 결제 금액 ${expected[index]} ${order.currency}와 같아야 합니다.`,
+      );
+    }
+  });
+  return issues;
+}
 export function validEmsTracking(value: string) {
   return /^[A-Z]{2}\d{9}[A-Z]{2}$/.test(value);
 }
@@ -333,7 +404,36 @@ export function applyEmsAction(
     packageId = action.packageId;
     const p = f.packages.find((x) => x.id === packageId);
     if (!p) throw new Error("EMS_PACKAGE_NOT_FOUND");
-    if (
+    if (action.action === "record_posted") {
+      // This records an already completed physical handover; it never requests postal registration.
+      if (!["preparing", "registration_failed"].includes(p.state))
+        throw new Error("EMS_REGISTRATION_LOCKED");
+      if (!action.confirmed) throw new Error("EMS_CONFIRM_REQUIRED");
+      const issues = emsAllocationIssues(next);
+      if (issues.length)
+        throw new Error("EMS_ALLOCATION_INCOMPLETE:" + issues.map((i) => i.message).join(" "));
+      const tracking = String(action.tracking ?? "")
+        .trim()
+        .toUpperCase();
+      if (!validEmsTracking(tracking)) throw new Error("EMS_TRACKING_INVALID");
+      if (f.packages.some((x) => x.id !== p.id && x.tracking === tracking))
+        throw new Error("EMS_DUPLICATE_TRACKING");
+      const reference = clean(action.reference, 500);
+      p.tracking = tracking;
+      if (reference) p.registrationReference = reference;
+      else delete p.registrationReference;
+      p.postingRecordSource = "admin_confirmation";
+      // Actual carrier timestamps are not known here: these are administrator confirmation times.
+      p.registeredAt = now;
+      p.handedOverAt = now;
+      p.state = "in_transit";
+      p.registrationNote =
+        "관리자가 실제 우체국 창구 인계와 송장번호를 확인함. 저장 시각은 관리자 확인 기록 시각입니다.";
+      next.status = "shipped";
+      next.courier = "우체국 EMS";
+      next.tracking = f.packages.find((x) => x.handedOverAt)?.tracking;
+      message = "관리자가 실제 우체국 창구 인계와 송장번호를 확인함 · 이미 발송한 소포 기록";
+    } else if (
       action.action === "register" ||
       (action.action === "reconcile" && action.outcome === "registered")
     ) {

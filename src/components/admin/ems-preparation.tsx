@@ -12,7 +12,7 @@ import type {
   EmsRecipient,
 } from "@/lib/ems-types";
 import { EMS_STATE_LABEL } from "@/lib/ems-types";
-import { emsIssues, itemPaidValues, hasEmsClaim } from "@/lib/ems-workflow";
+import { emsIssues, emsAllocationIssues, itemPaidValues, hasEmsClaim } from "@/lib/ems-workflow";
 
 const editableStates = new Set(["preparing", "registration_failed"]);
 const statusColor: Record<string, string> = {
@@ -52,7 +52,7 @@ const errors: Record<string, string> = {
     "이미 접수했거나 접수 여부가 불확실한 소포는 수정할 수 없습니다. 공식 접수 내역부터 확인해 주세요.",
   EMS_REGISTRATION_LOCKED: "접수된 소포이거나 접수 여부 확인이 필요합니다. 중복 접수하지 마세요.",
   EMS_CONFIRM_REQUIRED: "실제 접수 또는 창구 제출 여부를 확인해 주세요.",
-  EMS_REGISTRATION_PROOF: "공식 접수 내역에서 확인한 접수번호·확인 근거를 입력해 주세요.",
+  EMS_REGISTRATION_PROOF: "접수 확인 메모를 입력해 주세요. 예: 우체국 접수내역 확인",
   EMS_TRACKING_INVALID: "우편물번호 13자리를 확인해 주세요. 예: 영문 2자 + 숫자 9자 + 영문 2자.",
   EMS_DUPLICATE_TRACKING:
     "이미 다른 주문이나 소포에 등록된 우편물번호입니다. 접수 내역을 확인해 주세요.",
@@ -78,6 +78,8 @@ const errors: Record<string, string> = {
 };
 export function emsError(error: unknown) {
   const raw = error instanceof Error ? error.message : String(error ?? "");
+  if (raw.startsWith("EMS_ALLOCATION_INCOMPLETE:"))
+    return raw.slice("EMS_ALLOCATION_INCOMPLETE:".length);
   if (raw.startsWith("EMS_INCOMPLETE:")) return raw.slice("EMS_INCOMPLETE:".length);
   if (raw.startsWith("EMS_EXPORT_MULTI_ITEM:")) return raw.slice("EMS_EXPORT_MULTI_ITEM:".length);
   return errors[raw] || "처리하지 못했습니다. 최신 주문 정보를 확인한 후 다시 시도해 주세요.";
@@ -154,6 +156,7 @@ export function EmsPreparation({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
+  const [postedMode, setPostedMode] = useState(false);
   const [openParcel, setOpenParcel] = useState(order.fulfillment?.packages[0]?.id ?? "");
   const inFlight = useRef(false);
   const pendingOperation = useRef<{ body: string; id: string } | null>(null);
@@ -164,6 +167,9 @@ export function EmsPreparation({
   const inactive = !["paid", "ready", "shipped"].includes(order.status) || hasEmsClaim(order);
   const recipientLocked = inactive || draft.packages.some((p) => !editableStates.has(p.state));
   const issues = useMemo(() => emsIssues({ ...order, fulfillment: draft }), [order, draft]);
+  const allocationIssues = emsAllocationIssues({ ...order, fulfillment: draft }).map(
+    (i) => i.message,
+  );
   const distinctIssues = Array.from(
     new Set(
       issues.map(
@@ -394,12 +400,44 @@ export function EmsPreparation({
             </button>
           </header>
           <div className="overflow-y-auto px-4 py-5 sm:px-7">
+            <section className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-bold">어떤 작업을 하시나요?</h3>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant={postedMode ? "secondary" : "default"}
+                  aria-pressed={!postedMode}
+                  disabled={busy}
+                  onClick={() => setPostedMode(false)}
+                >
+                  새 EMS 접수 준비
+                </Button>
+                <Button
+                  type="button"
+                  variant={postedMode ? "default" : "secondary"}
+                  aria-pressed={postedMode}
+                  disabled={busy}
+                  onClick={() => setPostedMode(true)}
+                >
+                  이미 우체국에 맡긴 물건
+                </Button>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-slate-600">
+                {postedMode
+                  ? "송장번호를 입력하고 실제 창구 인계를 확인하면 배송중으로 저장됩니다. 접수 준비용 주소·HS코드·무게를 다시 입력할 필요가 없습니다."
+                  : "아직 보내지 않은 소포의 접수 자료를 준비합니다. 이미 우체국에 맡겼다면 위의 ‘이미 우체국에 맡긴 물건’을 선택하세요."}
+              </p>
+            </section>
             <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-950">
-              <strong className="block text-sm">현재는 수동 스마트접수 방식입니다.</strong>
+              <strong className="block text-sm">
+                {postedMode
+                  ? "이미 발송한 소포의 기록을 남깁니다."
+                  : "현재는 수동 스마트접수 방식입니다."}
+              </strong>
               <p className="mt-1">
-                {capabilities.registration.reason} 이 화면에서 정보나 번호를 저장하는 것만으로
-                우체국에 접수되거나 배송중으로 바뀌지 않습니다. 방문수거를 신청하지 말고, 포장한
-                소포를 직접 창구에 제출해 주세요.
+                {postedMode
+                  ? "이 작업은 지도칸 주문에 발송 사실을 기록합니다. 우체국에 새 접수 요청을 보내지 않습니다. 송장의 수취인과 아래 주문 고객이 같은지 먼저 대조하세요."
+                  : `${capabilities.registration.reason} 사전접수 기록만으로 배송중이 되지 않습니다. 포장한 소포를 직접 창구에 제출한 뒤 발송을 기록하세요.`}
               </p>
             </div>
             {inactive && (
@@ -423,125 +461,144 @@ export function EmsPreparation({
                 {msg}
               </p>
             )}
-            <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <h3 className="font-bold">
-                  01 <span className="ml-2">수취인 · 영문 배송지</span>
-                </h3>
-                <span className="text-xs text-slate-500">주문 정보에서 불러옴</span>
-              </div>
-              <fieldset
-                disabled={busy || recipientLocked}
-                className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-              >
-                <Field
-                  label="수취인 영문 이름"
-                  value={draft.recipient.name}
-                  onChange={(v) => recipient("name", v)}
-                />
-                <Field
-                  label="국가 코드 (ISO 2자리)"
-                  value={draft.recipient.country}
-                  onChange={(v) => recipient("country", v.toUpperCase())}
-                  placeholder="예: US, SG, CN"
-                />
-                <Field
-                  label="우편번호"
-                  value={draft.recipient.postal}
-                  onChange={(v) => recipient("postal", v)}
-                />
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <Field
-                    label="영문 상세주소"
-                    value={draft.recipient.address}
-                    onChange={(v) => recipient("address", v)}
-                  />
+            {postedMode && (
+              <section className="rounded-xl border border-slate-200 bg-white p-4">
+                <h3 className="font-bold">송장과 대조할 주문</h3>
+                <p className="mt-2">
+                  {order.id} · {order.name} · {order.country}
+                </p>
+                <p className="mt-1 break-words text-xs text-slate-600">
+                  {order.address} · {order.city} · {order.postal}
+                </p>
+              </section>
+            )}
+            {!postedMode && (
+              <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h3 className="font-bold">
+                    01 <span className="ml-2">수취인 · 영문 배송지</span>
+                  </h3>
+                  <span className="text-xs text-slate-500">주문 정보에서 불러옴</span>
                 </div>
-                <Field
-                  label="도시 (City)"
-                  value={draft.recipient.city}
-                  onChange={(v) => recipient("city", v)}
-                />
-                <Field
-                  label="주 / 도 (State·Province)"
-                  value={draft.recipient.region}
-                  onChange={(v) => recipient("region", v)}
-                />
-                <Field
-                  label="이메일"
-                  value={draft.recipient.email}
-                  onChange={(v) => recipient("email", v)}
-                />
-                <Field
-                  label="주문에 저장된 연락처"
-                  value={draft.recipient.phone}
-                  onChange={(v) => recipient("phone", v)}
-                />
-                <Field
-                  label="전화 국가번호"
-                  value={draft.recipient.countryCallingCode}
-                  onChange={(v) => recipient("countryCallingCode", v)}
-                  placeholder="+ 없이 숫자만"
-                />
-                <Field
-                  label="전화 지역번호 (해당 시)"
-                  value={draft.recipient.areaCode}
-                  onChange={(v) => recipient("areaCode", v)}
-                />
-                <Field
-                  label="전화번호 앞자리"
-                  value={draft.recipient.phone1}
-                  onChange={(v) => recipient("phone1", v)}
-                  hint="우체국 양식 구분에 맞춰 실제 번호를 입력하세요."
-                />
-                <Field
-                  label="전화번호 뒷자리 (필요 시)"
-                  value={draft.recipient.phone2}
-                  onChange={(v) => recipient("phone2", v)}
-                />
-                <Field
-                  label="브라질 세금번호 (해당 시)"
-                  value={draft.recipient.taxId}
-                  onChange={(v) => recipient("taxId", v)}
-                />
-                <Field
-                  label="IOSS / EORI / TAX / NPWP (해당 시)"
-                  value={draft.recipient.vatId}
-                  onChange={(v) => recipient("vatId", v)}
-                />
-                <label className="mt-1 flex items-start gap-2 rounded-lg bg-slate-50 p-3 sm:col-span-2 lg:col-span-3">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 size-4 shrink-0"
-                    checked={draft.recipient.englishConfirmed}
-                    onChange={(e) => recipient("englishConfirmed", e.target.checked)}
+                <fieldset
+                  disabled={busy || recipientLocked}
+                  className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+                >
+                  <Field
+                    label="수취인 영문 이름"
+                    value={draft.recipient.name}
+                    onChange={(v) => recipient("name", v)}
                   />
-                  <span className="text-xs leading-relaxed">
-                    수취인 이름과 주소의 영문 표기를 확인했습니다. 결제 배송지와도 대조했습니다.
-                  </span>
-                </label>
-              </fieldset>
-            </section>
+                  <Field
+                    label="국가 코드 (ISO 2자리)"
+                    value={draft.recipient.country}
+                    onChange={(v) => recipient("country", v.toUpperCase())}
+                    placeholder="예: US, SG, CN"
+                  />
+                  <Field
+                    label="우편번호"
+                    value={draft.recipient.postal}
+                    onChange={(v) => recipient("postal", v)}
+                  />
+                  <div className="sm:col-span-2 lg:col-span-3">
+                    <Field
+                      label="영문 상세주소"
+                      value={draft.recipient.address}
+                      onChange={(v) => recipient("address", v)}
+                    />
+                  </div>
+                  <Field
+                    label="도시 (City)"
+                    value={draft.recipient.city}
+                    onChange={(v) => recipient("city", v)}
+                  />
+                  <Field
+                    label="주 / 도 (State·Province)"
+                    value={draft.recipient.region}
+                    onChange={(v) => recipient("region", v)}
+                  />
+                  <Field
+                    label="이메일"
+                    value={draft.recipient.email}
+                    onChange={(v) => recipient("email", v)}
+                  />
+                  <Field
+                    label="주문에 저장된 연락처"
+                    value={draft.recipient.phone}
+                    onChange={(v) => recipient("phone", v)}
+                  />
+                  <Field
+                    label="전화 국가번호"
+                    value={draft.recipient.countryCallingCode}
+                    onChange={(v) => recipient("countryCallingCode", v)}
+                    placeholder="+ 없이 숫자만"
+                  />
+                  <Field
+                    label="전화 지역번호 (해당 시)"
+                    value={draft.recipient.areaCode}
+                    onChange={(v) => recipient("areaCode", v)}
+                  />
+                  <Field
+                    label="전화번호 앞자리"
+                    value={draft.recipient.phone1}
+                    onChange={(v) => recipient("phone1", v)}
+                    hint="우체국 양식 구분에 맞춰 실제 번호를 입력하세요."
+                  />
+                  <Field
+                    label="전화번호 뒷자리 (필요 시)"
+                    value={draft.recipient.phone2}
+                    onChange={(v) => recipient("phone2", v)}
+                  />
+                  <Field
+                    label="브라질 세금번호 (해당 시)"
+                    value={draft.recipient.taxId}
+                    onChange={(v) => recipient("taxId", v)}
+                  />
+                  <Field
+                    label="IOSS / EORI / TAX / NPWP (해당 시)"
+                    value={draft.recipient.vatId}
+                    onChange={(v) => recipient("vatId", v)}
+                  />
+                  <label className="mt-1 flex items-start gap-2 rounded-lg bg-slate-50 p-3 sm:col-span-2 lg:col-span-3">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 size-4 shrink-0"
+                      checked={draft.recipient.englishConfirmed}
+                      onChange={(e) => recipient("englishConfirmed", e.target.checked)}
+                    />
+                    <span className="text-xs leading-relaxed">
+                      수취인 이름과 주소의 영문 표기를 확인했습니다. 결제 배송지와도 대조했습니다.
+                    </span>
+                  </label>
+                </fieldset>
+              </section>
+            )}
             <section className="mt-5">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h3 className="font-bold">
-                  02 <span className="ml-2">소포 · 세관 신고 정보</span>{" "}
+                  02{" "}
+                  <span className="ml-2">
+                    {postedMode ? "소포 · 발송 기록" : "소포 · 세관 신고 정보"}
+                  </span>{" "}
                   <span className="ml-1 font-normal text-slate-500">{draft.packages.length}개</span>
                 </h3>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  disabled={busy || inactive || draft.packages.length >= 30}
-                  onClick={addParcel}
-                >
-                  <Plus className="size-3.5" />
-                  소포 추가
-                </Button>
+                {!postedMode && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy || inactive || draft.packages.length >= 30}
+                    onClick={addParcel}
+                  >
+                    <Plus className="size-3.5" />
+                    소포 추가
+                  </Button>
+                )}
               </div>
               <p className="mb-3 text-xs leading-relaxed text-slate-500">
-                판매상품으로 신고합니다. 각 소포의 수량과 실제 상품 결제 금액을 배분하세요.
-                무게·원산지·HS 코드는 확인한 값만 입력합니다.
+                {postedMode
+                  ? "여러 상자로 보냈다면 소포별로 각각 기록합니다. 소포 구성을 바꿔야 한다면 ‘새 EMS 접수 준비’에서 수정·저장하세요."
+                  : "판매상품으로 신고합니다. 각 소포의 수량과 실제 상품 결제 금액을 배분하세요. 무게·원산지·HS 코드는 확인한 값만 입력합니다."}
               </p>
               <div className="space-y-3">
                 {draft.packages.map((p, pi) => {
@@ -574,159 +631,175 @@ export function EmsPreparation({
                       </button>
                       {openParcel === p.id && (
                         <div className="border-t border-slate-100 px-4 pb-5 pt-4">
-                          <fieldset disabled={busy || locked}>
-                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                              <Field
-                                label="포장 후 총중량 (g)"
-                                type="number"
-                                value={p.grossWeightGrams}
-                                onChange={(v) => parcel(p.id, { grossWeightGrams: numeric(v) })}
-                                placeholder="실측값 입력"
-                              />
-                              <Field
-                                label="가로 (cm)"
-                                type="number"
-                                value={p.lengthCm}
-                                onChange={(v) => parcel(p.id, { lengthCm: numeric(v) })}
-                              />
-                              <Field
-                                label="세로 (cm)"
-                                type="number"
-                                value={p.widthCm}
-                                onChange={(v) => parcel(p.id, { widthCm: numeric(v) })}
-                              />
-                              <Field
-                                label="높이 (cm)"
-                                type="number"
-                                value={p.heightCm}
-                                onChange={(v) => parcel(p.id, { heightCm: numeric(v) })}
-                              />
-                            </div>
-                            <p className="mt-2 text-[11px] text-slate-500">
-                              기존 상자 기준 41 × 31 × 15 cm입니다. 실제 포장 크기와 무게를 다시
-                              확인하세요.
-                            </p>
-                            {p.items.map((it, ii) => (
-                              <div
-                                key={`${it.sourceItemIndex}-${ii}`}
-                                className="mt-4 rounded-lg border border-slate-200 bg-slate-50/60 p-3"
-                              >
-                                <div className="mb-3 flex items-center justify-between gap-2">
-                                  <strong className="text-xs">
-                                    {order.items[it.sourceItemIndex]?.name || "상품 확인 필요"}
-                                    {order.items[it.sourceItemIndex]?.size
-                                      ? ` · ${order.items[it.sourceItemIndex].size} mm`
-                                      : ""}
-                                  </strong>
-                                  {!locked && (
+                          {postedMode && (
+                            <ul className="mb-3 space-y-1 text-xs text-slate-600">
+                              {p.items.map((it, i) => (
+                                <li key={i}>
+                                  {order.items[it.sourceItemIndex]?.name || "상품 확인 필요"} ·{" "}
+                                  {it.quantity}개
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {!postedMode && (
+                            <fieldset disabled={busy || locked}>
+                              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                <Field
+                                  label="포장 후 총중량 (g)"
+                                  type="number"
+                                  value={p.grossWeightGrams}
+                                  onChange={(v) => parcel(p.id, { grossWeightGrams: numeric(v) })}
+                                  placeholder="실측값 입력"
+                                />
+                                <Field
+                                  label="가로 (cm)"
+                                  type="number"
+                                  value={p.lengthCm}
+                                  onChange={(v) => parcel(p.id, { lengthCm: numeric(v) })}
+                                />
+                                <Field
+                                  label="세로 (cm)"
+                                  type="number"
+                                  value={p.widthCm}
+                                  onChange={(v) => parcel(p.id, { widthCm: numeric(v) })}
+                                />
+                                <Field
+                                  label="높이 (cm)"
+                                  type="number"
+                                  value={p.heightCm}
+                                  onChange={(v) => parcel(p.id, { heightCm: numeric(v) })}
+                                />
+                              </div>
+                              <p className="mt-2 text-[11px] text-slate-500">
+                                기존 상자 기준 41 × 31 × 15 cm입니다. 실제 포장 크기와 무게를 다시
+                                확인하세요.
+                              </p>
+                              {p.items.map((it, ii) => (
+                                <div
+                                  key={`${it.sourceItemIndex}-${ii}`}
+                                  className="mt-4 rounded-lg border border-slate-200 bg-slate-50/60 p-3"
+                                >
+                                  <div className="mb-3 flex items-center justify-between gap-2">
+                                    <strong className="text-xs">
+                                      {order.items[it.sourceItemIndex]?.name || "상품 확인 필요"}
+                                      {order.items[it.sourceItemIndex]?.size
+                                        ? ` · ${order.items[it.sourceItemIndex].size} mm`
+                                        : ""}
+                                    </strong>
+                                    {!locked && (
+                                      <button
+                                        type="button"
+                                        className="text-xs text-slate-500 underline"
+                                        onClick={() =>
+                                          parcel(p.id, {
+                                            items: p.items.filter((_, idx) => idx !== ii),
+                                          })
+                                        }
+                                      >
+                                        이 소포에서 제외
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div className="grid gap-3 sm:grid-cols-3">
+                                    <Field
+                                      label="영문 품명"
+                                      value={it.descriptionEn}
+                                      onChange={(v) => item(p.id, ii, { descriptionEn: v })}
+                                      placeholder="정확한 실제 품명"
+                                    />
+                                    <Field
+                                      label={
+                                        draft.recipient.country === "US"
+                                          ? "HTS 코드 (미국 10자리)"
+                                          : "상품분류 HS 코드"
+                                      }
+                                      value={it.hsCode}
+                                      onChange={(v) => item(p.id, ii, { hsCode: v })}
+                                    />
+                                    <Field
+                                      label="원산지 국가 코드"
+                                      value={it.originCountry}
+                                      onChange={(v) =>
+                                        item(p.id, ii, { originCountry: v.toUpperCase() })
+                                      }
+                                      placeholder="확인 후 입력"
+                                    />
+                                    <Field
+                                      label="수량"
+                                      type="number"
+                                      value={it.quantity}
+                                      onChange={(v) => item(p.id, ii, { quantity: Number(v) })}
+                                    />
+                                    <Field
+                                      label={`이 품목 합계 금액 (${it.currency})`}
+                                      type="number"
+                                      value={it.declaredValue}
+                                      onChange={(v) => item(p.id, ii, { declaredValue: Number(v) })}
+                                      hint="단가가 아닌, 이 소포 안의 해당 품목 합계"
+                                    />
+                                    <Field
+                                      label="이 품목 전체 순중량 (g)"
+                                      type="number"
+                                      value={it.netWeightGrams}
+                                      onChange={(v) =>
+                                        item(p.id, ii, { netWeightGrams: numeric(v) })
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                              {!locked && (
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                                  <select
+                                    aria-label={`소포 ${pi + 1}에 상품 추가`}
+                                    className="h-9 max-w-full rounded-lg border border-slate-200 bg-white px-3 text-xs"
+                                    value=""
+                                    onChange={(e) => {
+                                      if (e.target.value !== "") addItem(p, Number(e.target.value));
+                                    }}
+                                  >
+                                    <option value="">+ 주문 상품 배정</option>
+                                    {order.items.map((it, idx) => (
+                                      <option
+                                        key={idx}
+                                        value={idx}
+                                        disabled={p.items.some((x) => x.sourceItemIndex === idx)}
+                                      >
+                                        {it.name} · 주문 {it.qty}개
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {draft.packages.length > 1 && (
                                     <button
                                       type="button"
                                       className="text-xs text-slate-500 underline"
-                                      onClick={() =>
-                                        parcel(p.id, {
-                                          items: p.items.filter((_, idx) => idx !== ii),
-                                        })
-                                      }
+                                      onClick={() => {
+                                        if (
+                                          window.confirm(
+                                            "이 소포를 준비 목록에서 제외할까요? 상품을 다른 소포에 다시 배정해야 합니다.",
+                                          )
+                                        )
+                                          setDraft((d) => ({
+                                            ...d,
+                                            packages: d.packages.filter((x) => x.id !== p.id),
+                                          }));
+                                      }}
                                     >
-                                      이 소포에서 제외
+                                      빈 소포·미접수 소포 제외
                                     </button>
                                   )}
                                 </div>
-                                <div className="grid gap-3 sm:grid-cols-3">
-                                  <Field
-                                    label="영문 품명"
-                                    value={it.descriptionEn}
-                                    onChange={(v) => item(p.id, ii, { descriptionEn: v })}
-                                    placeholder="정확한 실제 품명"
-                                  />
-                                  <Field
-                                    label={
-                                      draft.recipient.country === "US"
-                                        ? "HTS 코드 (미국 10자리)"
-                                        : "상품분류 HS 코드"
-                                    }
-                                    value={it.hsCode}
-                                    onChange={(v) => item(p.id, ii, { hsCode: v })}
-                                  />
-                                  <Field
-                                    label="원산지 국가 코드"
-                                    value={it.originCountry}
-                                    onChange={(v) =>
-                                      item(p.id, ii, { originCountry: v.toUpperCase() })
-                                    }
-                                    placeholder="확인 후 입력"
-                                  />
-                                  <Field
-                                    label="수량"
-                                    type="number"
-                                    value={it.quantity}
-                                    onChange={(v) => item(p.id, ii, { quantity: Number(v) })}
-                                  />
-                                  <Field
-                                    label={`이 품목 합계 금액 (${it.currency})`}
-                                    type="number"
-                                    value={it.declaredValue}
-                                    onChange={(v) => item(p.id, ii, { declaredValue: Number(v) })}
-                                    hint="단가가 아닌, 이 소포 안의 해당 품목 합계"
-                                  />
-                                  <Field
-                                    label="이 품목 전체 순중량 (g)"
-                                    type="number"
-                                    value={it.netWeightGrams}
-                                    onChange={(v) => item(p.id, ii, { netWeightGrams: numeric(v) })}
-                                  />
-                                </div>
-                              </div>
-                            ))}
-                            {!locked && (
-                              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                                <select
-                                  aria-label={`소포 ${pi + 1}에 상품 추가`}
-                                  className="h-9 max-w-full rounded-lg border border-slate-200 bg-white px-3 text-xs"
-                                  value=""
-                                  onChange={(e) => {
-                                    if (e.target.value !== "") addItem(p, Number(e.target.value));
-                                  }}
-                                >
-                                  <option value="">+ 주문 상품 배정</option>
-                                  {order.items.map((it, idx) => (
-                                    <option
-                                      key={idx}
-                                      value={idx}
-                                      disabled={p.items.some((x) => x.sourceItemIndex === idx)}
-                                    >
-                                      {it.name} · 주문 {it.qty}개
-                                    </option>
-                                  ))}
-                                </select>
-                                {draft.packages.length > 1 && (
-                                  <button
-                                    type="button"
-                                    className="text-xs text-slate-500 underline"
-                                    onClick={() => {
-                                      if (
-                                        window.confirm(
-                                          "이 소포를 준비 목록에서 제외할까요? 상품을 다른 소포에 다시 배정해야 합니다.",
-                                        )
-                                      )
-                                        setDraft((d) => ({
-                                          ...d,
-                                          packages: d.packages.filter((x) => x.id !== p.id),
-                                        }));
-                                    }}
-                                  >
-                                    빈 소포·미접수 소포 제외
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </fieldset>
+                              )}
+                            </fieldset>
+                          )}
                           <ParcelActions
                             parcel={p}
                             index={pi}
                             busy={busy || inactive}
                             dirty={dirty}
-                            issues={issues.length > 0}
+                            issues={distinctIssues}
+                            allocationIssues={allocationIssues}
+                            postedMode={postedMode}
                             capabilities={capabilities}
                             action={action}
                           />
@@ -767,83 +840,90 @@ export function EmsPreparation({
                 })}
               </div>
             </section>
-            <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="font-bold">
-                  03 <span className="ml-2">확인 · 공식 스마트접수</span>
-                </h3>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs ${distinctIssues.length ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}
-                >
-                  {distinctIssues.length
-                    ? `확인 필요 ${distinctIssues.length}개`
-                    : "필수 정보 입력 완료"}
-                </span>
-              </div>
-              {distinctIssues.length > 0 ? (
-                <details className="mt-3 rounded-lg bg-amber-50 p-3" open>
-                  <summary className="cursor-pointer text-xs font-semibold text-amber-900">
-                    접수 전에 확인할 항목
-                  </summary>
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-relaxed text-amber-900">
-                    {distinctIssues.map((issue, i) => (
-                      <li key={i}>{issue}</li>
-                    ))}
-                  </ul>
-                </details>
-              ) : (
-                <p className="mt-3 flex items-center gap-2 text-xs text-emerald-800">
-                  <Check className="size-4" />
-                  입력 조건을 충족했습니다. 실제 주소·품명·분류의 정확성은 직접 확인해 주세요.
+            {!postedMode && (
+              <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="font-bold">
+                    03 <span className="ml-2">확인 · 공식 스마트접수</span>
+                  </h3>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs ${distinctIssues.length ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}
+                  >
+                    {distinctIssues.length
+                      ? `확인 필요 ${distinctIssues.length}개`
+                      : "필수 정보 입력 완료"}
+                  </span>
+                </div>
+                {distinctIssues.length > 0 ? (
+                  <details className="mt-3 rounded-lg bg-amber-50 p-3" open>
+                    <summary className="cursor-pointer text-xs font-semibold text-amber-900">
+                      접수 전에 확인할 항목
+                    </summary>
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-relaxed text-amber-900">
+                      {distinctIssues.map((issue, i) => (
+                        <li key={i}>{issue}</li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : (
+                  <p className="mt-3 flex items-center gap-2 text-xs text-emerald-800">
+                    <Check className="size-4" />
+                    입력 조건을 충족했습니다. 실제 주소·품명·분류의 정확성은 직접 확인해 주세요.
+                  </p>
+                )}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={
+                      busy ||
+                      dirty ||
+                      inactive ||
+                      issues.length > 0 ||
+                      draft.packages.some((p) => !editableStates.has(p.state))
+                    }
+                    onClick={() => void exportFile()}
+                  >
+                    <ArrowDownToLine className="size-3.5" />
+                    공식 TXT 양식 내보내기
+                  </Button>
+                  <a
+                    className="inline-flex h-9 items-center gap-2 rounded-full bg-slate-900 px-4 text-xs text-white"
+                    href={capabilities.smartRegistrationUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    우체국 스마트접수 열기
+                    <ArrowUpRight className="size-3.5" />
+                  </a>
+                  <a
+                    className="inline-flex h-9 items-center px-2 text-xs text-slate-500 underline"
+                    href={capabilities.officialFormatUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    공식 양식 안내
+                  </a>
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-slate-500">
+                  내보내기 파일은 접수용 자료이며 접수 결과가 아닙니다. 한 소포에 여러 품목이 있으면
+                  공식 엑셀 양식에 직접 입력해야 합니다. 스마트접수의 최종 내용·배송 가능
+                  국가·요금·추가 서류를 확인한 뒤 접수하세요.
                 </p>
-              )}
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  disabled={
-                    busy ||
-                    dirty ||
-                    inactive ||
-                    issues.length > 0 ||
-                    draft.packages.some((p) => !editableStates.has(p.state))
-                  }
-                  onClick={() => void exportFile()}
-                >
-                  <ArrowDownToLine className="size-3.5" />
-                  공식 TXT 양식 내보내기
-                </Button>
-                <a
-                  className="inline-flex h-9 items-center gap-2 rounded-full bg-slate-900 px-4 text-xs text-white"
-                  href={capabilities.smartRegistrationUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  우체국 스마트접수 열기
-                  <ArrowUpRight className="size-3.5" />
-                </a>
-                <a
-                  className="inline-flex h-9 items-center px-2 text-xs text-slate-500 underline"
-                  href={capabilities.officialFormatUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  공식 양식 안내
-                </a>
-              </div>
-              <p className="mt-3 text-xs leading-relaxed text-slate-500">
-                내보내기 파일은 접수용 자료이며 접수 결과가 아닙니다. 한 소포에 여러 품목이 있으면
-                공식 엑셀 양식에 직접 입력해야 합니다. 스마트접수의 최종 내용·배송 가능
-                국가·요금·추가 서류를 확인한 뒤 접수하세요.
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <p className="text-xs leading-relaxed text-slate-600">
+                    {capabilities.tracking.reason} 시간이 지났다는 이유로 배송완료 처리하지
+                    않습니다. 여러 소포는 모두 실제 배달완료여야 주문 전체가 완료됩니다.
+                  </p>
+                </div>
+              </section>
+            )}
+            {postedMode && (
+              <p className="mt-4 text-xs leading-relaxed text-slate-500">
+                {capabilities.tracking.reason} 발송 기록 저장과 자동 배송조회는 별개입니다.
               </p>
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <p className="text-xs leading-relaxed text-slate-600">
-                  {capabilities.tracking.reason} 시간이 지났다는 이유로 배송완료 처리하지 않습니다.
-                  여러 소포는 모두 실제 배달완료여야 주문 전체가 완료됩니다.
-                </p>
-              </div>
-            </section>
+            )}
             <details className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
               <summary className="cursor-pointer text-xs font-semibold text-slate-600">
                 처리 이력 ({draft.audit.length})
@@ -885,20 +965,22 @@ export function EmsPreparation({
               <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={close}>
                 {remaining > 1 ? "다음 주문 확인" : "닫기"}
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy || !dirty || inactive}
-                onClick={() =>
-                  void action(
-                    "save",
-                    { recipient: draft.recipient, packages: draft.packages },
-                    "EMS 준비 정보를 저장했습니다. 아직 우체국 접수는 하지 않았습니다.",
-                  )
-                }
-              >
-                {busy ? "처리 중…" : "준비 정보 저장"}
-              </Button>
+              {(!postedMode || dirty) && (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy || !dirty || inactive}
+                  onClick={() =>
+                    void action(
+                      "save",
+                      { recipient: draft.recipient, packages: draft.packages },
+                      "EMS 준비 정보를 저장했습니다. 아직 우체국 접수는 하지 않았습니다.",
+                    )
+                  }
+                >
+                  {busy ? "처리 중…" : dirty ? "준비 정보 저장" : "저장할 변경 없음"}
+                </Button>
+              )}
               {awaiting.length > 1 && (
                 <Button
                   type="button"
@@ -934,6 +1016,8 @@ function ParcelActions({
   busy,
   dirty,
   issues,
+  allocationIssues,
+  postedMode,
   capabilities,
   action,
 }: {
@@ -941,7 +1025,9 @@ function ParcelActions({
   index: number;
   busy: boolean;
   dirty: boolean;
-  issues: boolean;
+  issues: string[];
+  allocationIssues: string[];
+  postedMode: boolean;
   capabilities: EmsCapabilities;
   action: (name: string, details: Record<string, unknown>, success?: string) => Promise<boolean>;
 }) {
@@ -953,19 +1039,48 @@ function ParcelActions({
   const locked = busy || dirty;
   const registerable = editableStates.has(p.state);
   const uncertain = p.state === "registration_unknown";
+  const recordingPosted = postedMode && registerable;
+  const needsTracking = !uncertain || outcome === "registered";
+  const blocked = [
+    ...(busy ? ["현재 처리 중이거나 이 주문은 조회 전용입니다."] : []),
+    ...(dirty ? ["변경한 준비 정보를 아래 ‘준비 정보 저장’ 버튼으로 먼저 저장해 주세요."] : []),
+    ...(needsTracking && !/^[A-Z]{2}\d{9}[A-Z]{2}$/.test(tracking)
+      ? ["영수증의 우편물번호 13자리를 입력하세요. 영문 2자 + 숫자 9자 + 영문 2자입니다."]
+      : []),
+    ...(!recordingPosted && reference.trim().length < 3
+      ? ["접수 확인 메모를 입력하세요. 예: 우체국 접수내역 확인"]
+      : []),
+    ...(!confirmed
+      ? [
+          recordingPosted
+            ? "‘실제로 우체국 창구에 맡겼습니다’ 확인란을 체크하세요."
+            : "접수 사실 확인란을 체크하세요.",
+        ]
+      : []),
+    ...(recordingPosted ? allocationIssues : needsTracking ? issues : []),
+  ];
+  useEffect(() => {
+    setConfirmed(false);
+  }, [postedMode]);
   return (
     <div className="mt-5 border-t border-slate-200 pt-4">
       {(registerable || uncertain) && (
         <>
           <h4 className="text-xs font-bold">
-            {uncertain ? "공식 접수내역 확인 후 처리" : "공식 스마트접수 완료 후 결과 기록"}
+            {recordingPosted
+              ? "이미 발송한 소포 기록"
+              : uncertain
+                ? "공식 접수내역 확인 후 처리"
+                : "공식 스마트접수 완료 후 결과 기록"}
           </h4>
           <p
             className={`mt-2 text-xs leading-relaxed ${uncertain ? "text-amber-900" : "text-slate-500"}`}
           >
-            {uncertain
-              ? "응답이 늦거나 결과가 불확실할 때는 재접수하지 마세요. 우체국 접수내역에서 먼저 확인하고 아래에 근거를 기록하세요."
-              : "우체국에서 발급한 실제 우편물번호와 접수 확인 정보를 입력하세요. 저장하면 ‘우체국 제출 대기’가 됩니다."}
+            {recordingPosted
+              ? "우편물번호를 입력하고 실제 창구 인계를 체크한 뒤 ‘발송 기록 저장’을 누르세요. 메모는 선택입니다."
+              : uncertain
+                ? "응답이 늦거나 결과가 불확실할 때는 재접수하지 마세요. 우체국 접수내역에서 먼저 확인하고 아래에 근거를 기록하세요."
+                : "우체국에서 발급한 실제 우편물번호와 접수 확인 정보를 입력하세요. 저장하면 ‘우체국 제출 대기’가 됩니다."}
           </p>
           {uncertain && (
             <select
@@ -989,19 +1104,23 @@ function ParcelActions({
                 value={tracking}
                 onChange={(v) => setTracking(v.toUpperCase().replace(/\s/g, ""))}
                 disabled={locked}
-                placeholder="실제 발급된 번호"
+                placeholder="영문 2자 + 숫자 9자 + 영문 2자"
+                hint="영수증·송장 바코드에 적힌 번호입니다. 이 주문의 수취인과 대조해 주세요."
               />
             )}
             <Field
               label={
                 uncertain && outcome === "not_registered"
                   ? "미접수 확인 근거 · 확인 일시"
-                  : "접수번호 / 공식 접수내역 확인 근거"
+                  : recordingPosted
+                    ? "발송 메모 (선택)"
+                    : "접수 확인 메모 (필수)"
               }
               value={reference}
               onChange={setReference}
               disabled={locked}
-              placeholder="직접 확인한 내용 입력"
+              placeholder={recordingPosted ? "비워 두어도 됩니다" : "예: 우체국 접수내역 확인"}
+              hint="별도의 접수번호를 찾을 필요는 없습니다."
             />
           </div>
           <label className="mt-3 flex items-start gap-2 text-xs leading-relaxed">
@@ -1013,25 +1132,22 @@ function ParcelActions({
               onChange={(e) => setConfirmed(e.target.checked)}
             />
             <span>
-              {uncertain && outcome === "not_registered"
-                ? "우체국 접수내역에서 미접수임을 확인했습니다."
-                : "공식 접수가 완료됐으며, 위 번호가 이 소포의 우편물번호임을 확인했습니다."}
+              {recordingPosted
+                ? "실제로 우체국 창구에 맡겼습니다. 송장의 수취인과 이 주문 고객이 같고, 위 번호가 이 소포의 우편물번호임을 확인했습니다."
+                : uncertain && outcome === "not_registered"
+                  ? "우체국 접수내역에서 미접수임을 확인했습니다."
+                  : "공식 접수가 완료됐으며, 위 번호가 이 소포의 우편물번호임을 확인했습니다."}
             </span>
           </label>
           <Button
             type="button"
             size="sm"
             className="mt-3"
-            disabled={
-              locked ||
-              !confirmed ||
-              reference.trim().length < 3 ||
-              ((!uncertain || outcome === "registered") &&
-                (issues || !/^[A-Z]{2}\d{9}[A-Z]{2}$/.test(tracking)))
-            }
+            disabled={blocked.length > 0}
+            aria-describedby={`parcel-${p.id}-requirements`}
             onClick={async () => {
               const ok = await action(
-                uncertain ? "reconcile" : "register",
+                recordingPosted ? "record_posted" : uncertain ? "reconcile" : "register",
                 {
                   packageId: p.id,
                   tracking,
@@ -1039,18 +1155,45 @@ function ParcelActions({
                   confirmed: true,
                   ...(uncertain ? { outcome } : {}),
                 },
-                uncertain && outcome === "not_registered"
-                  ? "미접수 확인을 기록했습니다. 다시 준비할 수 있습니다."
-                  : "접수 결과를 저장했습니다. 우체국 제출 대기 상태입니다.",
+                recordingPosted
+                  ? "발송 사실과 송장번호를 저장했습니다. 해당 소포는 배송중입니다."
+                  : uncertain && outcome === "not_registered"
+                    ? "미접수 확인을 기록했습니다. 다시 준비할 수 있습니다."
+                    : "접수 결과를 저장했습니다. 우체국 제출 대기 상태입니다.",
               );
               if (ok) setConfirmed(false);
             }}
           >
-            {uncertain && outcome === "not_registered"
-              ? "미접수 확인 · 준비로 돌아가기"
-              : "접수 완료 기록 · 제출 대기"}
+            {recordingPosted
+              ? "발송 기록 저장 · 배송중"
+              : uncertain && outcome === "not_registered"
+                ? "미접수 확인 · 준비로 돌아가기"
+                : "접수 완료 기록 · 제출 대기"}
           </Button>
-          {registerable && (
+          <div
+            id={`parcel-${p.id}-requirements`}
+            aria-live="polite"
+            className="mt-3 text-xs leading-relaxed"
+          >
+            {blocked.length > 0 ? (
+              <div className="rounded-lg bg-amber-50 p-3 text-amber-900">
+                <strong>버튼을 누르려면</strong>
+                <ul className="mt-1 list-disc space-y-1 pl-4">
+                  {blocked.map((reason, i) => (
+                    <li key={i}>{reason}</li>
+                  ))}
+                </ul>
+                {!recordingPosted && registerable && (
+                  <p className="mt-2 font-medium">
+                    이미 보냈다면 화면 맨 위의 ‘이미 우체국에 맡긴 물건’을 선택하세요.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-emerald-800">입력이 완료됐습니다. 위 버튼으로 저장하세요.</p>
+            )}
+          </div>
+          {registerable && !recordingPosted && (
             <details className="mt-4 rounded-lg bg-slate-50 p-3">
               <summary className="cursor-pointer text-xs text-slate-600">
                 접수 실패 또는 응답 지연·결과 불명 처리
@@ -1133,7 +1276,10 @@ function ParcelActions({
       {p.handedOverAt && (
         <div>
           <p className="text-xs text-slate-500">
-            창구 제출 {formatTime(p.handedOverAt)}
+            {p.postingRecordSource === "admin_confirmation"
+              ? "관리자 발송 기록 시각"
+              : "창구 제출 기록"}{" "}
+            {formatTime(p.handedOverAt)}
             {p.deliveredAt ? ` · 실제 배달완료 ${formatTime(p.deliveredAt)}` : ""}
           </p>
           <Button

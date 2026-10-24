@@ -67,7 +67,15 @@ export const Route = createFileRoute("/api/ems")({
             return json({ order, capabilities: getEmsCapabilities(), issues: emsIssues(order) });
           }
           if (
-            !["save", "register", "uncertain", "failed", "reconcile", "handover"].includes(action)
+            ![
+              "save",
+              "register",
+              "record_posted",
+              "uncertain",
+              "failed",
+              "reconcile",
+              "handover",
+            ].includes(action)
           )
             throw new Error("EMS_BAD_ACTION");
           // Only action-specific fields reach the workflow. Provider evidence/state is never accepted.
@@ -80,7 +88,7 @@ export const Route = createFileRoute("/api/ems")({
               packageIds: body.packageIds as string[],
               confirmed: body.confirmed === true,
             };
-          else if (action === "register")
+          else if (action === "register" || action === "record_posted")
             mutation = {
               action,
               packageId: String(body.packageId || ""),

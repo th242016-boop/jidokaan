@@ -59,6 +59,8 @@ export type EmsPackage = {
   handedOverAt?: string;
   deliveredAt?: string;
   registrationNote?: string;
+  /** Existing physical posting confirmed by admin; timestamps record that confirmation. */
+  postingRecordSource?: "admin_confirmation";
   trackingCheck?: {
     checkedAt: string;
     outcome: "ok" | "unavailable" | "unknown";
@@ -97,6 +99,13 @@ export type EmsAction =
       packageId: string;
       tracking: string;
       reference: string;
+      confirmed: boolean;
+    }
+  | {
+      action: "record_posted";
+      packageId: string;
+      tracking: string;
+      reference?: string;
       confirmed: boolean;
     }
   | { action: "uncertain" | "failed"; packageId: string; note: string }

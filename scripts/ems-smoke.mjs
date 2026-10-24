@@ -673,6 +673,211 @@ try {
       assert.equal((await read(o.id)).status, "wait");
     },
   );
+  const recordPosted = (o, n, index = 0, op = operation(), confirmed = true) =>
+    mutate(
+      o,
+      {
+        action: "record_posted",
+        packageId: o.fulfillment.packages[index].id,
+        tracking: tracking(n),
+        confirmed,
+      },
+      op,
+    );
+  await check(
+    "already posted parcel records with blank new-registration metadata and explicit confirmation",
+    async () => {
+      const o = await prepared();
+      assert.ok(workflow.emsIssues(o).length > 0);
+      const saved = await recordPosted(o, 1001);
+      assert.equal(saved.status, "shipped");
+      const p = saved.fulfillment.packages[0];
+      assert.equal(p.state, "in_transit");
+      assert.equal(p.tracking, tracking(1001));
+      assert.ok(p.handedOverAt);
+      assert.equal(p.postingRecordSource, "admin_confirmation");
+      assert.equal(p.grossWeightGrams, null);
+      assert.equal(p.items[0].descriptionEn, "");
+      assert.equal(p.items[0].hsCode, "");
+      assert.equal(p.items[0].originCountry, "");
+      assert.equal(saved.fulfillment.recipient.englishConfirmed, false);
+      assert.equal(p.deliveredAt, undefined);
+      assert.equal(p.trackingCheck, undefined);
+      assert.equal(outboundAttempts, 0);
+    },
+  );
+  await check(
+    "already posted recording rejects absent confirmation and invalid tracking",
+    async () => {
+      const o = await prepared();
+      await assert.rejects(recordPosted(o, 1002, 0, operation(), false), /EMS_CONFIRM_REQUIRED/);
+      for (const invalid of ["", "SHORT", "EE123456789KR-EXTRA"])
+        await assert.rejects(
+          mutate(o, {
+            action: "record_posted",
+            packageId: o.fulfillment.packages[0].id,
+            tracking: invalid,
+            confirmed: true,
+          }),
+          /EMS_TRACKING_INVALID/,
+        );
+      assert.equal((await read(o.id)).status, "ready");
+      assert.equal((await read(o.id)).fulfillment.packages[0].state, "preparing");
+    },
+  );
+  await check(
+    "already posted recording is idempotent across concurrent click and old-version retry",
+    async () => {
+      const o = await prepared();
+      const op = operation();
+      const results = await Promise.allSettled([
+        recordPosted(o, 1003, 0, op),
+        recordPosted(o, 1003, 0, op),
+      ]);
+      assert.ok(results.every((r) => r.status === "fulfilled"));
+      const saved = await read(o.id);
+      assert.equal(saved.fulfillment.audit.filter((a) => a.operationId === op).length, 1);
+      const retried = await recordPosted(o, 1003, 0, op);
+      assert.equal(retried.fulfillment.version, saved.fulfillment.version);
+      assert.equal(
+        retried.fulfillment.packages[0].handedOverAt,
+        saved.fulfillment.packages[0].handedOverAt,
+      );
+      await assert.rejects(recordPosted(saved, 1004, 0, op), /EMS_OPERATION_CONFLICT/);
+      await assert.rejects(recordPosted(saved, 1003));
+    },
+  );
+  await check(
+    "already posted recording uses shared tracking ownership and blocks duplicates",
+    async () => {
+      const a = await prepared();
+      const b = await prepared();
+      const results = await Promise.allSettled([recordPosted(a, 1005), recordPosted(b, 1005)]);
+      assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+      assert.equal(results.filter((r) => r.status === "rejected").length, 1);
+      const saved = await Promise.all([read(a.id), read(b.id)]);
+      assert.equal(saved.filter((o) => o.status === "shipped").length, 1);
+      assert.equal(
+        saved.filter((o) => o.fulfillment.packages[0].tracking === tracking(1005)).length,
+        1,
+      );
+      const historic = await prepared();
+      await assert.rejects(recordPosted(historic, 5), /EMS_DUPLICATE_TRACKING/);
+    },
+  );
+  await check(
+    "already posted recording cannot bypass unknown registration or active claims",
+    async () => {
+      let uncertain = await prepared();
+      uncertain = await mutate(uncertain, {
+        action: "uncertain",
+        packageId: uncertain.fulfillment.packages[0].id,
+        note: "Synthetic response delay: registration status uncertain",
+      });
+      await assert.rejects(recordPosted(uncertain, 1006));
+      assert.equal(
+        (await read(uncertain.id)).fulfillment.packages[0].state,
+        "registration_unknown",
+      );
+      let claimed = await prepared();
+      await orders.requestClaim({
+        id: claimed.id,
+        email: claimed.email,
+        kind: "cancel",
+        reason: "Synthetic claim awaiting review",
+      });
+      claimed = await read(claimed.id);
+      await assert.rejects(recordPosted(claimed, 1006), /EMS_ORDER_INACTIVE/);
+      assert.equal((await read(claimed.id)).status, "ready");
+    },
+  );
+  await check(
+    "already posted recording cannot ship unpaid, cancelled or completed orders",
+    async () => {
+      for (const status of ["wait", "cancel", "done", "confirmed"]) {
+        const o = await prepared();
+        await sql.query("update store_orders set status=$2 where id=$1", [o.id, status]);
+        await assert.rejects(recordPosted(o, 1007), /EMS_ORDER_INACTIVE/);
+        assert.equal((await read(o.id)).status, status);
+        assert.equal((await read(o.id)).fulfillment.packages[0].tracking, undefined);
+      }
+    },
+  );
+  await check(
+    "already posted recording still enforces quantity, value and currency allocation",
+    async () => {
+      for (const patch of [
+        { quantity: 2 },
+        { declaredValue: 1 },
+        { declaredValue: -1 },
+        { currency: "EUR" },
+        { sourceItemIndex: 99 },
+      ]) {
+        let o = await prepared();
+        const packages = structuredClone(o.fulfillment.packages);
+        Object.assign(packages[0].items[0], patch);
+        o = await mutate(o, { action: "save", recipient: o.fulfillment.recipient, packages });
+        await assert.rejects(recordPosted(o, 1008));
+        assert.equal((await read(o.id)).status, "ready");
+      }
+    },
+  );
+  await check(
+    "already posted recording keeps multiple-parcel progression distinct from delivery",
+    async () => {
+      let o = await prepared({
+        items: [{ ...base.items[0], qty: 2 }],
+        totalUsd: 478,
+        totalKrw: 601000,
+      });
+      const packages = structuredClone(o.fulfillment.packages);
+      packages[0].items[0].quantity = 1;
+      packages[0].items[0].declaredValue = 230;
+      packages.push({ ...structuredClone(packages[0]), id: "already-posted-second" });
+      o = await mutate(o, { action: "save", recipient: o.fulfillment.recipient, packages });
+      o = await recordPosted(o, 1009);
+      assert.equal(o.status, "shipped");
+      assert.equal(o.fulfillment.packages[0].state, "in_transit");
+      assert.equal(o.fulfillment.packages[1].state, "preparing");
+      o = await recordPosted(o, 1010, 1);
+      assert.equal(o.status, "shipped");
+      assert.ok(o.fulfillment.packages.every((p) => p.state === "in_transit"));
+      assert.ok(o.fulfillment.packages.every((p) => !p.deliveredAt));
+      const partial = workflow.applyEmsTracking(
+        o,
+        o.fulfillment.packages[0].id,
+        evidence(o.fulfillment.packages[0], "delivered"),
+        operation(),
+        later,
+      );
+      assert.equal(partial.status, "shipped");
+      const delivered = workflow.applyEmsTracking(
+        partial,
+        partial.fulfillment.packages[1].id,
+        evidence(partial.fulfillment.packages[1], "delivered"),
+        operation(),
+        later,
+      );
+      assert.equal(delivered.status, "done");
+    },
+  );
+  await check(
+    "already posted recording rejects stale preparation revisions and permits known failed drafts",
+    async () => {
+      const stale = await prepared();
+      let current = await mutate(stale, {
+        action: "failed",
+        packageId: stale.fulfillment.packages[0].id,
+        note: "Synthetic previous failed online registration, later posted at counter",
+      });
+      await assert.rejects(recordPosted(stale, 1011), /ORDER_CHANGED/);
+      current = await recordPosted(current, 1011);
+      assert.equal(current.status, "shipped");
+      assert.equal(current.fulfillment.packages[0].state, "in_transit");
+      assert.ok(current.fulfillment.audit.some((a) => a.action === "failed"));
+      assert.ok(current.fulfillment.audit.some((a) => a.action === "record_posted"));
+    },
+  );
   await check("all synthetic work creates no notifications or customer messages", async () => {
     assert.equal(outboundAttempts, 0);
     for (const table of ["telegram_order_outbox", "telegram_inbox_outbox", "inbox_messages"]) {
