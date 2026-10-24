@@ -878,6 +878,285 @@ try {
       assert.ok(current.fulfillment.audit.some((a) => a.action === "record_posted"));
     },
   );
+  const manualComplete = async (o, op = operation(), confirmed = true, snapshot = null) => {
+    const current = snapshot ?? (await ems.readEmsOrder(token, o.id));
+    return ems.completeEmsDelivery(
+      token,
+      o.id,
+      current.order.fulfillment?.version ?? 0,
+      current.revision,
+      op,
+      confirmed,
+    );
+  };
+  const legacyShipped = async (n) => {
+    const o = await fresh();
+    const shipped = { ...o, status: "shipped", courier: "EMS", tracking: tracking(n) };
+    await sql.query("update store_orders set data=$2::jsonb,status=$3 where id=$1", [
+      o.id,
+      JSON.stringify(shipped),
+      "shipped",
+    ]);
+    return read(o.id);
+  };
+  await check(
+    "manual delivery completion requires authentication and explicit confirmation",
+    async () => {
+      const o = await recordPosted(await prepared(), 2001);
+      const snapshot = await ems.readEmsOrder(token, o.id);
+      await assert.rejects(
+        ems.completeEmsDelivery(
+          "wrong",
+          o.id,
+          o.fulfillment.version,
+          snapshot.revision,
+          operation(),
+          true,
+        ),
+        /AUTH/,
+      );
+      await assert.rejects(manualComplete(o, operation(), false), /EMS_CONFIRM_REQUIRED/);
+      assert.equal((await read(o.id)).status, "shipped");
+      assert.equal((await read(o.id)).deliveryCompletion, undefined);
+    },
+  );
+  await check(
+    "manual completion records admin provenance without fabricating carrier delivery",
+    async () => {
+      const o = await recordPosted(await prepared(), 2002);
+      const op = operation();
+      const completed = await manualComplete(o, op);
+      assert.equal(completed.status, "done");
+      assert.equal(completed.deliveryCompletion.source, "admin_confirmation");
+      assert.equal(completed.deliveryCompletion.operationId, op);
+      assert.ok(Number.isFinite(Date.parse(completed.deliveryCompletion.recordedAt)));
+      const p = completed.fulfillment.packages[0];
+      assert.equal(p.state, "delivered");
+      assert.equal(p.manualDelivery.source, "admin_confirmation");
+      assert.equal(p.manualDelivery.operationId, op);
+      assert.equal(p.deliveredAt, undefined);
+      assert.equal(p.trackingCheck, undefined);
+      assert.equal(outboundAttempts, 0);
+      const projected = orderTypes.customerOrder(completed);
+      assert.equal(projected.status, "done");
+      assert.equal("deliveryCompletion" in projected, false);
+      assert.equal("fulfillment" in projected, false);
+    },
+  );
+  await check(
+    "manual completion supports legacy overseas shipments without inventing parcels",
+    async () => {
+      const o = await legacyShipped(2003);
+      assert.equal(o.fulfillment, undefined);
+      const completed = await manualComplete(o);
+      assert.equal(completed.status, "done");
+      assert.equal(completed.fulfillment, undefined);
+      assert.equal(completed.tracking, o.tracking);
+      assert.equal(completed.deliveryCompletion.source, "admin_confirmation");
+      assert.deepEqual(completed.items, o.items);
+    },
+  );
+  await check(
+    "manual completion rejects unpaid, unshipped, cancelled and already completed orders",
+    async () => {
+      for (const status of [
+        "wait",
+        "paid",
+        "ready",
+        "cancel",
+        "done",
+        "confirmed",
+        "return",
+        "exchange",
+      ]) {
+        const o = await legacyShipped(2004 + sequence);
+        await sql.query("update store_orders set status=$2 where id=$1", [o.id, status]);
+        await assert.rejects(manualComplete(o));
+        assert.equal((await read(o.id)).status, status);
+        assert.equal((await read(o.id)).deliveryCompletion, undefined);
+      }
+      const noTracking = await legacyShipped(2020);
+      await sql.query("update store_orders set data=data-'tracking' where id=$1", [noTracking.id]);
+      await assert.rejects(manualComplete(noTracking));
+      assert.equal((await read(noTracking.id)).status, "shipped");
+    },
+  );
+  await check(
+    "manual completion concurrent retries retain one audit and original confirmation time",
+    async () => {
+      for (const legacy of [false, true]) {
+        const o = legacy ? await legacyShipped(2022) : await recordPosted(await prepared(), 2021);
+        const snapshot = await ems.readEmsOrder(token, o.id);
+        const op = operation();
+        const results = await Promise.allSettled([
+          manualComplete(o, op, true, snapshot),
+          manualComplete(o, op, true, snapshot),
+        ]);
+        assert.ok(results.every((r) => r.status === "fulfilled"));
+        const completed = await read(o.id);
+        const retry = await manualComplete(o, op, true, snapshot);
+        assert.deepEqual(retry.deliveryCompletion, completed.deliveryCompletion);
+        if (completed.fulfillment) {
+          assert.equal(completed.fulfillment.audit.filter((a) => a.operationId === op).length, 1);
+          assert.equal(retry.fulfillment.version, completed.fulfillment.version);
+        }
+        await assert.rejects(manualComplete(completed));
+        assert.deepEqual((await read(o.id)).deliveryCompletion, completed.deliveryCompletion);
+      }
+    },
+  );
+  await check("manual completion rejects stale legacy and modern order revisions", async () => {
+    for (const legacy of [false, true]) {
+      const o = legacy ? await legacyShipped(2024) : await recordPosted(await prepared(), 2023);
+      const stale = await ems.readEmsOrder(token, o.id);
+      await orders.updateOrder(token, o.id, { note: "SYNTHETIC CHANGED SINCE REVIEW" });
+      await assert.rejects(manualComplete(o, operation(), true, stale), /ORDER_CHANGED/);
+      assert.equal((await read(o.id)).status, "shipped");
+      assert.equal((await read(o.id)).deliveryCompletion, undefined);
+    }
+  });
+  await check(
+    "manual completion selected batch returns success and failure separately",
+    async () => {
+      const modern = await recordPosted(await prepared(), 2025);
+      const legacy = await legacyShipped(2026);
+      const waiting = await fresh({ pay: "transfer" });
+      const ready = await prepared();
+      const selected = [modern, legacy, waiting, ready];
+      const results = await Promise.allSettled(selected.map((o) => manualComplete(o)));
+      assert.equal(results.filter((r) => r.status === "fulfilled").length, 2);
+      assert.equal(results.filter((r) => r.status === "rejected").length, 2);
+      assert.equal((await read(modern.id)).status, "done");
+      assert.equal((await read(legacy.id)).status, "done");
+      assert.equal((await read(waiting.id)).status, "wait");
+      assert.equal((await read(ready.id)).status, "ready");
+    },
+  );
+  await check(
+    "manual completion blocks unposted parcels but permits explicit resolution of stale tracking exceptions",
+    async () => {
+      let o = await prepared({
+        items: [{ ...base.items[0], qty: 2 }],
+        totalUsd: 478,
+        totalKrw: 601000,
+      });
+      const packages = structuredClone(o.fulfillment.packages);
+      packages[0].items[0].quantity = 1;
+      packages[0].items[0].declaredValue = 230;
+      packages.push({ ...structuredClone(packages[0]), id: "manual-complete-second" });
+      o = await mutate(o, { action: "save", recipient: o.fulfillment.recipient, packages });
+      o = await recordPosted(o, 2027);
+      await assert.rejects(manualComplete(o));
+      assert.equal((await read(o.id)).status, "shipped");
+      o = await recordPosted(o, 2028, 1);
+      for (const state of ["registration_unknown", "awaiting_dropoff", "preparing"]) {
+        const blocked = structuredClone(o);
+        blocked.fulfillment.packages[1].state = state;
+        assert.throws(() => workflow.applyManualDeliveryCompletion(blocked, operation(), true));
+      }
+      for (const state of ["customs_delay", "delivery_failed", "returned"]) {
+        const staleException = workflow.applyEmsTracking(
+          o,
+          o.fulfillment.packages[1].id,
+          evidence(o.fulfillment.packages[1], state),
+          operation(),
+          later,
+        );
+        const resolved = workflow.applyManualDeliveryCompletion(staleException, operation(), true);
+        assert.equal(resolved.status, "done");
+        assert.equal(resolved.deliveryCompletion.source, "admin_confirmation");
+        assert.equal(resolved.fulfillment.packages[1].trackingCheck.evidence.state, state);
+        assert.equal(resolved.fulfillment.packages[1].deliveredAt, undefined);
+      }
+      const completed = await manualComplete(o);
+      assert.equal(completed.status, "done");
+      assert.ok(completed.fulfillment.packages.every((p) => p.state === "delivered"));
+      assert.ok(
+        completed.fulfillment.packages.every(
+          (p) => p.manualDelivery.source === "admin_confirmation",
+        ),
+      );
+      assert.ok(completed.fulfillment.packages.every((p) => p.deliveredAt === undefined));
+    },
+  );
+  await check(
+    "manual completion preserves real carrier evidence on already delivered parcels",
+    async () => {
+      let o = await prepared({
+        items: [{ ...base.items[0], qty: 2 }],
+        totalUsd: 478,
+        totalKrw: 601000,
+      });
+      const packages = structuredClone(o.fulfillment.packages);
+      packages[0].items[0].quantity = 1;
+      packages[0].items[0].declaredValue = 230;
+      packages.push({ ...structuredClone(packages[0]), id: "manual-carrier-second" });
+      o = await mutate(o, { action: "save", recipient: o.fulfillment.recipient, packages });
+      o = await recordPosted(o, 2029);
+      o = await recordPosted(o, 2030, 1);
+      const partial = workflow.applyEmsTracking(
+        o,
+        o.fulfillment.packages[0].id,
+        evidence(o.fulfillment.packages[0], "delivered"),
+        operation(),
+        later,
+      );
+      await orders.saveOrder(o, partial);
+      const completed = await manualComplete(partial);
+      assert.equal(completed.status, "done");
+      assert.equal(completed.fulfillment.packages[0].deliveredAt, later);
+      assert.deepEqual(
+        completed.fulfillment.packages[0].trackingCheck,
+        partial.fulfillment.packages[0].trackingCheck,
+      );
+      assert.equal(completed.fulfillment.packages[1].deliveredAt, undefined);
+      assert.equal(completed.fulfillment.packages[1].manualDelivery.source, "admin_confirmation");
+      const staleProvider = workflow.applyEmsTracking(
+        completed,
+        completed.fulfillment.packages[1].id,
+        evidence(completed.fulfillment.packages[1], "in_transit", now),
+        operation(),
+        later,
+      );
+      assert.equal(staleProvider.status, "done");
+    },
+  );
+  await check("manual completion cannot bypass pending or accepted claims", async () => {
+    const o = await legacyShipped(2031);
+    await orders.requestClaim({
+      id: o.id,
+      email: o.email,
+      kind: "return",
+      reason: "SYNTHETIC RETURN REQUEST",
+    });
+    await assert.rejects(manualComplete(o));
+    assert.equal((await read(o.id)).status, "shipped");
+    assert.equal((await read(o.id)).deliveryCompletion, undefined);
+    const accepted = { ...(await read(o.id)), claimStatus: "accepted" };
+    await sql.query("update store_orders set data=$2::jsonb where id=$1", [
+      o.id,
+      JSON.stringify(accepted),
+    ]);
+    await assert.rejects(manualComplete(o));
+    assert.equal((await read(o.id)).status, "shipped");
+    assert.equal((await read(o.id)).deliveryCompletion, undefined);
+  });
+  await check("competing manual completions preserve exactly one confirmation record", async () => {
+    const o = await legacyShipped(2032);
+    const snapshot = await ems.readEmsOrder(token, o.id);
+    const ops = [operation(), operation()];
+    const results = await Promise.allSettled(
+      ops.map((op) => manualComplete(o, op, true, snapshot)),
+    );
+    assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+    assert.equal(results.filter((r) => r.status === "rejected").length, 1);
+    const winner = results.find((r) => r.status === "fulfilled").value;
+    assert.equal(
+      (await read(o.id)).deliveryCompletion.operationId,
+      winner.deliveryCompletion.operationId,
+    );
+    assert.equal((await read(o.id)).status, "done");
+  });
   await check("all synthetic work creates no notifications or customer messages", async () => {
     assert.equal(outboundAttempts, 0);
     for (const table of ["telegram_order_outbox", "telegram_inbox_outbox", "inbox_messages"]) {

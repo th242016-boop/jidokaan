@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { COURIERS, ORDER_STATUS_LABEL, type StoreOrder } from "@/lib/order-types";
-import { canPrepareEms } from "@/lib/ems-workflow";
+import { canPrepareEms, canCompleteManualDelivery, manualDeliveryIssues } from "@/lib/ems-workflow";
 import { shipmentSummary } from "./ems-preparation";
 import { SIM_PARTS } from "@/lib/simulator-config";
 
@@ -33,12 +33,19 @@ export function OrderDetail({
   onClose,
   onSave,
   onPrepare,
+  onCompleteDelivery,
+  completionBusy = false,
+  completionMessage = "",
 }: {
   order: StoreOrder;
   onClose: () => void;
   onPrepare?: () => void;
+  onCompleteDelivery?: (id: string) => Promise<boolean>;
+  completionBusy?: boolean;
+  completionMessage?: string;
   onSave: (id: string, body: Record<string, unknown>) => Promise<boolean>;
 }) {
+  const [completionRequested, setCompletionRequested] = useState(false);
   const domestic = o.country.toUpperCase() === "KR" && !o.fulfillment;
   const [courier, setCourier] = useState(o.courier ?? "");
   const [tracking, setTracking] = useState(o.tracking ?? "");
@@ -331,7 +338,7 @@ export function OrderDetail({
                     <Button
                       type="button"
                       size="sm"
-                      disabled={saving}
+                      disabled={saving || completionBusy}
                       onClick={() => void save("ready")}
                     >
                       국내 발송 준비
@@ -350,11 +357,11 @@ export function OrderDetail({
                       국내 발송 처리
                     </Button>
                   )}
-                  {o.status === "shipped" && (
+                  {o.status === "shipped" && !onCompleteDelivery && (
                     <Button
                       type="button"
                       size="sm"
-                      disabled={saving}
+                      disabled={saving || completionBusy}
                       onClick={() => {
                         if (window.confirm("국내 택배사의 실제 배달완료를 확인했나요?"))
                           void save("done");
@@ -384,15 +391,66 @@ export function OrderDetail({
                 </Button>
               ) : null}
             </div>
+            {o.deliveryCompletion?.source === "admin_confirmation" && (
+              <div className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">
+                <strong>관리자 수동 배송완료</strong>
+                <p className="mt-1 text-xs">
+                  처리 시각: {orderTime(o.deliveryCompletion.recordedAt)} KST. 우체국 배달완료 조회
+                  기록과 별도로 관리합니다.
+                </p>
+              </div>
+            )}
+            {onCompleteDelivery && o.status === "shipped" && (
+              <div className="mt-3 rounded-lg border border-slate-200 p-3">
+                <Button
+                  type="button"
+                  disabled={saving || completionBusy || !canCompleteManualDelivery(o)}
+                  onClick={async () => {
+                    if (
+                      note !== (o.note ?? "") ||
+                      (domestic &&
+                        (courier !== (o.courier ?? "") || tracking !== (o.tracking ?? "")))
+                    ) {
+                      setCompletionRequested(false);
+                      setMessage("수정한 배송 정보·메모를 먼저 저장한 뒤 배송완료 처리해 주세요.");
+                      return;
+                    }
+                    setMessage("");
+                    setCompletionRequested(true);
+                    await onCompleteDelivery(o.id);
+                  }}
+                >
+                  배송완료 처리
+                </Button>
+                <p className="mt-2 text-xs text-slate-600">
+                  {canCompleteManualDelivery(o)
+                    ? "현재 주문을 관리자 판단으로 완료합니다. 여러 소포가 있는 주문은 전체 소포를 완료 처리하며 수동 처리 이력을 남깁니다."
+                    : manualDeliveryIssues(o)
+                        .map((issue) => issue.message)
+                        .join(" ")}
+                </p>
+              </div>
+            )}
+            {completionRequested && completionMessage && (
+              <p role="status" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                {completionMessage}
+              </p>
+            )}
             <label className="mt-3 block space-y-2">
               <span>내부 메모</span>
               <textarea
                 className="min-h-20 w-full rounded border p-3"
                 value={note}
+                disabled={completionBusy}
                 onChange={(e) => setNote(e.target.value)}
               />
             </label>
-            <Button className="mt-3" type="button" disabled={saving} onClick={() => void save()}>
+            <Button
+              className="mt-3"
+              type="button"
+              disabled={saving || completionBusy}
+              onClick={() => void save()}
+            >
               {saving ? "저장 중…" : domestic ? "국내 배송 정보·메모 저장" : "메모 저장"}
             </Button>
             <p role="status" className="mt-2">

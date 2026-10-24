@@ -80,6 +80,8 @@ export function emsError(error: unknown) {
   const raw = error instanceof Error ? error.message : String(error ?? "");
   if (raw.startsWith("EMS_ALLOCATION_INCOMPLETE:"))
     return raw.slice("EMS_ALLOCATION_INCOMPLETE:".length);
+  if (raw.startsWith("EMS_MANUAL_DELIVERY_BLOCKED:"))
+    return raw.slice("EMS_MANUAL_DELIVERY_BLOCKED:".length);
   if (raw.startsWith("EMS_INCOMPLETE:")) return raw.slice("EMS_INCOMPLETE:".length);
   if (raw.startsWith("EMS_EXPORT_MULTI_ITEM:")) return raw.slice("EMS_EXPORT_MULTI_ITEM:".length);
   return errors[raw] || "처리하지 못했습니다. 최신 주문 정보를 확인한 후 다시 시도해 주세요.";
@@ -913,8 +915,9 @@ export function EmsPreparation({
                 </p>
                 <div className="mt-4 border-t border-slate-100 pt-4">
                   <p className="text-xs leading-relaxed text-slate-600">
-                    {capabilities.tracking.reason} 시간이 지났다는 이유로 배송완료 처리하지
-                    않습니다. 여러 소포는 모두 실제 배달완료여야 주문 전체가 완료됩니다.
+                    {capabilities.tracking.reason} 자동 배송완료는 모든 소포의 공식 배달완료 기록을
+                    확인한 경우에만 반영합니다. 지금은 주문 목록이나 상세의 ‘배송완료 처리’로
+                    관리자가 직접 완료할 수 있으며, 수동 처리 이력이 별도로 남습니다.
                   </p>
                 </div>
               </section>
@@ -1281,6 +1284,9 @@ function ParcelActions({
               : "창구 제출 기록"}{" "}
             {formatTime(p.handedOverAt)}
             {p.deliveredAt ? ` · 실제 배달완료 ${formatTime(p.deliveredAt)}` : ""}
+            {p.manualDelivery
+              ? ` · 관리자 수동 완료 ${formatTime(p.manualDelivery.recordedAt)}`
+              : ""}
           </p>
           <Button
             type="button"

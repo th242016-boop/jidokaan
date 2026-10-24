@@ -1,4 +1,4 @@
-import type { EmsFulfillment } from "./ems-types";
+import type { EmsFulfillment, EmsManualDeliveryConfirmation } from "./ems-types";
 export type OrderStatus =
   "wait" | "paid" | "ready" | "shipped" | "done" | "confirmed" | "cancel" | "return" | "exchange";
 
@@ -92,6 +92,7 @@ export type StoreOrder = {
   claimAt?: string;
   claimAdminNote?: string;
   fulfillment?: EmsFulfillment;
+  deliveryCompletion?: EmsManualDeliveryConfirmation & { fingerprint?: string };
   items: OrderItem[];
 };
 
@@ -179,6 +180,7 @@ export function isPendingClaim(order: StoreOrder, kind?: ClaimKind) {
 
 /** Public order projection; never expose merchant-only notes/settlement data. */
 export function customerOrder(order: StoreOrder): StoreOrder {
-  const { note, paypalFeeUsd, paypalNetUsd, fulfillment, ...publicOrder } = order;
+  const { note, paypalFeeUsd, paypalNetUsd, fulfillment, deliveryCompletion, ...publicOrder } =
+    order;
   return publicOrder;
 }

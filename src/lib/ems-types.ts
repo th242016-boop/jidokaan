@@ -45,6 +45,12 @@ export type EmsTrackingEvidence = {
   events: Array<{ occurredAt: string; status: string; location: string; detail: string }>;
   rawStatus: string;
 };
+export type EmsManualDeliveryConfirmation = {
+  source: "admin_confirmation";
+  /** Time the administrator confirmed delivery, not a carrier-reported delivery time. */
+  recordedAt: string;
+  operationId: string;
+};
 export type EmsPackage = {
   id: string;
   state: EmsPackageState;
@@ -58,6 +64,7 @@ export type EmsPackage = {
   registeredAt?: string;
   handedOverAt?: string;
   deliveredAt?: string;
+  manualDelivery?: EmsManualDeliveryConfirmation;
   registrationNote?: string;
   /** Existing physical posting confirmed by admin; timestamps record that confirmation. */
   postingRecordSource?: "admin_confirmation";

@@ -292,6 +292,7 @@ export async function placeOrder(
     discountUsd,
     items: input.items.slice(0, 30),
     fulfillment: undefined,
+    deliveryCompletion: undefined,
   };
   const sql = await db();
   const inserted = await sql.query<{ id: string }>(

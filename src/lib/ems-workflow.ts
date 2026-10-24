@@ -1,3 +1,4 @@
+import { EMS_STATE_LABEL } from "./ems-types";
 import type { StoreOrder } from "./order-types";
 import type {
   EmsAction,
@@ -480,6 +481,75 @@ export function applyEmsAction(
   f.version++;
   f.updatedAt = now;
   f.audit.push({ at: now, action: action.action, packageId, message, operationId });
+  return next;
+}
+/** Manual completion is an explicit merchant confirmation, never postal API evidence. */
+export function manualDeliveryIssues(order: StoreOrder): EmsIssue[] {
+  if (order.status !== "shipped")
+    return [{ field: "status", message: "배송중인 주문만 배송완료 처리할 수 있습니다." }];
+  if (hasEmsClaim(order))
+    return [{ field: "claim", message: "진행 중인 취소·반품·교환 요청을 먼저 확인해 주세요." }];
+  const f = order.fulfillment;
+  if (!f)
+    return order.tracking?.trim()
+      ? []
+      : [{ field: "tracking", message: "기존 발송 주문의 송장번호를 먼저 확인해 주세요." }];
+  if (!Array.isArray(f.packages) || !f.packages.length)
+    return [{ field: "packages", message: "발송된 소포 정보가 없습니다." }];
+  const issues: EmsIssue[] = [];
+  for (const p of f.packages) {
+    if (!p.tracking?.trim() || !p.handedOverAt || !Number.isFinite(Date.parse(p.handedOverAt))) {
+      issues.push({
+        field: "handover",
+        packageId: p.id,
+        message: `${p.id}: 아직 우체국에 인계하지 않은 소포가 있습니다. 모든 소포를 발송한 후 배송완료 처리해 주세요.`,
+      });
+    } else if (
+      !["in_transit", "delivered", "customs_delay", "delivery_failed", "returned"].includes(p.state)
+    ) {
+      issues.push({
+        field: "state",
+        packageId: p.id,
+        message: `${p.id}: ${EMS_STATE_LABEL[p.state]} 상태입니다. 배송 예외 상태를 먼저 확인해 주세요.`,
+      });
+    }
+  }
+  return issues;
+}
+export function canCompleteManualDelivery(order: StoreOrder) {
+  return manualDeliveryIssues(order).length === 0;
+}
+export function applyManualDeliveryCompletion(
+  order: StoreOrder,
+  operationId: string,
+  confirmed: boolean,
+  now = new Date().toISOString(),
+): StoreOrder {
+  if (!confirmed) throw new Error("EMS_CONFIRM_REQUIRED");
+  const issues = manualDeliveryIssues(order);
+  if (issues.length)
+    throw new Error("EMS_MANUAL_DELIVERY_BLOCKED:" + issues.map((i) => i.message).join(" "));
+  const next = copy(order);
+  const confirmation = { source: "admin_confirmation" as const, recordedAt: now, operationId };
+  next.status = "done";
+  next.deliveryCompletion = confirmation;
+  if (next.fulfillment) {
+    for (const parcel of next.fulfillment.packages) {
+      if (parcel.state !== "delivered") {
+        parcel.state = "delivered";
+        parcel.manualDelivery = { ...confirmation };
+      }
+      // Preserve actual carrier deliveredAt and tracking evidence exactly as received.
+    }
+    next.fulfillment.version++;
+    next.fulfillment.updatedAt = now;
+    next.fulfillment.audit.push({
+      at: now,
+      action: "complete_delivery",
+      operationId,
+      message: "관리자가 모든 소포의 배송완료를 확인함 · 수동 처리 (우체국 자동조회 아님)",
+    });
+  }
   return next;
 }
 export function applyEmsTracking(

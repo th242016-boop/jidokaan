@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AUTH_HEADERS, assertSession } from "@/lib/admin-auth.server";
 import {
   exportEmsOrders,
+  completeEmsDelivery,
+  emsOrderRevision,
   getEmsCapabilities,
   mutateEms,
   prepareEmsOrders,
@@ -55,6 +57,22 @@ export const Route = createFileRoute("/api/ems")({
           const id = String(body.id || ""),
             version = Number(body.version),
             operationId = String(body.operationId || "");
+          if (action === "complete_delivery") {
+            const order = await completeEmsDelivery(
+              token,
+              id,
+              version,
+              String(body.revision || ""),
+              operationId,
+              body.confirmed === true,
+            );
+            return json({
+              order,
+              revision: emsOrderRevision(order),
+              capabilities: getEmsCapabilities(),
+              issues: emsIssues(order),
+            });
+          }
           if (action === "track") {
             const order = await refreshEmsTracking(
               token,

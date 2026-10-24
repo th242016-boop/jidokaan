@@ -5,6 +5,7 @@ import type { StoreOrder } from "./order-types";
 import type { EmsAction, EmsCapabilities } from "./ems-types";
 import {
   applyEmsAction,
+  applyManualDeliveryCompletion,
   applyEmsTracking,
   emsIssues,
   exportEmsTxt,
@@ -35,13 +36,19 @@ function stamp(action: unknown) {
   return createHash("sha256").update(JSON.stringify(action)).digest("hex");
 }
 function repeated(order: StoreOrder, operationId: string, fingerprint: string) {
-  const previous = order.fulfillment?.audit.find((a) => a.operationId === operationId);
+  const previous =
+    order.fulfillment?.audit.find((a) => a.operationId === operationId) ??
+    (order.deliveryCompletion?.operationId === operationId ? order.deliveryCompletion : undefined);
   if (!previous) return false;
   if (previous.fingerprint !== fingerprint) throw new Error("EMS_OPERATION_CONFLICT");
   return true;
 }
-function operationCheck(version: number, operationId: string) {
-  if (!Number.isInteger(version) || version < 1 || !/^[a-zA-Z0-9_.:-]{8,120}$/.test(operationId))
+function operationCheck(version: number, operationId: string, minimumVersion = 1) {
+  if (
+    !Number.isInteger(version) ||
+    version < minimumVersion ||
+    !/^[a-zA-Z0-9_.:-]{8,120}$/.test(operationId)
+  )
     throw new Error("EMS_OPERATION_INVALID");
 }
 async function persist(
@@ -52,6 +59,8 @@ async function persist(
 ) {
   const audit = next.fulfillment?.audit.find((a) => a.operationId === operationId);
   if (audit) audit.fingerprint = fingerprint;
+  if (next.deliveryCompletion?.operationId === operationId)
+    next.deliveryCompletion.fingerprint = fingerprint;
   try {
     await saveOrder(previous, next);
     return next;
@@ -106,6 +115,33 @@ export async function mutateEms(
   const next = applyEmsAction(previous, action, operationId);
   return persist(previous, next, operationId, fingerprint);
 }
+/** Hash of the current authoritative order snapshot; returned only by the authenticated API. */
+export function emsOrderRevision(order: StoreOrder) {
+  return stamp(order);
+}
+export async function completeEmsDelivery(
+  token: string,
+  id: string,
+  version: number,
+  revision: string,
+  operationId: string,
+  confirmed: boolean,
+) {
+  await assertSession(token);
+  operationCheck(version, operationId, 0);
+  if (!confirmed) throw new Error("EMS_CONFIRM_REQUIRED");
+  const previous = await requiredOrder(id),
+    fingerprint = stamp({ action: "complete_delivery" });
+  if (repeated(previous, operationId, fingerprint)) return previous;
+  if (
+    (previous.fulfillment?.version ?? 0) !== version ||
+    !revision ||
+    emsOrderRevision(previous) !== revision
+  )
+    throw new Error("ORDER_CHANGED");
+  const next = applyManualDeliveryCompletion(previous, operationId, confirmed);
+  return persist(previous, next, operationId, fingerprint);
+}
 export async function refreshEmsTracking(
   token: string,
   id: string,
@@ -141,5 +177,10 @@ export async function exportEmsOrders(token: string, ids: string[]) {
 export async function readEmsOrder(token: string, id: string) {
   await assertSession(token);
   const order = await requiredOrder(id);
-  return { order, capabilities: getEmsCapabilities(), issues: emsIssues(order) };
+  return {
+    order,
+    revision: emsOrderRevision(order),
+    capabilities: getEmsCapabilities(),
+    issues: emsIssues(order),
+  };
 }

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Package, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OrderDetail, countryLabel, orderTime } from "./order-detail";
 import { EmsPreparation, emsError, shipmentSummary } from "./ems-preparation";
-import { canPrepareEms } from "@/lib/ems-workflow";
+import { canPrepareEms, canCompleteManualDelivery, manualDeliveryIssues } from "@/lib/ems-workflow";
 import {
   isCancelledOrder,
   ORDER_STATUS_LABEL,
@@ -25,8 +25,11 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [msg, setMsg] = useState("");
+  const [completionMessage, setCompletionMessage] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const completionInFlight = useRef(false);
+  const completionOperations = useRef(new Map<string, string>());
   const [selectedId, setSelectedId] = useState<string | null>(initialOrderId || null);
   const [queue, setQueue] = useState<string[]>([]);
   const [loadError, setLoadError] = useState("");
@@ -85,7 +88,13 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
       return orders.filter((o) => ["confirmed", "return", "exchange"].includes(o.status));
     return orders.filter((o) => o.status === filter && !isCancelledOrder(o));
   }, [orders, operational, filter]);
-  const selectable = rows.filter(canPrepareEms);
+  const selectable = rows.filter((o) => canPrepareEms(o) || canCompleteManualDelivery(o));
+  const pickedPrepare = selectable
+    .filter((o) => picked.includes(o.id) && canPrepareEms(o))
+    .map((o) => o.id);
+  const pickedComplete = selectable
+    .filter((o) => picked.includes(o.id) && canCompleteManualDelivery(o))
+    .map((o) => o.id);
   const allPicked = selectable.length > 0 && selectable.every((o) => picked.includes(o.id));
   const current = orders.find((o) => o.id === queue[0]);
 
@@ -128,6 +137,99 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
     } catch (err) {
       setMsg(emsError(err));
     } finally {
+      setBusy(false);
+    }
+  }
+  async function completeDelivery(ids: string[]) {
+    if (busy || completionInFlight.current || !ids.length) return false;
+    completionInFlight.current = true;
+    setBusy(true);
+    setMsg("");
+    setCompletionMessage("");
+    const showResult = (message: string) => {
+      setMsg(message);
+      setCompletionMessage(message);
+    };
+    const observed: StoreOrder[] = [];
+    const completed: StoreOrder[] = [];
+    const failures: { id: string; error: string }[] = [];
+    try {
+      const snapshots = await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const res = await fetch(`/api/ems?id=${encodeURIComponent(id)}`, { headers });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "ORDER_CHANGED");
+            if (!data.order || !data.revision) throw new Error("ORDER_CHANGED");
+            observed.push(data.order as StoreOrder);
+            const problems = manualDeliveryIssues(data.order);
+            if (problems.length) {
+              failures.push({ id, error: problems.map((issue) => issue.message).join(" ") });
+              return null;
+            }
+            return { order: data.order as StoreOrder, revision: data.revision as string };
+          } catch (err) {
+            failures.push({ id, error: emsError(err) });
+            return null;
+          }
+        }),
+      );
+      setOrders((previous) => previous.map((o) => observed.find((x) => x.id === o.id) ?? o));
+      const eligible = snapshots.filter((o): o is NonNullable<typeof o> => o !== null);
+      if (!eligible.length) {
+        showResult(failures.map((x) => `${x.id} — ${x.error}`).join(" / "));
+        return false;
+      }
+      const confirmed = window.confirm(
+        `${eligible.length}건을 관리자 판단으로 배송완료 처리할까요?\n${eligible.map((x) => `${x.order.id}${x.order.fulfillment ? ` · 소포 ${x.order.fulfillment.packages.length}개 전체` : ""}`).join("\n")}\n\n‘관리자 수동 완료’ 이력이 남습니다. 우체국 배달완료 조회 결과로 기록하지 않습니다.`,
+      );
+      if (!confirmed) return false;
+      for (const snapshot of eligible) {
+        const id = snapshot.order.id;
+        const key = `${id}:${snapshot.revision}`;
+        if (!completionOperations.current.has(key))
+          completionOperations.current.set(key, crypto.randomUUID());
+        try {
+          const res = await fetch("/api/ems", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              action: "complete_delivery",
+              token,
+              id,
+              version: snapshot.order.fulfillment?.version ?? 0,
+              revision: snapshot.revision,
+              operationId: completionOperations.current.get(key),
+              confirmed: true,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "ORDER_CHANGED");
+          if (!data.order) throw new Error("ORDER_CHANGED");
+          completed.push(data.order);
+          completionOperations.current.delete(key);
+        } catch (err) {
+          failures.push({
+            id,
+            error:
+              err instanceof TypeError
+                ? "응답을 확인하지 못했습니다. 새로고침으로 처리 결과를 확인해 주세요."
+                : emsError(err),
+          });
+        }
+      }
+      setOrders((previous) => previous.map((o) => completed.find((x) => x.id === o.id) ?? o));
+      setPicked((previous) => previous.filter((id) => !completed.some((o) => o.id === id)));
+      if (completed.length && !failures.length) {
+        setFilter("done");
+        setSelectedId(null);
+      }
+      showResult(
+        `${completed.length}건을 배송완료 처리했습니다. 관리자 수동 완료로 기록했습니다.${failures.length ? ` 처리하지 못한 ${failures.length}건: ${failures.map((x) => `${x.id} — ${x.error}`).join(" / ")}` : ""}`,
+      );
+      return completed.length > 0 && !failures.length;
+    } finally {
+      completionInFlight.current = false;
       setBusy(false);
     }
   }
@@ -269,16 +371,36 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-100 px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
-          <Button
-            type="button"
-            size="sm"
-            disabled={busy || picked.length === 0}
-            onClick={() => void prepare(picked)}
-          >
-            <Package className="size-4" />
-            선택 주문 발송 준비{picked.length > 0 ? ` (${picked.length})` : ""}
-          </Button>
-          <p className="text-xs text-slate-600">결제 완료된 주문만 선택할 수 있습니다.</p>
+          {filter !== "shipped" && filter !== "done" && (
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy || pickedPrepare.length === 0}
+              onClick={() => void prepare(pickedPrepare)}
+            >
+              <Package className="size-4" />
+              선택 주문 발송 준비{pickedPrepare.length > 0 ? ` (${pickedPrepare.length})` : ""}
+            </Button>
+          )}
+          {(filter === "shipped" || filter === "all") && (
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy || pickedComplete.length === 0}
+              onClick={() => void completeDelivery(pickedComplete)}
+            >
+              <ShieldCheck className="size-4" />
+              선택 주문 배송완료 처리
+              {pickedComplete.length > 0 ? ` (${pickedComplete.length})` : ""}
+            </Button>
+          )}
+          <p className="text-xs text-slate-600">
+            {filter === "shipped"
+              ? "배송중 주문을 체크한 뒤 배송완료 처리하세요. 관리자 수동 완료 이력이 남습니다."
+              : filter === "done"
+                ? "완료 기록과 처리 방법은 주문 상세에서 확인할 수 있습니다."
+                : "신규·준비 주문은 발송 준비, 배송중 주문은 수동 배송완료 처리할 수 있습니다."}
+          </p>
         </div>
         <p className="text-xs text-slate-500">
           {filter === "all"
@@ -348,7 +470,7 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
                 <input
                   type="checkbox"
                   className="size-4"
-                  aria-label="발송 준비 가능한 주문 전체 선택"
+                  aria-label="처리 가능한 주문 전체 선택"
                   checked={allPicked}
                   disabled={!selectable.length || busy}
                   onChange={() => setPicked(allPicked ? [] : selectable.map((o) => o.id))}
@@ -378,7 +500,7 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
                     type="checkbox"
                     aria-label={`${o.id} 선택`}
                     checked={picked.includes(o.id)}
-                    disabled={!canPrepareEms(o) || busy}
+                    disabled={(!canPrepareEms(o) && !canCompleteManualDelivery(o)) || busy}
                     onChange={() =>
                       setPicked((cur) =>
                         cur.includes(o.id) ? cur.filter((id) => id !== o.id) : [...cur, o.id],
@@ -430,6 +552,11 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
                   >
                     {ORDER_STATUS_LABEL[o.status] ?? o.status}
                   </span>
+                  {o.deliveryCompletion?.source === "admin_confirmation" && (
+                    <p className="mt-2 text-xs text-emerald-800">
+                      관리자 수동 완료 · {orderTime(o.deliveryCompletion.recordedAt)}
+                    </p>
+                  )}
                   {o.fulfillment ? (
                     <p className="mt-2 text-xs leading-relaxed text-slate-600">
                       {shipmentSummary(o)}
@@ -462,6 +589,23 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
                         EMS 정보·상태
                       </Button>
                     ) : null}
+                    {canCompleteManualDelivery(o) && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => void completeDelivery([o.id])}
+                      >
+                        배송완료 처리
+                      </Button>
+                    )}
+                    {o.status === "shipped" && !canCompleteManualDelivery(o) && (
+                      <p className="max-w-60 text-xs text-amber-800">
+                        {manualDeliveryIssues(o)
+                          .map((issue) => issue.message)
+                          .join(" ")}
+                      </p>
+                    )}
                     {o.status === "wait" && o.pay !== "paypal" && (
                       <Button
                         type="button"
@@ -514,6 +658,9 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
           key={selectedId}
           order={orders.find((o) => o.id === selectedId)!}
           onClose={() => setSelectedId(null)}
+          onCompleteDelivery={(id) => completeDelivery([id])}
+          completionBusy={busy}
+          completionMessage={completionMessage}
           onPrepare={() => {
             const order = orders.find((o) => o.id === selectedId)!;
             if (order.fulfillment) {
