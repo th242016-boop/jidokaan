@@ -106,20 +106,26 @@ try {
       /PAYPAL_ALREADY_USED/,
     );
   });
-  await check("shipping requires tracking and preserves existing status workflow", async () => {
-    await assert.rejects(
-      orders.updateOrder(token, saved.id, { status: "shipped" }),
-      /TRACKING_REQUIRED/,
-    );
-    await orders.updateOrder(token, saved.id, { status: "ready" });
-    const shipped = await orders.updateOrder(token, saved.id, {
-      status: "shipped",
-      tracking: "TEST-NOT-A-REAL-TRACKING",
-      courier: "DHL",
-    });
-    assert.equal(shipped.status, "shipped");
-    assert.equal(shipped.courier, "DHL");
-  });
+  await check(
+    "shipping shortcuts are blocked while legacy order data remains editable",
+    async () => {
+      await assert.rejects(
+        orders.updateOrder(token, saved.id, { status: "shipped" }),
+        /USE_EMS_WORKFLOW/,
+      );
+      await assert.rejects(
+        orders.updateOrder(token, saved.id, {
+          status: "shipped",
+          tracking: "TEST-NOT-A-REAL-TRACKING",
+          courier: "DHL",
+        }),
+        /USE_EMS_WORKFLOW/,
+      );
+      const noted = await orders.updateOrder(token, saved.id, { note: "TEST ONLY" });
+      assert.equal(noted.status, "paid");
+      assert.equal(noted.note, "TEST ONLY");
+    },
+  );
   await check("legacy order without Instagram/PayPal IDs remains readable", async () => {
     const legacy = { ...input, pay: "transfer", paypalOrderId: undefined, instagram: undefined };
     const o = await orders.placeOrder(legacy);

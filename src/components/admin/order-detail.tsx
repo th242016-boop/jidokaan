@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { COURIERS, ORDER_STATUS_LABEL, type StoreOrder } from "@/lib/order-types";
+import { canPrepareEms } from "@/lib/ems-workflow";
+import { shipmentSummary } from "./ems-preparation";
 import { SIM_PARTS } from "@/lib/simulator-config";
 
 export function countryLabel(code: string) {
@@ -30,11 +32,14 @@ export function OrderDetail({
   order: o,
   onClose,
   onSave,
+  onPrepare,
 }: {
   order: StoreOrder;
   onClose: () => void;
+  onPrepare?: () => void;
   onSave: (id: string, body: Record<string, unknown>) => Promise<boolean>;
 }) {
+  const domestic = o.country.toUpperCase() === "KR" && !o.fulfillment;
   const [courier, setCourier] = useState(o.courier ?? "");
   const [tracking, setTracking] = useState(o.tracking ?? "");
   const [note, setNote] = useState(o.note ?? "");
@@ -73,12 +78,22 @@ export function OrderDetail({
       </div>
     );
   }
-  async function save() {
+  async function save(status?: string) {
     setSaving(true);
     try {
-      const ok = await onSave(o.id, { courier, tracking: tracking.trim(), note });
+      const ok = await onSave(o.id, {
+        note,
+        ...(domestic ? { courier, tracking: tracking.trim() } : {}),
+        ...(status ? { status } : {}),
+      });
       setMessage(
-        ok ? "배송 정보와 메모를 저장했습니다." : "저장하지 못했습니다. 다시 시도해 주세요.",
+        ok
+          ? status
+            ? "국내 배송 상태를 반영했습니다."
+            : domestic
+              ? "국내 배송 정보와 메모를 저장했습니다."
+              : "메모를 저장했습니다."
+          : "저장하지 못했습니다. 다시 시도해 주세요.",
       );
     } catch {
       setMessage("연결 오류로 저장하지 못했습니다.");
@@ -110,7 +125,7 @@ export function OrderDetail({
             </Dialog.Close>
           </div>
           <p className="my-4 rounded bg-[#f5f6f8] p-3">
-            결제·사이즈·색상 확인 → 배송준비 → 제작 완료 → 송장 저장 → 발송 처리
+            결제·디자인 확인 → 발송 준비 → EMS 사전접수 → 우체국 제출 대기 → 창구에 맡긴 뒤 발송
           </p>
           <div className="grid gap-7 md:grid-cols-2">
             <section>
@@ -289,24 +304,85 @@ export function OrderDetail({
           ) : null}
           <section className="mt-5 border-t pt-5">
             <h3 className="mb-3 font-bold">배송 정보 / 내부 메모</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-2">
-                <span>택배사</span>
-                <select
-                  className="block h-11 w-full rounded border bg-white px-3"
-                  value={courier}
-                  onChange={(e) => setCourier(e.target.value)}
-                >
-                  <option value="">선택해 주세요</option>
-                  {COURIERS.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-2">
-                <span>송장번호</span>
-                <Input value={tracking} onChange={(e) => setTracking(e.target.value)} />
-              </label>
+            {domestic ? (
+              <div className="mb-4 rounded-lg border border-slate-200 p-4">
+                <h4 className="mb-3 text-sm font-semibold">국내 배송 · 기존 처리 방식</h4>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-2">
+                    <span>택배사</span>
+                    <select
+                      className="block h-11 w-full rounded border bg-white px-3"
+                      value={courier}
+                      onChange={(e) => setCourier(e.target.value)}
+                    >
+                      <option value="">선택해 주세요</option>
+                      {COURIERS.map((c) => (
+                        <option key={c}>{c}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-2">
+                    <span>국내 송장번호</span>
+                    <Input value={tracking} onChange={(e) => setTracking(e.target.value)} />
+                  </label>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {o.status === "paid" && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={saving}
+                      onClick={() => void save("ready")}
+                    >
+                      국내 발송 준비
+                    </Button>
+                  )}
+                  {o.status === "ready" && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={saving || !tracking.trim()}
+                      onClick={() => {
+                        if (window.confirm("국내 택배사에 물건을 실제로 맡겼나요?"))
+                          void save("shipped");
+                      }}
+                    >
+                      국내 발송 처리
+                    </Button>
+                  )}
+                  {o.status === "shipped" && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={saving}
+                      onClick={() => {
+                        if (window.confirm("국내 택배사의 실제 배달완료를 확인했나요?"))
+                          void save("done");
+                      }}
+                    >
+                      국내 배송완료 확인
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : null}
+            <div className="rounded-lg bg-slate-50 p-4">
+              {o.fulfillment ? (
+                <p>{shipmentSummary(o)}</p>
+              ) : (
+                <p>
+                  기존 배송 정보: {o.courier || "미등록"} · {o.tracking || "송장 미등록"}
+                </p>
+              )}
+              <p className="mt-2 text-xs text-slate-500">
+                기존 기록을 보존합니다. 해외 주문은 EMS 발송 준비 화면에서 접수와 발송 처리를
+                진행합니다.
+              </p>
+              {onPrepare && (canPrepareEms(o) || o.fulfillment) ? (
+                <Button className="mt-3" type="button" onClick={onPrepare}>
+                  {o.fulfillment ? "EMS 정보·상태 확인" : "발송 준비"}
+                </Button>
+              ) : null}
             </div>
             <label className="mt-3 block space-y-2">
               <span>내부 메모</span>
@@ -317,14 +393,14 @@ export function OrderDetail({
               />
             </label>
             <Button className="mt-3" type="button" disabled={saving} onClick={() => void save()}>
-              {saving ? "저장 중…" : "배송 정보·메모 저장"}
+              {saving ? "저장 중…" : domestic ? "국내 배송 정보·메모 저장" : "메모 저장"}
             </Button>
             <p role="status" className="mt-2">
               {message}
             </p>
             <p className="mt-3 text-xs text-[#666]">
-              저장만으로 발송 상태가 바뀌거나 고객에게 알림이 전송되지 않습니다. 실제 발송 후
-              목록에서 발송 처리해 주세요. 취소 상태 변경은 PayPal 환불과 별개입니다.
+              저장만으로 발송 상태가 바뀌거나 고객에게 알림이 전송되지 않습니다. 실제 창구 제출 후
+              EMS 화면에서 발송 처리해 주세요. 취소 상태 변경은 PayPal 환불과 별개입니다.
             </p>
           </section>
         </Dialog.Content>

@@ -28,6 +28,7 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiAnalyticsRouteImport } from './routes/api/analytics'
 import { Route as ApiCatalogRouteImport } from './routes/api/catalog'
+import { Route as ApiEmsRouteImport } from './routes/api/ems'
 import { Route as ApiInboxRouteImport } from './routes/api/inbox'
 import { Route as ApiLoginProvidersRouteImport } from './routes/api/login-providers'
 import { Route as ApiMediaRouteImport } from './routes/api/media'
@@ -138,6 +139,11 @@ const ApiCatalogRoute = ApiCatalogRouteImport.update({
   path: '/api/catalog',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiEmsRoute = ApiEmsRouteImport.update({
+  id: '/api/ems',
+  path: '/api/ems',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiInboxRoute = ApiInboxRouteImport.update({
   id: '/api/inbox',
   path: '/api/inbox',
@@ -229,6 +235,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/api/analytics': typeof ApiAnalyticsRoute
   '/api/catalog': typeof ApiCatalogRoute
+  '/api/ems': typeof ApiEmsRoute
   '/api/inbox': typeof ApiInboxRoute
   '/api/login-providers': typeof ApiLoginProvidersRoute
   '/api/media': typeof ApiMediaRoute
@@ -264,6 +271,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/api/analytics': typeof ApiAnalyticsRoute
   '/api/catalog': typeof ApiCatalogRoute
+  '/api/ems': typeof ApiEmsRoute
   '/api/inbox': typeof ApiInboxRoute
   '/api/login-providers': typeof ApiLoginProvidersRoute
   '/api/media': typeof ApiMediaRoute
@@ -300,6 +308,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/api/analytics': typeof ApiAnalyticsRoute
   '/api/catalog': typeof ApiCatalogRoute
+  '/api/ems': typeof ApiEmsRoute
   '/api/inbox': typeof ApiInboxRoute
   '/api/login-providers': typeof ApiLoginProvidersRoute
   '/api/media': typeof ApiMediaRoute
@@ -337,6 +346,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/api/analytics'
     | '/api/catalog'
+    | '/api/ems'
     | '/api/inbox'
     | '/api/login-providers'
     | '/api/media'
@@ -372,6 +382,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/api/analytics'
     | '/api/catalog'
+    | '/api/ems'
     | '/api/inbox'
     | '/api/login-providers'
     | '/api/media'
@@ -407,6 +418,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/api/analytics'
     | '/api/catalog'
+    | '/api/ems'
     | '/api/inbox'
     | '/api/login-providers'
     | '/api/media'
@@ -443,6 +455,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   ApiAnalyticsRoute: typeof ApiAnalyticsRoute
   ApiCatalogRoute: typeof ApiCatalogRoute
+  ApiEmsRoute: typeof ApiEmsRoute
   ApiInboxRoute: typeof ApiInboxRoute
   ApiLoginProvidersRoute: typeof ApiLoginProvidersRoute
   ApiMediaRoute: typeof ApiMediaRoute
@@ -594,6 +607,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCatalogRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ems': {
+      id: '/api/ems'
+      path: '/api/ems'
+      fullPath: '/api/ems'
+      preLoaderRoute: typeof ApiEmsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/inbox': {
       id: '/api/inbox'
       path: '/api/inbox'
@@ -715,6 +735,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   ApiAnalyticsRoute: ApiAnalyticsRoute,
   ApiCatalogRoute: ApiCatalogRoute,
+  ApiEmsRoute: ApiEmsRoute,
   ApiInboxRoute: ApiInboxRoute,
   ApiLoginProvidersRoute: ApiLoginProvidersRoute,
   ApiMediaRoute: ApiMediaRoute,

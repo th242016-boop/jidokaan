@@ -1,3 +1,4 @@
+import type { EmsFulfillment } from "./ems-types";
 export type OrderStatus =
   "wait" | "paid" | "ready" | "shipped" | "done" | "confirmed" | "cancel" | "return" | "exchange";
 
@@ -90,6 +91,7 @@ export type StoreOrder = {
   claimReason?: string;
   claimAt?: string;
   claimAdminNote?: string;
+  fulfillment?: EmsFulfillment;
   items: OrderItem[];
 };
 
@@ -132,7 +134,7 @@ export type Coupon = {
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   wait: "입금대기",
   paid: "신규주문",
-  ready: "배송준비",
+  ready: "발송준비",
   shipped: "배송중",
   done: "배송완료",
   confirmed: "구매확정",
@@ -177,6 +179,6 @@ export function isPendingClaim(order: StoreOrder, kind?: ClaimKind) {
 
 /** Public order projection; never expose merchant-only notes/settlement data. */
 export function customerOrder(order: StoreOrder): StoreOrder {
-  const { note, paypalFeeUsd, paypalNetUsd, ...publicOrder } = order;
+  const { note, paypalFeeUsd, paypalNetUsd, fulfillment, ...publicOrder } = order;
   return publicOrder;
 }

@@ -57,32 +57,88 @@ function emailMatch(a: string, b: string) {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
-async function saveOrder(order: StoreOrder) {
-  const sql = await db();
-  await sql.query("update store_orders set data = $2::jsonb, status = $3 where id = $1", [
-    order.id,
-    JSON.stringify(order),
-    order.status,
-  ]);
-}
+const orderSnapshots = new WeakMap<StoreOrder, { data: string; status: string }>();
 
+/** Optimistic snapshot + authoritative status guard, shared by every order writer. */
+export async function saveOrder(previous: StoreOrder, order: StoreOrder) {
+  const sql = await db();
+  const snapshot = orderSnapshots.get(previous) ?? {
+    data: JSON.stringify(previous),
+    status: previous.status,
+  };
+  const claims = (order.fulfillment?.packages ?? [])
+    .filter((p) => p.tracking)
+    .map((p) => ({ tracking: p.tracking!, package_id: p.id }));
+  if (claims.length) {
+    await sql.query(`create table if not exists store_ems_tracking (
+      tracking text primary key, order_id text not null references store_orders(id), package_id text not null,
+      unique(order_id, package_id)
+    )`);
+    for (const claim of claims) {
+      const duplicate = await sql.query<{ id: string }>(
+        `select id from store_orders where id <> $1 and (
+        upper(regexp_replace(coalesce(data->>'tracking',''), '[[:space:]]', '', 'g')) = $2
+        or exists (select 1 from jsonb_array_elements(coalesce(data->'fulfillment'->'packages','[]'::jsonb)) p where p->>'tracking' = $2)
+      ) limit 1`,
+        [order.id, claim.tracking],
+      );
+      if (duplicate.length) throw new Error("EMS_DUPLICATE_TRACKING");
+    }
+  }
+  let rows: Array<{ id: string }>;
+  try {
+    if (claims.length) {
+      rows = await sql.query<{ id: string }>(
+        `with target as (
+        select id from store_orders where id=$1 and data=$4::jsonb and status=$5 for update
+      ), claimed as (
+        insert into store_ems_tracking (tracking,order_id,package_id)
+        select p->>'tracking', target.id, p->>'package_id' from target cross join jsonb_array_elements($6::jsonb) p
+        on conflict (tracking) do update set order_id = case when
+          store_ems_tracking.order_id=excluded.order_id and store_ems_tracking.package_id=excluded.package_id
+          then store_ems_tracking.order_id else null end
+        returning tracking
+      ) update store_orders set data=$2::jsonb,status=$3 where id in (select id from target)
+        and data=$4::jsonb and status=$5 and (select count(*) from claimed)>=0 returning id`,
+        [
+          order.id,
+          JSON.stringify(order),
+          order.status,
+          snapshot.data,
+          snapshot.status,
+          JSON.stringify(claims),
+        ],
+      );
+    } else {
+      rows = await sql.query<{ id: string }>(
+        "update store_orders set data=$2::jsonb,status=$3 where id=$1 and data=$4::jsonb and status=$5 returning id",
+        [order.id, JSON.stringify(order), order.status, snapshot.data, snapshot.status],
+      );
+    }
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code === "23505" || code === "23502") throw new Error("EMS_DUPLICATE_TRACKING");
+    throw error;
+  }
+  if (!rows.length) throw new Error("ORDER_CHANGED");
+  orderSnapshots.set(order, { data: JSON.stringify(order), status: order.status });
+}
+function readSnapshot(row: { data: unknown; status: string }) {
+  const raw = asJson<StoreOrder>(row.data);
+  const order = { ...raw, status: row.status as OrderStatus };
+  orderSnapshots.set(order, { data: JSON.stringify(raw), status: row.status });
+  return order;
+}
 export async function findOrderById(id: string): Promise<StoreOrder | null> {
   await ensureOrderTables();
   const needle = id.trim().toUpperCase();
   if (!needle) return null;
   const sql = await db();
-  const exact = await sql.query<{ data: unknown }>("select data from store_orders where id = $1", [
-    needle,
-  ]);
-  if (exact[0]) return asJson<StoreOrder>(exact[0].data);
-  const rows = await sql.query<{ data: unknown }>(
-    "select data from store_orders order by created_at desc limit 400",
+  const rows = await sql.query<{ data: unknown; status: string }>(
+    "select data,status from store_orders where upper(id) = $1 limit 1",
+    [needle],
   );
-  for (const r of rows) {
-    const o = asJson<StoreOrder>(r.data);
-    if (o?.id?.toUpperCase() === needle) return o;
-  }
-  return null;
+  return rows[0] ? readSnapshot(rows[0]) : null;
 }
 
 export async function lookupOrder(id: string, email: string) {
@@ -122,7 +178,7 @@ export async function requestClaim(input: {
     claimAt: new Date().toISOString(),
     claimAdminNote: "",
   };
-  await saveOrder(next);
+  await saveOrder(order, next);
   return next;
 }
 
@@ -141,6 +197,11 @@ export async function decideClaim(
     claimAdminNote: String(note ?? "").slice(0, 300),
   };
   if (decision === "accept") {
+    if (
+      order.claim === "cancel" &&
+      order.fulfillment?.packages.some((p) => p.tracking || p.state === "registration_unknown")
+    )
+      throw new Error("EMS_CANCELLATION_REVIEW");
     next.status = order.claim;
     next.claimStatus = "accepted";
   } else if (decision === "reject") {
@@ -148,7 +209,7 @@ export async function decideClaim(
   } else {
     next.claimStatus = "cancelled";
   }
-  await saveOrder(next);
+  await saveOrder(order, next);
   return next;
 }
 
@@ -161,7 +222,7 @@ export async function withdrawClaim(id: string, email: string) {
     claimStatus: "cancelled",
     claimAdminNote: "",
   };
-  await saveOrder(next);
+  await saveOrder(order, next);
   return next;
 }
 
@@ -230,6 +291,7 @@ export async function placeOrder(
     discountKrw,
     discountUsd,
     items: input.items.slice(0, 30),
+    fulfillment: undefined,
   };
   const sql = await db();
   const inserted = await sql.query<{ id: string }>(
@@ -313,14 +375,62 @@ export async function updateOrder(
     courier: patch.courier ?? order.courier,
     note: patch.note ?? order.note,
   };
-  if (patch.status === "shipped" && !next.tracking?.trim()) throw new Error("TRACKING_REQUIRED");
+  if (
+    patch.status &&
+    ![
+      "wait",
+      "paid",
+      "ready",
+      "shipped",
+      "done",
+      "confirmed",
+      "cancel",
+      "return",
+      "exchange",
+    ].includes(patch.status)
+  )
+    throw new Error("ORDER_STATUS_INVALID");
+  if (
+    !order.fulfillment &&
+    order.country?.trim().toUpperCase() === "KR" &&
+    patch.status &&
+    patch.status !== order.status
+  ) {
+    if (
+      ["ready", "shipped", "done", "confirmed"].includes(patch.status) &&
+      (["wait", "cancel", "return", "exchange"].includes(order.status) ||
+        (order.claim && (order.claimStatus === "requested" || order.claimStatus === "accepted")))
+    )
+      throw new Error("ORDER_STATUS_INVALID");
+  }
+  const emsManaged = Boolean(order.fulfillment) || order.country?.trim().toUpperCase() !== "KR";
+  if (emsManaged && patch.tracking !== undefined && patch.tracking !== order.tracking)
+    throw new Error("USE_EMS_WORKFLOW");
+  if (!emsManaged && patch.status === "shipped" && !next.tracking?.trim())
+    throw new Error("TRACKING_REQUIRED");
+  if (patch.status && patch.status !== order.status) {
+    if (emsManaged && ["ready", "shipped", "done", "confirmed"].includes(patch.status))
+      throw new Error("USE_EMS_WORKFLOW");
+    if (
+      ["done", "confirmed"].includes(order.status) &&
+      !["return", "exchange", "confirmed"].includes(patch.status)
+    )
+      throw new Error("ORDER_COMPLETED");
+    if (patch.status === "paid" && order.status !== "wait") throw new Error("ORDER_STATUS_INVALID");
+    if (patch.status === "wait") throw new Error("ORDER_STATUS_INVALID");
+    if (
+      patch.status === "cancel" &&
+      order.fulfillment?.packages.some((p) => p.tracking || p.state === "registration_unknown")
+    )
+      throw new Error("EMS_CANCELLATION_REVIEW");
+  }
   if (patch.claim) next.claim = patch.claim;
   if (patch.claimStatus) next.claimStatus = patch.claimStatus;
   if (patch.status === "cancel" || patch.status === "return" || patch.status === "exchange") {
     next.claim = patch.status;
     if (!next.claimStatus) next.claimStatus = "accepted";
   }
-  await saveOrder(next);
+  await saveOrder(order, next);
   return next;
 }
 
