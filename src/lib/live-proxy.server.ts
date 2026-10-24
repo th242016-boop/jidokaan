@@ -1,6 +1,8 @@
 const LIVE = (process.env.LIVE_ORIGIN || "https://jidokaan.com").replace(/\/$/, "");
 
 export function shouldProxyToLive(request: Request) {
+  // Explicit isolation for local development and synthetic-order verification.
+  if (process.env.NODE_ENV !== "production" && process.env.JIDOKAAN_LOCAL_ONLY === "1") return false;
   if (process.env.DATABASE_URL?.trim()) return false;
   const host = request.headers.get("host") || "";
   if (host.includes("jidokaan.com")) return false;
