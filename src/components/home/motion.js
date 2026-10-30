@@ -33,6 +33,8 @@ export function mountHomeMotion(root, locale) {
   const totalLabel=String(lookCount).padStart(2,'0');
   $('.gallery-line i').style.width=`${100/lookCount}%`;
   function measure(){
+    const notice=$('[data-store-notice]');
+    root.style.setProperty('--home-notice-height', `${notice && !notice.hidden ? notice.offsetHeight : 0}px`);
     const y=scrollY;
     const gutter=innerWidth*(innerWidth>=1800?.07:.05);
     maxTravel=Math.max(0,track.scrollWidth-innerWidth+gutter*2);
