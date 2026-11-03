@@ -1,5 +1,10 @@
 # Released simulator catalog — 2026-10-21
 
+> Superseded on 2026-11-03: Special is administrator-only again. The button is
+> hidden until the existing admin session is verified, and every API request
+> requires that session, including `audience: "public"`. The subset policy and
+> all material assets remain intact; the release notes below are historical.
+
 The owner authorized the current Special materials for customers, with FLOWER A excluded. Customers can open Special on both high- and mid-cut models, choose the released textures, mesh/lace colors and existing high-cut bead options, reset the current design, and save a rendered JPEG. The ordinary cart/checkout is unchanged. Special remains a design-preview/save workflow; it never submits its ordinary backing colors as if they were the chosen Special materials.
 
 ## Audience boundary

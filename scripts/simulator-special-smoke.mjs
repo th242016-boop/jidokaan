@@ -35,16 +35,21 @@ try {
   }));
   await check("anonymous, forged and malformed access never returns assets", async () => {
     for (const token of [undefined, "fake", "a".repeat(64)]) {
-      const res = await call({ token, action: "assets", model: "high" });
-      assert.equal(res.status, 401);
-      assert.equal(res.headers.get("cache-control"), "no-store");
-      assert.deepEqual(await res.json(), { error: "AUTH" });
+      for (const audience of [undefined, "public", "admin", "ADMIN"]) {
+        for (const action of ["ping", "assets"]) {
+          const res = await call({ token, audience, action, model: "high", admin: true });
+          assert.equal(res.status, 401, `${audience ?? "default"} ${action} must require a real admin session`);
+          assert.equal(res.headers.get("cache-control"), "no-store");
+          assert.deepEqual(await res.json(), { error: "AUTH" });
+        }
+      }
     }
     assert.equal((await api.handleSpecialRequest(new Request("http://localhost/api/simulator-special"))).status, 401);
   });
   const token = await auth.createSession();
   await check("real session enables mode; no client flag grants access", async () => {
     assert.equal((await call({ token, action: "ping" })).status, 200);
+    assert.equal((await call({ token, audience: "public", action: "ping" })).status, 200, "Authenticated subset requests remain compatible");
     assert.equal((await call({ admin: true, action: "ping" })).status, 401);
     assert.equal((await call({ token, action: "assets", model: "../secret" })).status, 400);
   });
@@ -218,8 +223,10 @@ try {
     assert.deepEqual(finishes.SPECIAL_FINISHES.map(finish => finish.name), requestedFinishes);
     const requestedSnakes = ["NATURAL SNAKE", "HOT PINK SNAKE", "ORANGE SNAKE", "SKY BLUE SNAKE", "GREEN SNAKE", "YELLOW SNAKE"];
     assert.deepEqual(snakes.SNAKE_MATERIALS.map(snake => snake.name), requestedSnakes);
-    assert.equal(patterns.SPECIAL_PATTERNS.length, 38);
-    assert.deepEqual(new Set(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name)), new Set(["FLOWER B", "FLOWER C", "BLACK SNAKE", "WHITE SNAKE", ...requestedSnakes, "SILVER WEAVE", "MICRO HOUNDSTOOTH", "BRONZE", "PINK GOLD", ...requestedFinishes]));
+    const requestedLizards = ["RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE"].map(color => `${color} LIZARD`);
+    const requestedCamouflage = ["GRAY CAMO", "WOODLAND CAMO"];
+    assert.equal(patterns.SPECIAL_PATTERNS.length, 47);
+    assert.deepEqual(new Set(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name)), new Set(["FLOWER B", "FLOWER C", "BLACK SNAKE", "WHITE SNAKE", ...requestedLizards, ...requestedSnakes, "SILVER WEAVE", "MICRO HOUNDSTOOTH", "BRONZE", "PINK GOLD", ...requestedFinishes, ...requestedCamouflage]));
     for (const model of ["high", "mid"]) {
       const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
       const original = structuredClone(initial);
@@ -318,14 +325,19 @@ try {
   });
   await check("logout immediately revokes asset access on the server", async () => {
     await auth.destroySession(token);
-    assert.equal((await call({ token, action: "ping" })).status, 401);
-    assert.equal((await call({ token, action: "assets", model: "high" })).status, 401);
+    for (const audience of [undefined, "public", "admin"]) {
+      assert.equal((await call({ token, audience, action: "ping" })).status, 401);
+      assert.equal((await call({ token, audience, action: "assets", model: "high" })).status, 401);
+    }
   });
   await check("expired session cannot fetch materials", async () => {
     const expired = await auth.createSession();
     const sql = await db.getSql();
     await sql.query("update admin_sessions set expires_at = now() - interval '1 second'");
-    assert.equal((await call({ token: expired, action: "assets", model: "high" })).status, 401);
+    for (const audience of [undefined, "public", "admin"]) {
+      assert.equal((await call({ token: expired, audience, action: "ping" })).status, 401);
+      assert.equal((await call({ token: expired, audience, action: "assets", model: "high" })).status, 401);
+    }
   });
   console.log(`${count} special checks passed (temporary database only).`);
 } finally {

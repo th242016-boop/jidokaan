@@ -1,4 +1,4 @@
-// Exercise the real request handler/allowlist with isolated ciphertext fixtures.
+// Exercise the admin-only request handler and retained subset filtering with isolated ciphertext fixtures.
 // No production key, administrator session, network request or database is used.
 import assert from "node:assert/strict";
 import { createCipheriv, randomBytes } from "node:crypto";
@@ -54,7 +54,7 @@ assert.equal(lizardNames.length, 9);
 const call = body => api.handleSpecialRequest(new Request("http://fixture/api/simulator-special", {
   method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
 }));
-const payload = async body => { const response = await call({ action: "assets", model: "high", ...body }); assert.equal(response.status, 200); assert.equal(response.headers.get("cache-control"), "no-store"); return response.json(); };
+const payload = async body => { const response = await call({ token: "fixture-admin", action: "assets", model: "high", ...body }); assert.equal(response.status, 200); assert.equal(response.headers.get("cache-control"), "no-store"); return response.json(); };
 const assertPublic = result => {
   assert.equal(result.audience, "public"); assert.equal(result.swatch, undefined); assert.deepEqual(result.layers, {});
   assert.deepEqual(Object.keys(result.patterns).sort(), [...policy.PUBLIC_SPECIAL_PATTERNS].sort());
@@ -203,18 +203,26 @@ try {
   }
   assert.deepEqual((await payload({ audience: "public" })).patterns, independentCatalog);
   console.log("PASS independent black source missing/invalid key and missing/damaged pair fall back without changing other materials");
-  // Removing FLOWER A's key and cipher must not affect any customer response.
+  // Removing FLOWER A's key and cipher must not affect an authenticated subset response.
   delete process.env.SIMULATOR_SPECIAL_ASSET_KEY;
   for (const name of Object.keys(encrypted)) if (!name.includes("/material-")) delete encrypted[name];
   assertPublic(await payload({ audience: "public" }));
-  assertPublic(await payload({ audience: "public", token: "forged", admin: true, material: "FLOWER A" }));
+  assertPublic(await payload({ audience: "public", admin: true, material: "FLOWER A" }));
   console.log("PASS public payload never depends on or exposes FLOWER A ciphertext");
-  for (const body of [{}, { token: "forged" }, { audience: "admin", token: "forged" }, { audience: "ADMIN", admin: true }])
-    assert.equal((await call({ action: "assets", model: "high", ...body })).status, 401);
-  assert.equal((await call({ audience: "public", action: "assets", model: "../secret" })).status, 400);
-  assert.equal((await call({ audience: "public", action: "publish", model: "high" })).status, 400);
-  assert.equal((await call({ audience: "public", action: "ping" })).status, 200);
-  console.log("PASS forged/admin/malformed requests cannot widen the released catalog");
+  for (const audience of [undefined, "public", "admin", "ADMIN"]) {
+    for (const token of [undefined, "", "forged"]) {
+      for (const action of ["ping", "assets"]) {
+        const denied = await call({ audience, token, action, model: "high", admin: true });
+        assert.equal(denied.status, 401, `${audience ?? "default"} ${action} rejects missing/forged credentials`);
+        assert.equal(denied.headers.get("cache-control"), "no-store");
+        assert.deepEqual(await denied.json(), { error: "AUTH" });
+      }
+    }
+  }
+  assert.equal((await call({ token: "fixture-admin", audience: "public", action: "assets", model: "../secret" })).status, 400);
+  assert.equal((await call({ token: "fixture-admin", audience: "public", action: "publish", model: "high" })).status, 400);
+  assert.equal((await call({ token: "fixture-admin", audience: "public", action: "ping" })).status, 200);
+  console.log("PASS all special API actions require administrator authentication, including public-audience requests");
   delete process.env.SIMULATOR_REFERENCE_MATERIALS_20261021_KEY;
   const noSharedReference = await payload({ audience: "public" });
   assertPublic(noSharedReference);

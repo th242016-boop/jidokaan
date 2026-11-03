@@ -15,7 +15,7 @@ import { FLOWER_A } from "./simulator-special";
 import { expandPatternAssets, type PatternAssetWire } from "./pattern-asset-wire";
 
 export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames) {
-  const [available, setAvailable] = useState(true);
+  const [available, setAvailable] = useState(false);
   const [audience, setAudience] = useState<SimulatorAudience>("public");
   const audienceRef = useRef<SimulatorAudience>("public");
   const [enabled, setEnabled] = useState(false);
@@ -28,17 +28,17 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
 
   const clear = useCallback(() => {
     generation.current++;
-    setAvailable(true); setEnabled(false); setAssets(null); setDrafts({}); setBusy(false);
+    setAvailable(false); setEnabled(false); setAssets(null); setDrafts({}); setBusy(false);
     audienceRef.current = "public"; setAudience("public");
   }, []);
 
-  const request = useCallback(async (action: "ping" | "assets", signal?: AbortSignal, requestedAudience: SimulatorAudience = audienceRef.current) => {
+  const request = useCallback(async (action: "ping" | "assets", signal?: AbortSignal) => {
     const token = readAdminToken();
-    if (requestedAudience === "admin" && !token) throw new Error("AUTH");
+    if (!token) throw new Error("AUTH");
     const res = await fetch("/api/simulator-special", {
       method: "POST", cache: "no-store", signal,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...(requestedAudience === "admin" ? { token } : {}), audience: requestedAudience, action, model, ...(action === "assets" ? { compact: true } : {}) }),
+      body: JSON.stringify({ token, audience: "admin", action, model, ...(action === "assets" ? { compact: true } : {}) }),
     });
     if (!res.ok) throw new Error(res.status === 401 ? "AUTH" : "SPECIAL_UNAVAILABLE");
     const data = await res.json();
@@ -48,12 +48,8 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
   const validate = useCallback(async () => {
     const current = generation.current;
     try {
-      let next: SimulatorAudience = "public";
-      if (readAdminToken()) {
-        try { await request("ping", undefined, "admin"); next = "admin"; }
-        catch (error) { if (!(error instanceof Error) || error.message !== "AUTH") throw error; }
-      }
-      if (next === "public") await request("ping", undefined, "public");
+      await request("ping");
+      const next: SimulatorAudience = "admin";
       if (current !== generation.current) return false;
       const changed = next !== audienceRef.current;
       if (changed) {
@@ -119,7 +115,7 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
     solidsReady: solids.ready, solidsFailed: solids.failed,
     patternsReady: patterns.ready, patternsFailed: patterns.failed,
     previewReady: split.ready && (!needsSolids || solids.ready) && (!needsPatterns || patterns.ready),
-    toggle: () => { setEnabled(value => !value); },
+    toggle: () => { if (available && audience === "admin") setEnabled(value => !value); },
     // Replace the draft even during loading. The asset response keeps an existing
     // draft, so a delayed response cannot restore the choices just cleared.
     reset: () => { setDrafts(prev => ({ ...prev, [model]: createWhiteSpecialDraft(model) })); },

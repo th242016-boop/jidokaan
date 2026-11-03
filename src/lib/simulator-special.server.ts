@@ -106,13 +106,11 @@ export async function handleSpecialRequest(request: Request) {
   let body: { token?: unknown; action?: unknown; model?: unknown; audience?: unknown; compact?: unknown };
   try { body = await request.json(); } catch { return json({ error: "BAD_REQUEST" }, 400); }
   if (!body || typeof body !== "object") return json({ error: "BAD_REQUEST" }, 400);
-  // Anonymous access is an explicit released-catalog operation. The original
-  // admin request remains protected, including a caller with an invalid token.
+  // Every special request requires a verified administrator session, including
+  // older clients requesting the formerly public subset of the catalog.
+  try { await assertSession(typeof body.token === "string" ? body.token : ""); }
+  catch { return json({ error: "AUTH" }, 401); }
   const audience: SimulatorAudience = body.audience === "public" ? "public" : "admin";
-  if (audience === "admin") {
-    try { await assertSession(typeof body.token === "string" ? body.token : ""); }
-    catch { return json({ error: "AUTH" }, 401); }
-  }
   if (body.action === "ping") return json({ ok: true, audience });
   if (body.action !== "assets" || (body.model !== "high" && body.model !== "mid")) {
     return json({ error: "BAD_REQUEST" }, 400);
