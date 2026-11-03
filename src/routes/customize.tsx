@@ -199,14 +199,12 @@ function CustomizePage() {
                 role="group"
                 aria-label="모델 선택"
               >
-                {(["high", "mid", "low"] as const).map((value) => (
+                {(["high", "mid"] as const).map((value) => (
                   <button
                     type="button"
                     key={value}
-                    disabled={value === "low"}
                     aria-pressed={model === value}
                     onClick={() => {
-                      if (value === "low") return;
                       setDraftModel(value);
                       setShowGuide(false);
                       setShowKrOrder(false);
@@ -214,14 +212,13 @@ function CustomizePage() {
                     className={cn(
                       "min-h-9 rounded-md px-3 text-sm font-bold",
                       model === value ? "bg-black text-white" : "text-black hover:bg-neutral-100",
-                      value === "low" && "cursor-default text-neutral-400 hover:bg-transparent",
                     )}
                   >
                     {locale === "ko"
-                      ? { high: "장목", mid: "중목", low: "단목 · 준비중" }[value]
+                      ? { high: "장목", mid: "중목" }[value]
                       : locale === "ja"
-                        ? { high: "ハイ", mid: "ミドル", low: "ロー · 準備中" }[value]
-                        : { high: "High-cut", mid: "Mid-cut", low: "Low-cut · Soon" }[value]}
+                        ? { high: "ハイ", mid: "ミドル" }[value]
+                        : { high: "High-cut", mid: "Mid-cut" }[value]}
                   </button>
                 ))}
                 {special.available && (
