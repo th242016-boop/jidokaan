@@ -15,7 +15,7 @@ for (const name of keyNames) assert.equal(process.env[name], undefined, "Run in 
 const keys = keyNames.map(() => randomBytes(32));
 const encrypted = {};
 const filenames = new Set(await readdir(resolve(root, "src/lib/special-assets")));
-for (const photo of ["ivory-ornament", "gray-lizard"])
+for (const photo of ["ivory-ornament", "gray-lizard", "silver-snake"])
   assert.ok(filenames.has(`material-${photo}-photo.enc`), "each private original photograph must be bundled");
 for (const source of ["black-lizard-20261023", "black-lizard-plates"])
   for (const suffix of ["", "-swatch"])
@@ -24,7 +24,7 @@ for (const name of ["reference-lizard", "reference-silver-weave", "gray-camo", "
   for (const suffix of ["", "-swatch"]) filenames.add(`material-${name}${suffix}.enc`);
 for (const filename of filenames) {
   if (!filename.endsWith(".enc")) continue;
-  const keyIndex = /^material-(ivory-ornament|gray-lizard)-photo\.enc$/.test(filename) ? 7
+  const keyIndex = /^material-(ivory-ornament|gray-lizard|silver-snake)-photo\.enc$/.test(filename) ? 7
     : /^material-black-lizard-plates(-swatch)?\.enc$/.test(filename) ? 6
     : /^material-black-lizard-20261023(-swatch)?\.enc$/.test(filename) ? 5
     : filename === "material-silver-weave-photo.enc" ? 4
@@ -61,12 +61,12 @@ const payload = async body => { const response = await call({ token: "fixture-ad
 const assertPublic = result => {
   assert.equal(result.audience, "public"); assert.equal(result.swatch, undefined); assert.deepEqual(result.layers, {});
   assert.deepEqual(Object.keys(result.patterns).sort(), [...policy.PUBLIC_SPECIAL_PATTERNS].sort());
-  for (const denied of ["FLOWER A", "GRAY CAMO", "WOODLAND CAMO", "IVORY ORNAMENT", "GRAY LIZARD", "FUTURE MATERIAL"]) assert.equal(result.patterns[denied], undefined);
+  for (const denied of ["FLOWER A", "GRAY CAMO", "WOODLAND CAMO", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "FUTURE MATERIAL"]) assert.equal(result.patterns[denied], undefined);
 };
 try {
   keyNames.forEach((name, i) => { process.env[name] = keys[i].toString("base64"); });
   assert.equal(policy.PUBLIC_SPECIAL_PATTERNS.length, 45);
-  for (const denied of ["FLOWER A", "GRAY CAMO", "WOODLAND CAMO", "IVORY ORNAMENT", "GRAY LIZARD", "FUTURE MATERIAL"]) assert.equal(policy.isPublicSpecialPattern(denied), false);
+  for (const denied of ["FLOWER A", "GRAY CAMO", "WOODLAND CAMO", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "FUTURE MATERIAL"]) assert.equal(policy.isPublicSpecialPattern(denied), false);
   for (const model of ["high", "mid"]) {
     const released = await payload({ audience: "public", model }); assertPublic(released);
     const black = released.patterns["BLACK SNAKE"];
@@ -88,10 +88,10 @@ try {
     assert.ok(JSON.stringify(compact).length < JSON.stringify(released).length);
     assert.deepEqual(codec.expandPatternAssets(released), released.patterns, "new client accepts legacy response");
     assert.deepEqual((await payload({ audience: "public", model, compact: "true" })).patterns, released.patterns, "only a boolean opt-in changes the wire format");
-    for (const asset of compact.patternSources) assert.doesNotMatch(Buffer.from(asset.texture.split(",")[1], "base64").toString(), /gray-camo|woodland-camo|ivory-ornament|gray-lizard|fixture:swatch/);
+    for (const asset of compact.patternSources) assert.doesNotMatch(Buffer.from(asset.texture.split(",")[1], "base64").toString(), /gray-camo|woodland-camo|ivory-ornament|gray-lizard|silver-snake|fixture:swatch/);
     const admin = await payload({ audience: "admin", token: "fixture-admin", model });
     assert.equal(admin.audience, "admin"); assert.ok(admin.swatch); assert.ok(Object.keys(admin.layers).length);
-    assert.equal(Object.keys(admin.patterns).length, 49);
+    assert.equal(Object.keys(admin.patterns).length, 50);
     const ornament = admin.patterns["IVORY ORNAMENT"];
     assert.ok(ornament, `${model}: the new material must be available to administrators`);
     assert.equal(Buffer.from(ornament.texture.split(",")[1], "base64").toString(), "fixture:material-ivory-ornament-photo.enc");
@@ -103,17 +103,25 @@ try {
     assert.equal(grayLizard.swatch, grayLizard.texture);
     assert.deepEqual(grayLizard.sourceCrop, [300 / 1153, 260 / 2048, 800 / 1153, 800 / 2048]);
     assert.notDeepEqual(grayLizard, admin.patterns["BLACK SNAKE"], "gray lizard is the supplied material, not a dye of the old black atlas");
+    const silverSnake = admin.patterns["SILVER SNAKE"];
+    assert.ok(silverSnake, `${model}: the supplied silver snake must be available to administrators`);
+    assert.equal(Buffer.from(silverSnake.texture.split(",")[1], "base64").toString(), "fixture:material-silver-snake-photo.enc");
+    assert.equal(silverSnake.swatch, silverSnake.texture, "silver snake swatch and panels sample one original photograph");
+    assert.deepEqual(silverSnake.sourceCrop, [302 / 590, 177 / 831, 72 / 590, 72 / 831]);
+    for (const name of ["NATURAL SNAKE", "BLACK SNAKE", "GRAY LIZARD"])
+      assert.notDeepEqual(silverSnake, admin.patterns[name], "silver snake must not alias a different material's topology");
     const compactAdmin = await payload({ audience: "admin", token: "fixture-admin", model, compact: true });
     assert.deepEqual(codec.expandPatternAssets(compactAdmin), admin.patterns);
     assert.deepEqual(compactAdmin.layers, admin.layers); assert.equal(compactAdmin.swatch, admin.swatch);
     const expanded = codec.expandPatternAssets(compactAdmin);
     assert.deepEqual(expanded["IVORY ORNAMENT"], ornament, "compact delivery preserves the exact hand-free source crop");
     assert.deepEqual(expanded["GRAY LIZARD"], grayLizard, "compact delivery preserves the mixed-shape gray source and its crop");
+    assert.deepEqual(expanded["SILVER SNAKE"], silverSnake, "compact delivery preserves the silver snake photograph and source crop");
     for (const name of lizardNames)
       assert.equal(expanded[name], expanded["BLACK SNAKE"], "all nine lizard colors share one decoded atlas object");
     assert.equal(expanded["MATTE RED"], expanded["MATTE BLACK"]);
     for (const name of policy.PUBLIC_SPECIAL_PATTERNS) assert.deepEqual(admin.patterns[name], released.patterns[name]);
-    for (const name of ["GRAY CAMO", "WOODLAND CAMO", "IVORY ORNAMENT", "GRAY LIZARD"]) {
+    for (const name of ["GRAY CAMO", "WOODLAND CAMO", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE"]) {
       if (patterns.SPECIAL_PATTERNS.some(pattern => pattern.name === name)) assert.ok(admin.patterns[name], `${name} should be in the authenticated studio only`);
     }
   }
@@ -125,14 +133,14 @@ try {
       const admin = await payload({ audience: "admin", model, compact: true });
       assert.deepEqual(codec.expandPatternAssets(admin), expected, "a failed photo must not change any unrelated material");
       assert.ok(admin.swatch); assert.ok(Object.keys(admin.layers).length, "FLOWER A remains available");
-      for (const material of ["IVORY ORNAMENT", "GRAY LIZARD"]) {
+      for (const material of ["IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE"]) {
         const released = await payload({ audience: "public", model, material });
         assertPublic(released);
         assert.deepEqual(released.patterns, priorReleasedPatterns, "private asset failures cannot affect the retained subset");
       }
     }
   };
-  const photographicMaterials = ["IVORY ORNAMENT", "GRAY LIZARD"];
+  const photographicMaterials = ["IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE"];
   delete process.env.SIMULATOR_IVORY_ORNAMENT_KEY;
   await expectOnlyPhotosUnavailable(photographicMaterials);
   process.env.SIMULATOR_IVORY_ORNAMENT_KEY = "invalid";
@@ -140,7 +148,7 @@ try {
   process.env.SIMULATOR_IVORY_ORNAMENT_KEY = randomBytes(32).toString("base64");
   await expectOnlyPhotosUnavailable(photographicMaterials);
   process.env.SIMULATOR_IVORY_ORNAMENT_KEY = keys[7].toString("base64");
-  for (const [name, file] of [["IVORY ORNAMENT", "ivory-ornament"], ["GRAY LIZARD", "gray-lizard"]]) {
+  for (const [name, file] of [["IVORY ORNAMENT", "ivory-ornament"], ["GRAY LIZARD", "gray-lizard"], ["SILVER SNAKE", "silver-snake"]]) {
     const path = `./special-assets/material-${file}-photo.enc`;
     const ciphertext = encrypted[path];
     delete encrypted[path];
@@ -152,7 +160,7 @@ try {
     encrypted[path] = ciphertext;
   }
   assert.deepEqual((await payload({ audience: "admin" })).patterns, withPrivatePhotos.patterns);
-  console.log("PASS private ornament/gray lizard photos, compact crops, shared photo-key failure and per-source missing/corrupt isolation on both models");
+  console.log("PASS private ornament/gray lizard/silver snake photos, compact crops, shared photo-key failure and per-source missing/corrupt isolation on both models");
   const malformed = codec.expandPatternAssets({ patternSources: [{ texture: "source", swatch: "swatch" }], patternRefs: { "RED LIZARD": 0, "BLUE LIZARD": -1, "GREEN LIZARD": 10, "NAVY LIZARD": "0" } });
   assert.deepEqual(Object.keys(malformed), ["RED LIZARD"]);
   console.log("PASS legacy/compact round-trip, 45 public references in 10 sources, one shared lizard atlas, admin private catalog and invalid-reference rejection");
@@ -265,7 +273,7 @@ try {
   for (const audience of [undefined, "public", "admin", "ADMIN"]) {
     for (const token of [undefined, "", "forged"]) {
       for (const action of ["ping", "assets"]) {
-        const denied = await call({ audience, token, action, model: "high", admin: true, material: "GRAY LIZARD" });
+        const denied = await call({ audience, token, action, model: "high", admin: true, material: "SILVER SNAKE" });
         assert.equal(denied.status, 401, `${audience ?? "default"} ${action} rejects missing/forged credentials`);
         assert.equal(denied.headers.get("cache-control"), "no-store");
         assert.deepEqual(await denied.json(), { error: "AUTH" });

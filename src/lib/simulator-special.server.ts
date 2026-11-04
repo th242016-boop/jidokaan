@@ -8,6 +8,7 @@ import { isLizardPattern } from "./lizard-materials";
 import { camouflageMaterialFor } from "./camouflage-materials";
 import { isPublicSpecialPattern, type SimulatorAudience } from "./simulator-catalog";
 import { compactPatternAssets } from "./pattern-asset-wire";
+import { SILVER_SNAKE_CROP } from "./silver-snake-material";
 
 // Encrypted source assets are safe to keep in the public repository. Only the server
 // has the key; nothing here belongs in public/ or in a client-side import.
@@ -46,6 +47,15 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
     return decoded.get(id)!;
   };
   for (const { name } of visiblePatterns) {
+    if (name === "SILVER SNAKE") {
+      if (audience === "admin" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
+        try {
+          const photo = image("material-silver-snake-photo", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
+          patterns[name] = { texture: photo, swatch: photo, sourceCrop: SILVER_SNAKE_CROP };
+        } catch { console.error("SILVER SNAKE photograph unavailable"); }
+      }
+      continue;
+    }
     if (name === "GRAY LIZARD") {
       // The existing private-photo key also protects this unmodified hide.
       // Do not alias it to the black lizard's dyed atlas or expose it publicly.

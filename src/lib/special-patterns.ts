@@ -3,6 +3,7 @@ import { SPECIAL_FINISHES, finishFor } from "./special-finishes";
 import { applyMaterialStitches } from "./material-stitches";
 import { SNAKE_MATERIALS, recolorSnakePixels, snakeMaterialFor } from "./snake-materials";
 import { LIZARD_MATERIALS, lizardMaterialFor, recolorLizardPixels } from "./lizard-materials";
+import { SILVER_SNAKE_LIGHT, SILVER_SNAKE_TILE, silverSnakeLinear } from "./silver-snake-material";
 
 import { CAMOUFLAGE_MATERIALS, camouflageMaterialFor, CAMOUFLAGE_LIGHT_PROFILE } from "./camouflage-materials";
 
@@ -15,6 +16,7 @@ export const SPECIAL_PATTERNS = [
   ...LIZARD_MATERIALS,
   { name: "GRAY LIZARD", label: "그레이 도마뱀" },
   ...SNAKE_MATERIALS,
+  { name: "SILVER SNAKE", label: "실버 스네이크" },
   { name: "SILVER WEAVE", label: "SILVER WEAVE" },
   { name: "MICRO HOUNDSTOOTH", label: "MICRO HOUNDSTOOTH" },
   { name: "IVORY ORNAMENT", label: "IVORY ORNAMENT" },
@@ -59,6 +61,7 @@ const TILE_SIZE: Partial<Record<SpecialPatternName, number>> = {
   // previous projected motif size rather than shrinking it with the crop.
   "IVORY ORNAMENT": 230,
   "GRAY LIZARD": 800,
+  "SILVER SNAKE": SILVER_SNAKE_TILE,
   "BRONZE": 380, "PINK GOLD": 420,
 };
 
@@ -85,6 +88,7 @@ const displayRGB = (value: number) => {
 // Reuse the same photographed light direction with a response appropriate to
 // each surface. Matte/suede spread the light broadly instead of looking metallic.
 export function surfaceLightProfile(name: SpecialPatternName) {
+  if (name === "SILVER SNAKE") return SILVER_SNAKE_LIGHT;
   const finish = finishFor(name);
   if (finish?.kind === "matte") return { blur: 26, floor: 0.18, peak: 1.22, sheen: 0.006 };
   if (finish?.kind === "suede") return { blur: 36, floor: 0.20, peak: 1.18, sheen: 0.002 };
@@ -135,7 +139,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   }
   // The weave photograph and shared scale map already carry their intended
   // motif and light direction. Do not rotate those sources a second time.
-  const directionalSource = name === "SILVER WEAVE" || Boolean(lizard) || name === "GRAY LIZARD";
+  const directionalSource = name === "SILVER WEAVE" || Boolean(lizard) || name === "GRAY LIZARD" || name === "SILVER SNAKE";
   const radians = directionalSource ? 0 : -0.48, cos = Math.cos(radians), sin = Math.sin(radians);
   const mirror = (value: number, size: number) => {
     const doubled = size * 2;
@@ -145,7 +149,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   // The weave must repeat without inventing diamonds. Lizards use a wider atlas
   // cut once per panel, so no scale is split or mirrored at a repetition seam.
   const repeat = (value: number, size: number) => ((value % size) + size) % size;
-  const sample = name === "SILVER WEAVE" ? repeat : mirror;
+  const sample = name === "SILVER WEAVE" || name === "SILVER SNAKE" ? repeat : mirror;
   let lizardCut: { x: number; y: number; span: number } | undefined;
   if (lizard || name === "GRAY LIZARD") {
     let minX = width, minY = height, maxX = 0, maxY = 0;
@@ -182,6 +186,25 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
     // Red-channel darkness retains seam/stitch detail without reusing the broad
     // white enamel highlights. The texture's own grain/specular detail remains.
     const shade = 0.2 + 0.8 * Math.pow(Math.min(1.04, src[i] / 235), 0.8);
+    if (name === "SILVER SNAKE") {
+      // A fixed-view silver reflection follows the same photographed shoe
+      // light as the approved metals. Do not treat dark reflected cells as dye.
+      const broadRed = softReflection?.data[i] ?? src[i];
+      const redLight = softReflection ? Math.min(1, Math.min(softReflection.data[i + 1], softReflection.data[i + 2]) / 180) : 0;
+      const fallback = Math.min(1, 0.44 * broadRed / 220 + 0.38 * redLight);
+      const confidence = metalReflection ? Math.min(1, metalReflection.data[i + 3] / 96) : 0;
+      const reference = metalReflection
+        ? (0.2126 * metalReflection.data[i] + 0.7152 * metalReflection.data[i + 1] + 0.0722 * metalReflection.data[i + 2]) / 255 : fallback;
+      const light = Math.max(0, Math.min(1, (reference * confidence + fallback * (1 - confidence) - 0.14) / 0.72));
+      const luminance = 0.2126 * material.data[t] + 0.7152 * material.data[t + 1] + 0.0722 * material.data[t + 2];
+      const darkDetail = 0.32 + 0.68 * Math.min(1, src[i] / 155) ** 0.9;
+      const value = silverSnakeLinear(luminance, light) * darkDetail ** 2;
+      // Neutral silver: pink/blue reflections in the handheld photograph are
+      // surroundings, not a permanent tint of the material.
+      out.data[i] = out.data[i + 1] = out.data[i + 2] = displayRGB(value);
+      out.data[i + 3] = alpha;
+      continue;
+    }
     if (lightProfile && metalReflection) {
       // The guide is neutral light only: no GOLD hue, grain or alpha is copied.
       // One shared calibration preserves which faces point toward the light.
@@ -435,7 +458,7 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
       const result = renderPatternPixels(sourcePixels,
         textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection, fineDetail, part, metalReflection);
       await applyMaterialStitches(result, sourcePixels, model, part,
-        name === "FLOWER B" || snakeMaterialFor(name) || lizardMaterialFor(name) || name === "GRAY LIZARD" || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT" || metallic
+        name === "FLOWER B" || snakeMaterialFor(name) || lizardMaterialFor(name) || name === "GRAY LIZARD" || name === "SILVER SNAKE" || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT" || metallic
           ? "dense" : name === "FLOWER C" ? "regular" : undefined);
       ctx.putImageData(result, 0, 0);
       return sourceCanvas.toDataURL("image/png");
