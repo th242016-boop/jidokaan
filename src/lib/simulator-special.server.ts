@@ -52,9 +52,9 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
     if (name === "WINE CROCODILE") {
       if (audience === "admin" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
         try {
-          const photo = image("material-wine-crocodile-photo", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
+          const photo = image("material-wine-crocodile-atlas", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
           patterns[name] = { texture: photo, swatch: photo, sourceCrop: WINE_CROCODILE_CROP };
-        } catch { console.error("WINE CROCODILE photograph unavailable"); }
+        } catch { console.error("WINE CROCODILE atlas unavailable"); }
       }
       continue;
     }

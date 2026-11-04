@@ -1,6 +1,6 @@
 // Native Canvas execution of the actual application renderer; no browser,
 // network, production credentials or mutations to supplied photographs.
-// Usage: node scripts/wine-crocodile-render-smoke.mjs <original.jpg> <output-dir> [baseline-ref]
+// Usage: node scripts/wine-crocodile-render-smoke.mjs <mixed-atlas.jpg> <output-dir> [baseline-ref]
 // Requires the optional QA dependency @napi-rs/canvas; not a runtime dependency.
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -14,7 +14,7 @@ const require = createRequire(import.meta.url);
 const { createCanvas, Image: NativeImage, ImageData, Path2D } = require("@napi-rs/canvas");
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourcePath = process.argv[2], output = process.argv[3];
-assert.ok(sourcePath && output, "Provide original photograph and output directory");
+assert.ok(sourcePath && output, "Provide corrected mixed-shape atlas and output directory");
 mkdirSync(output, { recursive: true });
 class LocalImage extends NativeImage {
   set src(value) {
@@ -50,10 +50,10 @@ function moduleLoader(baseline) {
 }
 const load = moduleLoader(), patterns = load("special-patterns"), config = load("simulator-config");
 assert.equal(patterns.SPECIAL_PATTERNS.find(({ name }) => name === "WINE CROCODILE")?.label, "와인 크로커다일");
-assert.equal(load("lizard-materials").lizardMaterialFor("WINE CROCODILE"), undefined, "wine crocodile photo must not inherit the black atlas dye transfer");
-assert.equal(load("lizard-materials").isLizardPattern("WINE CROCODILE"), false, "wine crocodile photo must not alias to the black atlas source");
+assert.equal(load("lizard-materials").lizardMaterialFor("WINE CROCODILE"), undefined, "wine crocodile atlas must not inherit the black atlas dye transfer");
+assert.equal(load("lizard-materials").isLizardPattern("WINE CROCODILE"), false, "wine crocodile atlas must not alias to the black atlas source");
 const material = new NativeImage(); material.src = readFileSync(sourcePath); await material.decode();
-assert.equal(material.naturalWidth, 1153); assert.equal(material.naturalHeight, 2048);
+assert.equal(material.naturalWidth, 1254); assert.equal(material.naturalHeight, 1254);
 const photo = `data:image/jpeg;base64,${readFileSync(sourcePath).toString("base64")}`;
 const { WINE_CROCODILE_CROP: crop } = load("wine-crocodile-material");
 const assets = { "WINE CROCODILE": { texture: photo, swatch: photo, sourceCrop: crop } };
@@ -65,7 +65,7 @@ assert.ok(crop.every(v => v >= 0 && v <= 1));
 assert.ok(crop[0] + crop[2] <= 1 && crop[1] + crop[3] <= 1);
 assert.deepEqual(patterns.patternSwatchPlacement(assets["WINE CROCODILE"]), {
   backgroundSize: `${100 / crop[2]}% ${100 / crop[3]}%`,
-  backgroundPosition: `${100 * crop[0] / (1 - crop[2])}% ${100 * crop[1] / (1 - crop[3])}%`,
+  backgroundPosition: `${crop[2] === 1 ? 0 : 100 * crop[0] / (1 - crop[2])}% ${crop[3] === 1 ? 0 : 100 * crop[1] / (1 - crop[3])}%`,
 });
 
 async function decode(src) { const image = new LocalImage(); image.src = src; await image.decode(); return image; }
@@ -126,7 +126,7 @@ for (let y = 0; y < 48; y++) for (let x = 0; x < 48; x++) {
 synthCtx.putImageData(synth, 0, 0);
 const syntheticAsset = { texture: synthetic.toDataURL("image/png"), swatch: synthetic.toDataURL("image/png") };
 const baseline = moduleLoader(process.argv[4] || "origin/main")("special-patterns");
-for (const name of ["MICRO HOUNDSTOOTH", "BLACK SNAKE", "FLOWER C", "MATTE BLACK", "BRONZE", "GRAY LIZARD", "IVORY ORNAMENT", "SILVER SNAKE"]) {
+for (const name of ["MICRO HOUNDSTOOTH", "BLACK SNAKE", "FLOWER C", "MATTE BLACK", "BRONZE", "GRAY LIZARD", "IVORY ORNAMENT", "SILVER SNAKE", "MINT GOLD PEARL"]) {
   for (const [model, part] of [["high", "b"], ["mid", "e"]]) {
     const fixture = { [name]: syntheticAsset };
     const before = pixels(await decode(await baseline.loadPatternLayer(model, part, name, fixture)));
@@ -140,6 +140,7 @@ for (const name of ["MICRO HOUNDSTOOTH", "BLACK SNAKE", "FLOWER C", "MATTE BLACK
 // inherit the neighboring pearl's bright metal reflection or lose dark seams.
 const luma = values => values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
 const lightProfile = patterns.surfaceLightProfile("WINE CROCODILE");
+assert.deepEqual(lightProfile, baseline.surfaceLightProfile("WINE CROCODILE"), "shape correction must retain the previously approved low-gloss response");
 assert.ok(lightProfile.blur >= 26, "wine highlights should be broad");
 assert.ok(lightProfile.sheen < 0.02, "wine retains low-intensity satin reflection");
 assert.ok(lightProfile.sheen < patterns.surfaceLightProfile("MINT GOLD PEARL").sheen / 10, "wine is not a metallic material");
@@ -174,4 +175,4 @@ for (let i = 0; i < actualResponses.wine.length; i++) assert.ok(luma(actualRespo
 report.relighting = { lightProfile, actualResponses, preservedWineHue: true, preservedDarkDetail: true, exteriorSpill: 0 };
 console.log("PASS wine hue, broad satin light, lighter worn creases, dark seam preservation and no spill");
 writeFileSync(resolve(output, "wine-crocodile-render-report.json"), JSON.stringify(report, null, 2));
-console.log("PASS 17 actual renderer outputs and 16 byte-identical historical-material regressions");
+console.log("PASS 17 actual renderer outputs and 18 byte-identical historical-material regressions");

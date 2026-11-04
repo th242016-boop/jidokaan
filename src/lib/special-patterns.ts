@@ -80,6 +80,13 @@ const PANEL_CUT_OFFSETS: Partial<Record<PartId, readonly [number, number]>> = {
   h: [0.43, 0.17], i: [0.11, 0.53], j: [0.79, 0.97],
 };
 
+// The broad B panel includes the atlas's large belly plates and rounded flank
+// transition. C takes the flank while D takes the large/small rectangle border.
+// These are independent cuts for this material only; shared offsets stay intact.
+const WINE_CUT_OFFSETS: Partial<Record<PartId, readonly [number, number]>> = {
+  b: [0.65, 0.95], c: [0.9, 0.85], d: [0.25, 0.5],
+};
+
 // Apply metal light in linear RGB, not by adding display-encoded gray/white.
 // This keeps the rose/copper reflection colored and preserves highlight detail.
 const LINEAR_RGB = Array.from({ length: 256 }, (_, value) => {
@@ -136,7 +143,8 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   const surface = snake ? recolorSnakePixels(material, snake.name)
     : lizard ? recolorLizardPixels(material, lizard.name) : material;
   const tile = TILE_SIZE[name] ?? camouflageMaterialFor(name)?.tileSize ?? (lizard ? 820 : finish?.kind === "suede" ? 420 : 600);
-  const [cutU, cutV] = finish ? [0, 0] : PANEL_CUT_OFFSETS[part] ?? [0, 0];
+  const [cutU, cutV] = finish ? [0, 0]
+    : (name === "WINE CROCODILE" ? WINE_CUT_OFFSETS[part] : undefined) ?? PANEL_CUT_OFFSETS[part] ?? [0, 0];
   // Neutral maps carry surface character only. Normalizing their average avoids
   // baking a black/gray photograph into all colors, especially white and yellow.
   let materialMean = 0;
@@ -159,7 +167,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   const repeat = (value: number, size: number) => ((value % size) + size) % size;
   const sample = name === "SILVER WEAVE" || name === "SILVER SNAKE" || name === "MINT GOLD PEARL" || name === "WINE CROCODILE" ? repeat : mirror;
   let lizardCut: { x: number; y: number; span: number } | undefined;
-  if (lizard || name === "GRAY LIZARD") {
+  if (lizard || name === "GRAY LIZARD" || name === "WINE CROCODILE") {
     let minX = width, minY = height, maxX = 0, maxY = 0;
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
       if (!src[(y * width + x) * 4 + 3]) continue;

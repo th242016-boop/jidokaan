@@ -17,6 +17,7 @@ const encrypted = {};
 const filenames = new Set(await readdir(resolve(root, "src/lib/special-assets")));
 for (const photo of ["ivory-ornament", "gray-lizard", "silver-snake", "mint-gold-pearl", "wine-crocodile"])
   assert.ok(filenames.has(`material-${photo}-photo.enc`), "each private original photograph must be bundled");
+assert.ok(filenames.has("material-wine-crocodile-atlas.enc"), "corrected heterogeneous wine atlas must be bundled");
 for (const source of ["black-lizard-20261023", "black-lizard-plates"])
   for (const suffix of ["", "-swatch"])
     assert.ok(filenames.has(`material-${source}${suffix}.enc`), "independent black textures and swatches must be bundled");
@@ -24,7 +25,7 @@ for (const name of ["reference-lizard", "reference-silver-weave", "gray-camo", "
   for (const suffix of ["", "-swatch"]) filenames.add(`material-${name}${suffix}.enc`);
 for (const filename of filenames) {
   if (!filename.endsWith(".enc")) continue;
-  const keyIndex = /^material-(ivory-ornament|gray-lizard|silver-snake|mint-gold-pearl|wine-crocodile)-photo\.enc$/.test(filename) ? 7
+  const keyIndex = filename === "material-wine-crocodile-atlas.enc" ? 7 : /^material-(ivory-ornament|gray-lizard|silver-snake|mint-gold-pearl|wine-crocodile)-photo\.enc$/.test(filename) ? 7
     : /^material-black-lizard-plates(-swatch)?\.enc$/.test(filename) ? 6
     : /^material-black-lizard-20261023(-swatch)?\.enc$/.test(filename) ? 5
     : filename === "material-silver-weave-photo.enc" ? 4
@@ -122,14 +123,15 @@ try {
       assert.notDeepEqual(mintGoldPearl, admin.patterns[name], "mint gold pearl must retain its own photographed topology");
     const wineCrocodile = admin.patterns["WINE CROCODILE"];
     assert.ok(wineCrocodile, `${model}: wine crocodile must be available to administrators`);
-    assert.equal(Buffer.from(wineCrocodile.texture.split(",")[1], "base64").toString(), "fixture:material-wine-crocodile-photo.enc");
-    assert.equal(wineCrocodile.swatch, wineCrocodile.texture, "wine crocodile swatch and panels sample the user's original photograph");
+    assert.equal(Buffer.from(wineCrocodile.texture.split(",")[1], "base64").toString(), "fixture:material-wine-crocodile-atlas.enc");
+    assert.equal(wineCrocodile.swatch, wineCrocodile.texture, "wine crocodile swatch and panels sample the corrected heterogeneous atlas");
     const wineCrop = (await load("wine-crocodile-material")).WINE_CROCODILE_CROP;
     assert.deepEqual(wineCrocodile.sourceCrop, wineCrop);
+    assert.deepEqual(wineCrop, [0, 0, 1, 1], "all three shape families require the whole atlas, not the rejected small crop");
     assert.ok(wineCrop.every(value => Number.isFinite(value) && value >= 0 && value <= 1));
     assert.ok(wineCrop[2] > 0 && wineCrop[3] > 0 && wineCrop[0] + wineCrop[2] <= 1 && wineCrop[1] + wineCrop[3] <= 1);
     for (const name of ["NATURAL SNAKE", "BLACK SNAKE", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL"])
-      assert.notDeepEqual(wineCrocodile, admin.patterns[name], "wine crocodile must retain its own photographed scale topology");
+      assert.notDeepEqual(wineCrocodile, admin.patterns[name], "wine crocodile must retain its independent mixed-shape scale topology");
     const compactAdmin = await payload({ audience: "admin", token: "fixture-admin", model, compact: true });
     assert.deepEqual(codec.expandPatternAssets(compactAdmin), admin.patterns);
     assert.deepEqual(compactAdmin.layers, admin.layers); assert.equal(compactAdmin.swatch, admin.swatch);
@@ -171,7 +173,8 @@ try {
   await expectOnlyPhotosUnavailable(photographicMaterials);
   process.env.SIMULATOR_IVORY_ORNAMENT_KEY = keys[7].toString("base64");
   for (const [name, file] of [["IVORY ORNAMENT", "ivory-ornament"], ["GRAY LIZARD", "gray-lizard"], ["SILVER SNAKE", "silver-snake"], ["MINT GOLD PEARL", "mint-gold-pearl"], ["WINE CROCODILE", "wine-crocodile"]]) {
-    const path = `./special-assets/material-${file}-photo.enc`;
+    const path = file === "wine-crocodile" ? "./special-assets/material-wine-crocodile-atlas.enc"
+      : `./special-assets/material-${file}-photo.enc`;
     const ciphertext = encrypted[path];
     delete encrypted[path];
     await expectOnlyPhotosUnavailable([name]);
@@ -181,6 +184,11 @@ try {
     await expectOnlyPhotosUnavailable([name]);
     encrypted[path] = ciphertext;
   }
+  const rejectedPhotoPath = "./special-assets/material-wine-crocodile-photo.enc";
+  const retainedReference = encrypted[rejectedPhotoPath];
+  delete encrypted[rejectedPhotoPath];
+  assert.deepEqual((await payload({ audience: "admin" })).patterns, withPrivatePhotos.patterns, "retained original photo is provenance only; never a fallback to the rejected crop");
+  encrypted[rejectedPhotoPath] = retainedReference;
   assert.deepEqual((await payload({ audience: "admin" })).patterns, withPrivatePhotos.patterns);
   console.log("PASS private ornament/gray lizard/silver snake/mint gold pearl/wine crocodile photos, compact crops, shared photo-key failure and per-source missing/corrupt isolation on both models");
   const malformed = codec.expandPatternAssets({ patternSources: [{ texture: "source", swatch: "swatch" }], patternRefs: { "RED LIZARD": 0, "BLUE LIZARD": -1, "GREEN LIZARD": 10, "NAVY LIZARD": "0" } });
