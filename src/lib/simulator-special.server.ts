@@ -9,6 +9,8 @@ import { camouflageMaterialFor } from "./camouflage-materials";
 import { isPublicSpecialPattern, type SimulatorAudience } from "./simulator-catalog";
 import { compactPatternAssets } from "./pattern-asset-wire";
 import { SILVER_SNAKE_CROP } from "./silver-snake-material";
+import { MINT_GOLD_PEARL_CROP } from "./mint-gold-pearl-material";
+import { WINE_CROCODILE_CROP } from "./wine-crocodile-material";
 
 // Encrypted source assets are safe to keep in the public repository. Only the server
 // has the key; nothing here belongs in public/ or in a client-side import.
@@ -47,6 +49,24 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
     return decoded.get(id)!;
   };
   for (const { name } of visiblePatterns) {
+    if (name === "WINE CROCODILE") {
+      if (audience === "admin" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
+        try {
+          const photo = image("material-wine-crocodile-photo", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
+          patterns[name] = { texture: photo, swatch: photo, sourceCrop: WINE_CROCODILE_CROP };
+        } catch { console.error("WINE CROCODILE photograph unavailable"); }
+      }
+      continue;
+    }
+    if (name === "MINT GOLD PEARL") {
+      if (audience === "admin" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
+        try {
+          const photo = image("material-mint-gold-pearl-photo", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
+          patterns[name] = { texture: photo, swatch: photo, sourceCrop: MINT_GOLD_PEARL_CROP };
+        } catch { console.error("MINT GOLD PEARL photograph unavailable"); }
+      }
+      continue;
+    }
     if (name === "SILVER SNAKE") {
       if (audience === "admin" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
         try {

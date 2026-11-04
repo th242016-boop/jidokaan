@@ -4,6 +4,8 @@ import { applyMaterialStitches } from "./material-stitches";
 import { SNAKE_MATERIALS, recolorSnakePixels, snakeMaterialFor } from "./snake-materials";
 import { LIZARD_MATERIALS, lizardMaterialFor, recolorLizardPixels } from "./lizard-materials";
 import { SILVER_SNAKE_LIGHT, SILVER_SNAKE_TILE, silverSnakeLinear } from "./silver-snake-material";
+import { MINT_GOLD_PEARL_LIGHT, MINT_GOLD_PEARL_TILE, mintGoldPearlLinear } from "./mint-gold-pearl-material";
+import { WINE_CROCODILE_LIGHT, WINE_CROCODILE_TILE } from "./wine-crocodile-material";
 
 import { CAMOUFLAGE_MATERIALS, camouflageMaterialFor, CAMOUFLAGE_LIGHT_PROFILE } from "./camouflage-materials";
 
@@ -17,6 +19,8 @@ export const SPECIAL_PATTERNS = [
   { name: "GRAY LIZARD", label: "그레이 도마뱀" },
   ...SNAKE_MATERIALS,
   { name: "SILVER SNAKE", label: "실버 스네이크" },
+  { name: "MINT GOLD PEARL", label: "민트골드 펄" },
+  { name: "WINE CROCODILE", label: "와인 크로커다일" },
   { name: "SILVER WEAVE", label: "SILVER WEAVE" },
   { name: "MICRO HOUNDSTOOTH", label: "MICRO HOUNDSTOOTH" },
   { name: "IVORY ORNAMENT", label: "IVORY ORNAMENT" },
@@ -62,6 +66,8 @@ const TILE_SIZE: Partial<Record<SpecialPatternName, number>> = {
   "IVORY ORNAMENT": 230,
   "GRAY LIZARD": 800,
   "SILVER SNAKE": SILVER_SNAKE_TILE,
+  "MINT GOLD PEARL": MINT_GOLD_PEARL_TILE,
+  "WINE CROCODILE": WINE_CROCODILE_TILE,
   "BRONZE": 380, "PINK GOLD": 420,
 };
 
@@ -89,6 +95,8 @@ const displayRGB = (value: number) => {
 // each surface. Matte/suede spread the light broadly instead of looking metallic.
 export function surfaceLightProfile(name: SpecialPatternName) {
   if (name === "SILVER SNAKE") return SILVER_SNAKE_LIGHT;
+  if (name === "MINT GOLD PEARL") return MINT_GOLD_PEARL_LIGHT;
+  if (name === "WINE CROCODILE") return WINE_CROCODILE_LIGHT;
   const finish = finishFor(name);
   if (finish?.kind === "matte") return { blur: 26, floor: 0.18, peak: 1.22, sheen: 0.006 };
   if (finish?.kind === "suede") return { blur: 36, floor: 0.20, peak: 1.18, sheen: 0.002 };
@@ -139,7 +147,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   }
   // The weave photograph and shared scale map already carry their intended
   // motif and light direction. Do not rotate those sources a second time.
-  const directionalSource = name === "SILVER WEAVE" || Boolean(lizard) || name === "GRAY LIZARD" || name === "SILVER SNAKE";
+  const directionalSource = name === "SILVER WEAVE" || Boolean(lizard) || name === "GRAY LIZARD" || name === "SILVER SNAKE" || name === "MINT GOLD PEARL" || name === "WINE CROCODILE";
   const radians = directionalSource ? 0 : -0.48, cos = Math.cos(radians), sin = Math.sin(radians);
   const mirror = (value: number, size: number) => {
     const doubled = size * 2;
@@ -149,7 +157,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   // The weave must repeat without inventing diamonds. Lizards use a wider atlas
   // cut once per panel, so no scale is split or mirrored at a repetition seam.
   const repeat = (value: number, size: number) => ((value % size) + size) % size;
-  const sample = name === "SILVER WEAVE" || name === "SILVER SNAKE" ? repeat : mirror;
+  const sample = name === "SILVER WEAVE" || name === "SILVER SNAKE" || name === "MINT GOLD PEARL" || name === "WINE CROCODILE" ? repeat : mirror;
   let lizardCut: { x: number; y: number; span: number } | undefined;
   if (lizard || name === "GRAY LIZARD") {
     let minX = width, minY = height, maxX = 0, maxY = 0;
@@ -186,7 +194,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
     // Red-channel darkness retains seam/stitch detail without reusing the broad
     // white enamel highlights. The texture's own grain/specular detail remains.
     const shade = 0.2 + 0.8 * Math.pow(Math.min(1.04, src[i] / 235), 0.8);
-    if (name === "SILVER SNAKE") {
+    if (name === "SILVER SNAKE" || name === "MINT GOLD PEARL") {
       // A fixed-view silver reflection follows the same photographed shoe
       // light as the approved metals. Do not treat dark reflected cells as dye.
       const broadRed = softReflection?.data[i] ?? src[i];
@@ -198,6 +206,14 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       const light = Math.max(0, Math.min(1, (reference * confidence + fallback * (1 - confidence) - 0.14) / 0.72));
       const luminance = 0.2126 * material.data[t] + 0.7152 * material.data[t + 1] + 0.0722 * material.data[t + 2];
       const darkDetail = 0.32 + 0.68 * Math.min(1, src[i] / 155) ** 0.9;
+      if (name === "MINT GOLD PEARL") {
+        const color = mintGoldPearlLinear(material.data[t], material.data[t + 1], material.data[t + 2], light);
+        out.data[i] = displayRGB(color[0] * darkDetail ** 2);
+        out.data[i + 1] = displayRGB(color[1] * darkDetail ** 2);
+        out.data[i + 2] = displayRGB(color[2] * darkDetail ** 2);
+        out.data[i + 3] = alpha;
+        continue;
+      }
       const value = silverSnakeLinear(luminance, light) * darkDetail ** 2;
       // Neutral silver: pink/blue reflections in the handheld photograph are
       // surroundings, not a permanent tint of the material.
@@ -458,7 +474,7 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
       const result = renderPatternPixels(sourcePixels,
         textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection, fineDetail, part, metalReflection);
       await applyMaterialStitches(result, sourcePixels, model, part,
-        name === "FLOWER B" || snakeMaterialFor(name) || lizardMaterialFor(name) || name === "GRAY LIZARD" || name === "SILVER SNAKE" || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT" || metallic
+        name === "FLOWER B" || snakeMaterialFor(name) || lizardMaterialFor(name) || name === "GRAY LIZARD" || name === "SILVER SNAKE" || name === "MINT GOLD PEARL" || name === "WINE CROCODILE" || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT" || metallic
           ? "dense" : name === "FLOWER C" ? "regular" : undefined);
       ctx.putImageData(result, 0, 0);
       return sourceCanvas.toDataURL("image/png");
