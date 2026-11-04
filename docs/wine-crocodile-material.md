@@ -1,4 +1,4 @@
-# 와인 크로커다일 — 2026-11-04 shape correction
+# 와인 크로커다일 — 2026-11-04 shape and scale correction
 
 The administrator Special studio retains `WINE CROCODILE`, displayed as
 **와인 크로커다일**, on high-cut B–J and mid-cut B–J except G. Its material shape
@@ -31,19 +31,29 @@ leather cut edges; those objects must not appear on the shoe.
 The 1254×1254 JPEG is protected as `material-wine-crocodile-atlas.enc`. Its
 SHA-256 is
 `f84f4842a2d692ecac04054900d6b7b3a9c94139d16fc2cbef7895e89c90cc1b`.
-Both selector swatch and renderer use the entire atlas (`sourceCrop: [0,0,1,1]`).
-The native projected atlas spans at least 720 pixels, extending only when a
-panel's guarded warped bounds require it. Each panel takes one independent
-bounded atlas cut rather than mirroring or tiling a small pattern. This keeps
-mixed shape families visible at product scale and avoids a uniform grid of tiny
-repeats. Scale remains an approximate visual calibration, not a measured cutting
-layout or an exact representation of the supplied hide.
+The selector retains the entire atlas (`sourceCrop: [0,0,1,1]`). The renderer
+loads that same unchanged atlas and selects a region for each leather panel.
 
-Wine-only cut positions place B toward the lower mixed-shape transition
-(`0.65, 0.95`), C toward the rounded flank (`0.9, 0.85`) and D across the
-large/small rectangle boundary (`0.25, 0.5`). Other panels retain their shared
-cut positions. These values select different regions of one atlas; they do not
-alter any other material's mapping.
+## Smaller motifs and panel-specific scale families
+
+Following the mixed-shape correction deployed in `a41390d`, the owner requested
+a 30% reduction in motif size and different regions on broad and narrow panels.
+The new mapping uses 70% of the previous linear pitch in both axes. It applies
+that reduction after the previous guarded panel-span calculation, so a large B
+panel or tall E panel cannot silently cancel the requested reduction. This is a
+linear change; the area of a corresponding motif is about 49% of its old area.
+
+B/C select the lower-left large rectangular belly plates. D/E/F/G/H select the
+upper smaller squared plates; I/J use that smaller field as well. The smaller
+pitch requires more material area than one bounded cut, so selected regions
+repeat by reflection with independent panel offsets. The source is not blended
+with a second texture, and the renderer does not stretch a small region back to
+fit a large panel. Visual checks inspect joins for conspicuous reflected shapes.
+Other materials' sampling is unchanged.
+
+This is a relative change from the deployed preview. Scale remains an
+approximate visual calibration, not a measured physical cutting layout or an
+exact representation of the supplied hide.
 
 ## Preserved lighting and boundaries
 
@@ -70,11 +80,19 @@ bundled in the client.
 through optional native Canvas. It renders all 17 native 1424×1392 layers,
 high/mid composites and B/C stitch enlargements, requiring exact native alpha
 and zero exterior spill. Eighteen historical material/model/part combinations
-are compared byte-for-byte with baseline `a6bbce8`, including Mint Gold Pearl.
+are compared byte-for-byte with baseline `a41390d`, including Mint Gold Pearl.
+An RGB coordinate chart passed through the actual renderer makes each native
+output pixel identify its source location. The observed local texture-coordinate
+gradients verify approximately 0.7 linear pitch on all 17 panels, independently
+of the implementation's tile constants. The sampled coordinate distributions
+also verify the lower-left region for B/C and the upper region for D–J. This
+checks mapping behavior; photographic renders remain necessary to judge the
+large/small scale appearance and reflected joins.
 Additional checks require unchanged low-gloss parameters, wine hue retention,
 lighter worn creases, darker seams and stable alpha across illumination levels.
 The catalog test verifies the atlas source, full-source crop, private delivery,
 compact round-trip, per-source failure isolation and absence of the old-photo
-fallback. Visual review, rather than a formula-only test, checks that large,
-small and rounded scale families are actually apparent on the main panels.
+fallback. Visual review checks that broad B/C panels show large belly plates
+and the other leather panels show the smaller field, with stitch visibility and
+the original satin response retained.
 These native Canvas checks are not a logged-in production browser session.

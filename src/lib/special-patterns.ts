@@ -5,7 +5,7 @@ import { SNAKE_MATERIALS, recolorSnakePixels, snakeMaterialFor } from "./snake-m
 import { LIZARD_MATERIALS, lizardMaterialFor, recolorLizardPixels } from "./lizard-materials";
 import { SILVER_SNAKE_LIGHT, SILVER_SNAKE_TILE, silverSnakeLinear } from "./silver-snake-material";
 import { MINT_GOLD_PEARL_LIGHT, MINT_GOLD_PEARL_TILE, mintGoldPearlLinear } from "./mint-gold-pearl-material";
-import { WINE_CROCODILE_LIGHT, WINE_CROCODILE_TILE } from "./wine-crocodile-material";
+import { WINE_CROCODILE_LIGHT, WINE_CROCODILE_TILE, WINE_CROCODILE_SCALE, WINE_CROCODILE_LARGE_REGION, WINE_CROCODILE_SMALL_REGION } from "./wine-crocodile-material";
 
 import { CAMOUFLAGE_MATERIALS, camouflageMaterialFor, CAMOUFLAGE_LIGHT_PROFILE } from "./camouflage-materials";
 
@@ -80,11 +80,12 @@ const PANEL_CUT_OFFSETS: Partial<Record<PartId, readonly [number, number]>> = {
   h: [0.43, 0.17], i: [0.11, 0.53], j: [0.79, 0.97],
 };
 
-// The broad B panel includes the atlas's large belly plates and rounded flank
-// transition. C takes the flank while D takes the large/small rectangle border.
-// These are independent cuts for this material only; shared offsets stay intact.
+// Each Wine panel takes an independent starting point within its selected hide
+// region. B/C use belly plates; all narrow upper panels use small-scale leather.
 const WINE_CUT_OFFSETS: Partial<Record<PartId, readonly [number, number]>> = {
-  b: [0.65, 0.95], c: [0.9, 0.85], d: [0.25, 0.5],
+  b: [0.12, 0.16], c: [0.53, 0.46], d: [0.25, 0.5],
+  e: [0.19, 0.83], f: [0.61, 0.43], g: [0.89, 0.71],
+  h: [0.43, 0.17], i: [0.11, 0.53], j: [0.79, 0.97],
 };
 
 // Apply metal light in linear RGB, not by adding display-encoded gray/white.
@@ -167,6 +168,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   const repeat = (value: number, size: number) => ((value % size) + size) % size;
   const sample = name === "SILVER WEAVE" || name === "SILVER SNAKE" || name === "MINT GOLD PEARL" || name === "WINE CROCODILE" ? repeat : mirror;
   let lizardCut: { x: number; y: number; span: number } | undefined;
+  let wineCut: { x: number; y: number; span: number; regionX: number; regionY: number; regionWidth: number; regionHeight: number } | undefined;
   if (lizard || name === "GRAY LIZARD" || name === "WINE CROCODILE") {
     let minX = width, minY = height, maxX = 0, maxY = 0;
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
@@ -178,11 +180,26 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
     // source atlas, including sparse edge pixels and the narrow lace-hole strips.
     const extentX = maxX - minX + 37, extentY = maxY - minY + 25;
     const span = Math.max(tile, extentX, extentY);
-    lizardCut = {
-      x: minX - 700 - 18 - cutU * (span - extentX),
-      y: minY - 700 - 12 - cutV * (span - extentY),
-      span,
-    };
+    if (name === "WINE CROCODILE") {
+      const [rx, ry, rw, rh] = part === "b" || part === "c"
+        ? WINE_CROCODILE_LARGE_REGION : WINE_CROCODILE_SMALL_REGION;
+      // Scale after the original fit guard: every native panel now shows motifs
+      // at 70% of its former linear size, including the tall E lace panel.
+      // Repeat only the chosen hide region instead of stretching it to fill.
+      wineCut = {
+        x: minX - 700 - 18, y: minY - 700 - 12,
+        span: span * WINE_CROCODILE_SCALE,
+        regionX: Math.round(rx * material.width), regionY: Math.round(ry * material.height),
+        regionWidth: Math.max(1, Math.min(material.width - Math.round(rx * material.width), Math.round(rw * material.width))),
+        regionHeight: Math.max(1, Math.min(material.height - Math.round(ry * material.height), Math.round(rh * material.height))),
+      };
+    } else {
+      lizardCut = {
+        x: minX - 700 - 18 - cutU * (span - extentX),
+        y: minY - 700 - 12 - cutV * (span - extentY),
+        span,
+      };
+    }
   }
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     const i = (y * width + x) * 4;
@@ -194,9 +211,15 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
     const warpedY = sin * dx + cos * dy + 12 * Math.sin(dx / 190);
     const u = lizardCut ? (warpedX - lizardCut.x) / lizardCut.span : warpedX / tile + cutU;
     const v = lizardCut ? (warpedY - lizardCut.y) / lizardCut.span : warpedY / tile + cutV;
-    const tx = lizardCut ? Math.max(0, Math.min(material.width - 1, Math.floor(u * material.width)))
+    // Reflect the crop at its edge to avoid an abrupt cut line. The selected
+    // morphology and fixed motif scale survive even on long, narrow panels.
+    const tx = wineCut ? wineCut.regionX + mirror(Math.floor(
+      (warpedX - wineCut.x) / wineCut.span * material.width + cutU * wineCut.regionWidth), wineCut.regionWidth)
+      : lizardCut ? Math.max(0, Math.min(material.width - 1, Math.floor(u * material.width)))
       : sample(Math.floor(u * material.width), material.width);
-    const ty = lizardCut ? Math.max(0, Math.min(material.height - 1, Math.floor(v * material.height)))
+    const ty = wineCut ? wineCut.regionY + mirror(Math.floor(
+      (warpedY - wineCut.y) / wineCut.span * material.height + cutV * wineCut.regionHeight), wineCut.regionHeight)
+      : lizardCut ? Math.max(0, Math.min(material.height - 1, Math.floor(v * material.height)))
       : sample(Math.floor(v * material.height), material.height);
     const t = (ty * material.width + tx) * 4;
     // Red-channel darkness retains seam/stitch detail without reusing the broad

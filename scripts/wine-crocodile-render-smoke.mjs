@@ -49,6 +49,8 @@ function moduleLoader(baseline) {
   return load;
 }
 const load = moduleLoader(), patterns = load("special-patterns"), config = load("simulator-config");
+const baselineRef = process.argv[4] || "a41390d";
+const baseline = moduleLoader(baselineRef)("special-patterns");
 assert.equal(patterns.SPECIAL_PATTERNS.find(({ name }) => name === "WINE CROCODILE")?.label, "와인 크로커다일");
 assert.equal(load("lizard-materials").lizardMaterialFor("WINE CROCODILE"), undefined, "wine crocodile atlas must not inherit the black atlas dye transfer");
 assert.equal(load("lizard-materials").isLizardPattern("WINE CROCODILE"), false, "wine crocodile atlas must not alias to the black atlas source");
@@ -74,7 +76,7 @@ function pixels(image) {
   const ctx = canvas.getContext("2d"); ctx.drawImage(image, 0, 0);
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
-const report = { renderer: "actual loadPatternLayer via native Canvas (not a browser session)", layers: [], regressions: [], relighting: {} };
+const report = { renderer: "actual loadPatternLayer via native Canvas (not a browser session)", baselineRef, layers: [], scaleAndRegions: [], regressions: [], relighting: {} };
 const seamRegions = { b: [365, 920, 410, 270], c: [965, 440, 180, 420] };
 for (const model of ["high", "mid"]) {
   const parts = patterns.patternPartsFor(model, "WINE CROCODILE");
@@ -112,6 +114,73 @@ for (const model of ["high", "mid"]) {
 }
 assert.equal(report.layers.length, 17);
 
+// Exercise the mapping as a black box: a reversible RGB coordinate chart makes
+// every rendered pixel reveal its source-atlas location. Flat source RGB 235
+// supplies unit diffuse light, without changing any native alpha or lace holes.
+// Local observed chart gradients measure motif pitch independently of the
+// implementation's scale/tile constants. Absolute gradients accept mirrored
+// crop interiors; large discontinuities are excluded instead of measuring a seam
+// jump as a small motif. The actual photographic outputs above are still needed
+// to review the appearance of reflected joins and the selected scale families.
+const chart = new ImageData(material.naturalWidth, material.naturalHeight);
+for (let y = 0; y < chart.height; y++) for (let x = 0; x < chart.width; x++) {
+  const i = (y * chart.width + x) * 4;
+  chart.data.set([x & 255, y & 255, (x >> 8) + 8 * (y >> 8), 255], i);
+}
+function chartCoordinate(data, index, axis) {
+  return axis === 0 ? data[index] + (data[index + 2] % 8) * 256
+    : data[index + 1] + Math.floor(data[index + 2] / 8) * 256;
+}
+function observedMapping(image, native) {
+  const xHistogram = new Uint32Array(chart.width), yHistogram = new Uint32Array(chart.height);
+  const gradients = [{ sum: 0, count: 0 }, { sum: 0, count: 0 }];
+  let covered = 0;
+  for (let y = 0; y < image.height; y++) for (let x = 0; x < image.width; x++) {
+    const i = (y * image.width + x) * 4;
+    if (native.data[i + 3] < 250) continue;
+    const tx = chartCoordinate(image.data, i, 0), ty = chartCoordinate(image.data, i, 1);
+    assert.ok(tx >= 0 && tx < chart.width && ty >= 0 && ty < chart.height, "decoded source coordinates remain inside atlas");
+    xHistogram[tx]++; yHistogram[ty]++; covered++;
+    for (let axis = 0; axis < 2; axis++) {
+      if (axis === 0 ? x + 1 >= image.width : y + 1 >= image.height) continue;
+      const next = i + (axis === 0 ? 4 : image.width * 4);
+      if (native.data[next + 3] < 250) continue;
+      const delta = Math.abs(chartCoordinate(image.data, next, axis) - (axis === 0 ? tx : ty));
+      if (delta > 8) continue;
+      gradients[axis].sum += delta; gradients[axis].count++;
+    }
+  }
+  function quantile(histogram, fraction) {
+    let cumulative = 0;
+    for (let i = 0; i < histogram.length; i++) {
+      cumulative += histogram[i];
+      if (cumulative >= covered * fraction) return i / (histogram.length - 1);
+    }
+    throw Error("Empty coordinate chart");
+  }
+  return {
+    gradients: gradients.map(({ sum, count }) => { assert.ok(count > 50, "enough native interior neighbors to measure pitch"); return sum / count; }),
+    sourceXMedian: quantile(xHistogram, 0.5), sourceX95: quantile(xHistogram, 0.95),
+    sourceYMedian: quantile(yHistogram, 0.5), sourceY95: quantile(yHistogram, 0.95),
+  };
+}
+for (const model of ["high", "mid"]) for (const part of patterns.patternPartsFor(model, "WINE CROCODILE")) {
+  const native = pixels(await decode(config.photoLayerFor(part, "RED", { model })));
+  const flat = new ImageData(native.width, native.height);
+  for (let i = 0; i < flat.data.length; i += 4) flat.data.set([235, 0, 0, native.data[i + 3]], i);
+  const oldMapping = observedMapping(baseline.renderPatternPixels(flat, chart, "WINE CROCODILE", undefined, undefined, part), native);
+  const newMapping = observedMapping(patterns.renderPatternPixels(flat, chart, "WINE CROCODILE", undefined, undefined, part), native);
+  const pitchRatios = oldMapping.gradients.map((value, axis) => value / newMapping.gradients[axis]);
+  for (const ratio of pitchRatios) assert.ok(ratio > 0.68 && ratio < 0.72, `${model}/${part}: observed linear pitch ${ratio} must be 70% of baseline`);
+  if (part === "b" || part === "c") {
+    assert.ok(newMapping.sourceYMedian > 0.45 && newMapping.sourceX95 < 0.61, `${model}/${part} must sample the lower-left large-plate field`);
+  } else {
+    assert.ok(newMapping.sourceY95 < 0.41 && newMapping.sourceXMedian > 0.3, `${model}/${part} must sample the upper small-plate field`);
+  }
+  report.scaleAndRegions.push({ model, part, pitchRatios, oldMapping, newMapping });
+  console.log(`PASS ${model}/${part}: observed pitch ${pitchRatios.map(v => v.toFixed(4)).join("/")} and requested source region`);
+}
+
 // A shared deterministic sample exercises unchanged historical branches, without
 // requiring any of the actual secret material sources from production.
 const synthetic = createCanvas(48, 48), synthCtx = synthetic.getContext("2d");
@@ -125,7 +194,6 @@ for (let y = 0; y < 48; y++) for (let x = 0; x < 48; x++) {
 }
 synthCtx.putImageData(synth, 0, 0);
 const syntheticAsset = { texture: synthetic.toDataURL("image/png"), swatch: synthetic.toDataURL("image/png") };
-const baseline = moduleLoader(process.argv[4] || "origin/main")("special-patterns");
 for (const name of ["MICRO HOUNDSTOOTH", "BLACK SNAKE", "FLOWER C", "MATTE BLACK", "BRONZE", "GRAY LIZARD", "IVORY ORNAMENT", "SILVER SNAKE", "MINT GOLD PEARL"]) {
   for (const [model, part] of [["high", "b"], ["mid", "e"]]) {
     const fixture = { [name]: syntheticAsset };
