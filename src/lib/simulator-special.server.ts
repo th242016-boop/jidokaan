@@ -46,6 +46,20 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
     return decoded.get(id)!;
   };
   for (const { name } of visiblePatterns) {
+    if (name === "GRAY LIZARD") {
+      // The existing private-photo key also protects this unmodified hide.
+      // Do not alias it to the black lizard's dyed atlas or expose it publicly.
+      if (audience === "admin" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
+        try {
+          const photo = image("material-gray-lizard-photo", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
+          patterns[name] = {
+            texture: photo, swatch: photo,
+            sourceCrop: [300 / 1153, 260 / 2048, 800 / 1153, 800 / 2048],
+          };
+        } catch { console.error("GRAY LIZARD photograph unavailable"); }
+      }
+      continue;
+    }
     if (name === "IVORY ORNAMENT") {
       // Preserve the owner's photograph. Both the swatch and native panel
       // renderer sample the same hand-free material region; never publish it.
@@ -54,7 +68,7 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
           const photo = image("material-ivory-ornament-photo", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
           patterns[name] = {
             texture: photo, swatch: photo,
-            sourceCrop: [360 / 1153, 620 / 2048, 480 / 1153, 480 / 2048],
+            sourceCrop: [180 / 832, 170 / 870, 360 / 832, 360 / 870],
           };
         } catch { console.error("IVORY ORNAMENT photograph unavailable"); }
       }

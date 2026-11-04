@@ -13,6 +13,7 @@ export const SPECIAL_PATTERNS = [
   { name: "BLACK SNAKE", label: "BLACK LIZARD" },
   { name: "WHITE SNAKE", label: "WHITE LIZARD" },
   ...LIZARD_MATERIALS,
+  { name: "GRAY LIZARD", label: "그레이 도마뱀" },
   ...SNAKE_MATERIALS,
   { name: "SILVER WEAVE", label: "SILVER WEAVE" },
   { name: "MICRO HOUNDSTOOTH", label: "MICRO HOUNDSTOOTH" },
@@ -54,7 +55,10 @@ const TILE_SIZE: Partial<Record<SpecialPatternName, number>> = {
   "NATURAL SNAKE": 520, "HOT PINK SNAKE": 520, "ORANGE SNAKE": 520,
   "SKY BLUE SNAKE": 520, "GREEN SNAKE": 520, "YELLOW SNAKE": 520,
   "SILVER WEAVE": 137, "MICRO HOUNDSTOOTH": 220,
-  "IVORY ORNAMENT": 180,
+  // New cream reference has a tighter source-photo motif pitch. Match the
+  // previous projected motif size rather than shrinking it with the crop.
+  "IVORY ORNAMENT": 230,
+  "GRAY LIZARD": 800,
   "BRONZE": 380, "PINK GOLD": 420,
 };
 
@@ -95,6 +99,9 @@ export function surfaceLightProfile(name: SpecialPatternName) {
   if (name === "SILVER WEAVE") return { blur: 16, floor: 0.42, peak: 1.20, sheen: 0.045 };
   if (name === "MICRO HOUNDSTOOTH") return { blur: 26, floor: 0.30, peak: 1.10, sheen: 0.006 };
   if (name === "IVORY ORNAMENT") return { blur: 26, floor: 0.40, peak: 1.10, sheen: 0.008 };
+  // This is a separate light-gray photographed hide, not a dye of the black
+  // atlas. Keep its thin gray joints and soft scale faces with restrained satin.
+  if (name === "GRAY LIZARD") return { blur: 22, floor: 0.48, peak: 1.10, sheen: 0.018 };
   return undefined; // The approved BRONZE/PINK GOLD response stays unchanged.
 }
 
@@ -128,7 +135,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   }
   // The weave photograph and shared scale map already carry their intended
   // motif and light direction. Do not rotate those sources a second time.
-  const directionalSource = name === "SILVER WEAVE" || Boolean(lizard);
+  const directionalSource = name === "SILVER WEAVE" || Boolean(lizard) || name === "GRAY LIZARD";
   const radians = directionalSource ? 0 : -0.48, cos = Math.cos(radians), sin = Math.sin(radians);
   const mirror = (value: number, size: number) => {
     const doubled = size * 2;
@@ -140,7 +147,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   const repeat = (value: number, size: number) => ((value % size) + size) % size;
   const sample = name === "SILVER WEAVE" ? repeat : mirror;
   let lizardCut: { x: number; y: number; span: number } | undefined;
-  if (lizard) {
+  if (lizard || name === "GRAY LIZARD") {
     let minX = width, minY = height, maxX = 0, maxY = 0;
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
       if (!src[(y * width + x) * 4 + 3]) continue;
@@ -326,7 +333,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       out.data[i + 3] = alpha;
       continue;
     }
-    if (snake || lizard || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT") {
+    if (snake || lizard || name === "GRAY LIZARD" || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT") {
       // The neutral reference carries scale/thread relief and printed markings.
       // Broad shape light gives curvature without copying sharp patent bands.
       const broadRed = softReflection?.data[i] ?? src[i];
@@ -428,7 +435,7 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
       const result = renderPatternPixels(sourcePixels,
         textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection, fineDetail, part, metalReflection);
       await applyMaterialStitches(result, sourcePixels, model, part,
-        name === "FLOWER B" || snakeMaterialFor(name) || lizardMaterialFor(name) || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT" || metallic
+        name === "FLOWER B" || snakeMaterialFor(name) || lizardMaterialFor(name) || name === "GRAY LIZARD" || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT" || metallic
           ? "dense" : name === "FLOWER C" ? "regular" : undefined);
       ctx.putImageData(result, 0, 0);
       return sourceCanvas.toDataURL("image/png");

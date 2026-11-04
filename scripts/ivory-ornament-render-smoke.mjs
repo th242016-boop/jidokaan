@@ -50,12 +50,12 @@ function moduleLoader(baseline) {
 }
 const load = moduleLoader(), patterns = load("special-patterns"), config = load("simulator-config");
 const material = new NativeImage(); material.src = readFileSync(sourcePath); await material.decode();
-assert.equal(material.naturalWidth, 1153); assert.equal(material.naturalHeight, 2048);
+assert.equal(material.naturalWidth, 832); assert.equal(material.naturalHeight, 870);
 const photo = `data:image/jpeg;base64,${readFileSync(sourcePath).toString("base64")}`;
-const crop = [360 / 1153, 620 / 2048, 480 / 1153, 480 / 2048];
+const crop = [180 / 832, 170 / 870, 360 / 832, 360 / 870];
 const assets = { "IVORY ORNAMENT": { texture: photo, swatch: photo, sourceCrop: crop } };
-const swatch = createCanvas(480, 480);
-swatch.getContext("2d").drawImage(material, 360, 620, 480, 480, 0, 0, 480, 480);
+const swatch = createCanvas(360, 360);
+swatch.getContext("2d").drawImage(material, 180, 170, 360, 360, 0, 0, 360, 360);
 writeFileSync(resolve(output, "ivory-ornament-source-crop.png"), swatch.toBuffer("image/png"));
 assert.ok(crop.every(v => v >= 0 && v <= 1));
 assert.ok(crop[0] + crop[2] <= 1 && crop[1] + crop[3] <= 1);

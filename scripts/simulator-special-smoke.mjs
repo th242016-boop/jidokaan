@@ -69,7 +69,7 @@ try {
         if (process.env.SIMULATOR_SPECIAL_PATTERN_KEY) {
           const expectedPatterns = patterns.SPECIAL_PATTERNS.filter(pattern =>
             (!patterns.isMetallicPattern(pattern.name) || process.env.SIMULATOR_SPECIAL_METALLIC_KEY)
-            && (pattern.name !== "IVORY ORNAMENT" || process.env.SIMULATOR_IVORY_ORNAMENT_KEY));
+            && (!["IVORY ORNAMENT", "GRAY LIZARD"].includes(pattern.name) || process.env.SIMULATOR_IVORY_ORNAMENT_KEY));
           assert.deepEqual(Object.keys(body.patterns).sort(), expectedPatterns.map(pattern => pattern.name).sort());
           for (const pattern of expectedPatterns) {
             assert.match(body.patterns[pattern.name].texture, /^data:image\/(png|jpeg|webp);base64,/);
@@ -226,8 +226,9 @@ try {
     assert.deepEqual(snakes.SNAKE_MATERIALS.map(snake => snake.name), requestedSnakes);
     const requestedLizards = ["RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE"].map(color => `${color} LIZARD`);
     const requestedCamouflage = ["GRAY CAMO", "WOODLAND CAMO"];
-    assert.equal(patterns.SPECIAL_PATTERNS.length, 48);
-    assert.deepEqual(new Set(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name)), new Set(["FLOWER B", "FLOWER C", "BLACK SNAKE", "WHITE SNAKE", ...requestedLizards, ...requestedSnakes, "SILVER WEAVE", "MICRO HOUNDSTOOTH", "IVORY ORNAMENT", "BRONZE", "PINK GOLD", ...requestedFinishes, ...requestedCamouflage]));
+    assert.equal(patterns.SPECIAL_PATTERNS.length, 49);
+    assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "GRAY LIZARD")?.label, "그레이 도마뱀");
+    assert.deepEqual(new Set(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name)), new Set(["FLOWER B", "FLOWER C", "BLACK SNAKE", "WHITE SNAKE", ...requestedLizards, ...requestedSnakes, "SILVER WEAVE", "MICRO HOUNDSTOOTH", "IVORY ORNAMENT", "GRAY LIZARD", "BRONZE", "PINK GOLD", ...requestedFinishes, ...requestedCamouflage]));
     for (const model of ["high", "mid"]) {
       const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
       const original = structuredClone(initial);
