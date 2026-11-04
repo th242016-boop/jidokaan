@@ -16,6 +16,7 @@ export const SPECIAL_PATTERNS = [
   ...SNAKE_MATERIALS,
   { name: "SILVER WEAVE", label: "SILVER WEAVE" },
   { name: "MICRO HOUNDSTOOTH", label: "MICRO HOUNDSTOOTH" },
+  { name: "IVORY ORNAMENT", label: "IVORY ORNAMENT" },
   { name: "BRONZE", label: "BRONZE" },
   { name: "PINK GOLD", label: "PINK GOLD" },
   ...SPECIAL_FINISHES,
@@ -53,6 +54,7 @@ const TILE_SIZE: Partial<Record<SpecialPatternName, number>> = {
   "NATURAL SNAKE": 520, "HOT PINK SNAKE": 520, "ORANGE SNAKE": 520,
   "SKY BLUE SNAKE": 520, "GREEN SNAKE": 520, "YELLOW SNAKE": 520,
   "SILVER WEAVE": 137, "MICRO HOUNDSTOOTH": 220,
+  "IVORY ORNAMENT": 180,
   "BRONZE": 380, "PINK GOLD": 420,
 };
 
@@ -92,6 +94,7 @@ export function surfaceLightProfile(name: SpecialPatternName) {
   if (name === "FLOWER C") return { blur: 26, floor: 0.30, peak: 1.10, sheen: 0.012 };
   if (name === "SILVER WEAVE") return { blur: 16, floor: 0.42, peak: 1.20, sheen: 0.045 };
   if (name === "MICRO HOUNDSTOOTH") return { blur: 26, floor: 0.30, peak: 1.10, sheen: 0.006 };
+  if (name === "IVORY ORNAMENT") return { blur: 26, floor: 0.40, peak: 1.10, sheen: 0.008 };
   return undefined; // The approved BRONZE/PINK GOLD response stays unchanged.
 }
 
@@ -323,7 +326,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       out.data[i + 3] = alpha;
       continue;
     }
-    if (snake || lizard || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH") {
+    if (snake || lizard || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT") {
       // The neutral reference carries scale/thread relief and printed markings.
       // Broad shape light gives curvature without copying sharp patent bands.
       const broadRed = softReflection?.data[i] ?? src[i];
@@ -332,7 +335,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       const light = softReflection
         ? Math.pow(Math.min(1, Math.min(softReflection.data[i + 1], softReflection.data[i + 2]) / 180), 1.1)
         : 0;
-      const sheen = light * (name === "SILVER WEAVE" ? 19 : name === "MICRO HOUNDSTOOTH" ? 8 : 14);
+      const sheen = light * (name === "SILVER WEAVE" ? 19 : name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT" ? 8 : 14);
       for (let c = 0; c < 3; c++) out.data[i + c] = Math.min(255, Math.round(surface.data[t + c] * shape * darkDetail + sheen));
       out.data[i + 3] = alpha;
       continue;
@@ -425,7 +428,7 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
       const result = renderPatternPixels(sourcePixels,
         textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection, fineDetail, part, metalReflection);
       await applyMaterialStitches(result, sourcePixels, model, part,
-        name === "FLOWER B" || snakeMaterialFor(name) || lizardMaterialFor(name) || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || metallic
+        name === "FLOWER B" || snakeMaterialFor(name) || lizardMaterialFor(name) || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT" || metallic
           ? "dense" : name === "FLOWER C" ? "regular" : undefined);
       ctx.putImageData(result, 0, 0);
       return sourceCanvas.toDataURL("image/png");

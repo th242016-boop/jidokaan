@@ -46,6 +46,20 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
     return decoded.get(id)!;
   };
   for (const { name } of visiblePatterns) {
+    if (name === "IVORY ORNAMENT") {
+      // Preserve the owner's photograph. Both the swatch and native panel
+      // renderer sample the same hand-free material region; never publish it.
+      if (audience === "admin" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
+        try {
+          const photo = image("material-ivory-ornament-photo", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
+          patterns[name] = {
+            texture: photo, swatch: photo,
+            sourceCrop: [360 / 1153, 620 / 2048, 480 / 1153, 480 / 2048],
+          };
+        } catch { console.error("IVORY ORNAMENT photograph unavailable"); }
+      }
+      continue;
+    }
     if (isLizardPattern(name) && process.env[blackLizardPlatesKey]) {
       try {
         // Every lizard color uses the same shallow, elongated scale atlas.
