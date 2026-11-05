@@ -13,4 +13,4 @@ export const PUBLIC_SPECIAL_PATTERNS = [
 
 const published = new Set<string>(PUBLIC_SPECIAL_PATTERNS);
 export const isPublicSpecialPattern = (name: string) => published.has(name);
-export type SimulatorAudience = "public" | "admin";
+export type SimulatorAudience = "public" | "admin" | "shared";

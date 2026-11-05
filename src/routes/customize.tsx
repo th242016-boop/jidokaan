@@ -1,3 +1,4 @@
+import { SimulatorShareControls } from "@/components/customizer/simulator-share-controls";
 import { useSpecialSimulator } from "@/lib/use-special-simulator";
 import { FLOWER_A } from "@/lib/simulator-special";
 import { isPublicSpecialPattern } from "@/lib/simulator-catalog";
@@ -43,7 +44,7 @@ export const Route = createFileRoute("/customize")({
   ): { lang?: ReturnType<typeof requestedLocale> } => ({
     lang: requestedLocale(search.lang),
   }),
-  component: CustomizePage,
+  component: CustomizeRoutePage,
 });
 
 const MEN_SIZES = MEN_BOOT_SIZES;
@@ -53,8 +54,12 @@ function closestSize(target: string, list: readonly string[]) {
   return closestBootSize(target, list);
 }
 
-function CustomizePage() {
+function CustomizeRoutePage() {
   const { lang } = Route.useSearch();
+  return <CustomizePage lang={lang} />;
+}
+
+export function CustomizePage({ lang, shareToken }: { lang?: ReturnType<typeof requestedLocale>; shareToken?: string }) {
   const locale = useStore((s) => s.locale);
   const currency = useStore((s) => s.currency);
   const setCurrency = useStore((s) => s.setCurrency);
@@ -76,7 +81,7 @@ function CustomizePage() {
   const [zoomed, setZoomed] = useState(false);
   const [showKrOrder, setShowKrOrder] = useState(false);
   const model = modelOf(draftPartNames);
-  const special = useSpecialSimulator(model, draftPartNames);
+  const special = useSpecialSimulator(model, draftPartNames, shareToken);
   const [snakeSwatches, setSnakeSwatches] = useState<{ assets: typeof special.patternAssets; images: SnakeSwatches } | null>(null);
   const [lizardSwatches, setLizardSwatches] = useState<{ assets: typeof special.patternAssets; images: LizardSwatches } | null>(null);
   const beadSwatches = useMemo(() => special.enabled && model === "high"
@@ -153,6 +158,19 @@ function CustomizePage() {
     else resetDraftColors();
     setShowKrOrder(false);
     toast.success(dict.custom.resetToast);
+  }
+
+  if (shareToken !== undefined && !special.available) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-white px-6 text-center text-black">
+        <div className="max-w-sm">
+          <h1 className="text-2xl font-black tracking-wide">JIDOKAAN</h1>
+          <p role={special.accessChecked ? "alert" : "status"} className="mt-4 text-sm text-neutral-600">
+            {special.accessChecked ? "공유 링크를 확인해주세요. 유효한 링크로 다시 접속해주세요." : "스페셜 시뮬레이터를 여는 중…"}
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -242,6 +260,7 @@ function CustomizePage() {
               </button>
             </div>
           </div>
+          {special.isAdmin && <SimulatorShareControls />}
           {special.enabled && special.solidsFailed && <p role="alert" className="mt-2 text-xs text-red-700">GRAY 이미지를 불러오지 못했습니다. 스페셜을 다시 눌러주세요.</p>}
           {special.enabled && special.patternsFailed && <p role="alert" className="mt-2 text-xs text-red-700">무늬 이미지를 불러오지 못했습니다. 스페셜을 다시 눌러주세요.</p>}
           {special.enabled && <p role="status" className="mt-2 text-[11px] text-neutral-600">{special.busy ? "스페셜 소재 불러오는 중…" : special.isAdmin ? "관리자 · 스페셜 시안" : "스페셜 소재 · 시안 저장"}</p>}
@@ -317,7 +336,7 @@ function CustomizePage() {
                           </button>
                         );
                       })}
-                      {special.enabled && special.isAdmin && special.layers[part.id] && special.swatch && (
+                      {special.enabled && special.canUsePrivateCatalog && special.layers[part.id] && special.swatch && (
                         <button
                           type="button"
                           title={FLOWER_A}
@@ -333,7 +352,7 @@ function CustomizePage() {
                       )}
                       {special.enabled && patternPartsFor(model).includes(part.id) && SPECIAL_PATTERNS.map(pattern => {
                         const asset = special.patternAssets[pattern.name];
-                        if ((!special.isAdmin && !isPublicSpecialPattern(pattern.name)) || !asset || !patternPartsFor(model, pattern.name).includes(part.id)) return null;
+                        if ((!special.canUsePrivateCatalog && !isPublicSpecialPattern(pattern.name)) || !asset || !patternPartsFor(model, pattern.name).includes(part.id)) return null;
                         const active = special.patterns[part.id] === pattern.name;
                         const finish = finishFor(pattern.name);
                         const snake = snakeMaterialFor(pattern.name);

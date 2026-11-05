@@ -25,6 +25,7 @@ import { Route as OrdersRouteImport } from './routes/orders'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ShippingRouteImport } from './routes/shipping'
 import { Route as ShopRouteImport } from './routes/shop'
+import { Route as SpecialRouteImport } from './routes/special'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiAnalyticsRouteImport } from './routes/api/analytics'
 import { Route as ApiCatalogRouteImport } from './routes/api/catalog'
@@ -122,6 +123,11 @@ const ShippingRoute = ShippingRouteImport.update({
 const ShopRoute = ShopRouteImport.update({
   id: '/shop',
   path: '/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SpecialRoute = SpecialRouteImport.update({
+  id: '/special',
+  path: '/special',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TermsRoute = TermsRouteImport.update({
@@ -232,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
+  '/special': typeof SpecialRoute
   '/terms': typeof TermsRoute
   '/api/analytics': typeof ApiAnalyticsRoute
   '/api/catalog': typeof ApiCatalogRoute
@@ -268,6 +275,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
+  '/special': typeof SpecialRoute
   '/terms': typeof TermsRoute
   '/api/analytics': typeof ApiAnalyticsRoute
   '/api/catalog': typeof ApiCatalogRoute
@@ -305,6 +313,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
+  '/special': typeof SpecialRoute
   '/terms': typeof TermsRoute
   '/api/analytics': typeof ApiAnalyticsRoute
   '/api/catalog': typeof ApiCatalogRoute
@@ -343,6 +352,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/shipping'
     | '/shop'
+    | '/special'
     | '/terms'
     | '/api/analytics'
     | '/api/catalog'
@@ -379,6 +389,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/shipping'
     | '/shop'
+    | '/special'
     | '/terms'
     | '/api/analytics'
     | '/api/catalog'
@@ -415,6 +426,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/shipping'
     | '/shop'
+    | '/special'
     | '/terms'
     | '/api/analytics'
     | '/api/catalog'
@@ -452,6 +464,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   ShippingRoute: typeof ShippingRoute
   ShopRoute: typeof ShopRoute
+  SpecialRoute: typeof SpecialRoute
   TermsRoute: typeof TermsRoute
   ApiAnalyticsRoute: typeof ApiAnalyticsRoute
   ApiCatalogRoute: typeof ApiCatalogRoute
@@ -584,6 +597,13 @@ declare module '@tanstack/react-router' {
       path: '/shop'
       fullPath: '/shop'
       preLoaderRoute: typeof ShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/special': {
+      id: '/special'
+      path: '/special'
+      fullPath: '/special'
+      preLoaderRoute: typeof SpecialRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terms': {
@@ -732,6 +752,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   ShippingRoute: ShippingRoute,
   ShopRoute: ShopRoute,
+  SpecialRoute: SpecialRoute,
   TermsRoute: TermsRoute,
   ApiAnalyticsRoute: ApiAnalyticsRoute,
   ApiCatalogRoute: ApiCatalogRoute,

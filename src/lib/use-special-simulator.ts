@@ -14,7 +14,8 @@ import { isPublicSpecialPattern, type SimulatorAudience } from "./simulator-cata
 import { FLOWER_A } from "./simulator-special";
 import { expandPatternAssets, type PatternAssetWire } from "./pattern-asset-wire";
 
-export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames) {
+export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames, shareToken?: string) {
+  const [accessChecked, setAccessChecked] = useState(false);
   const [available, setAvailable] = useState(false);
   const [audience, setAudience] = useState<SimulatorAudience>("public");
   const audienceRef = useRef<SimulatorAudience>("public");
@@ -33,23 +34,24 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
   }, []);
 
   const request = useCallback(async (action: "ping" | "assets", signal?: AbortSignal) => {
-    const token = readAdminToken();
-    if (!token) throw new Error("AUTH");
+    const token = shareToken === undefined ? readAdminToken() : "";
+    if (!token && !shareToken) throw new Error("AUTH");
     const res = await fetch("/api/simulator-special", {
       method: "POST", cache: "no-store", signal,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, audience: "admin", action, model, ...(action === "assets" ? { compact: true } : {}) }),
+      body: JSON.stringify({ ...(shareToken === undefined ? { token, audience: "admin" } : { shareToken }), action, model, ...(action === "assets" ? { compact: true } : {}) }),
     });
     if (!res.ok) throw new Error(res.status === 401 ? "AUTH" : "SPECIAL_UNAVAILABLE");
     const data = await res.json();
     return action === "assets" ? { ...data, patterns: expandPatternAssets(data as PatternAssetWire) } : data;
-  }, [model]);
+  }, [model, shareToken]);
 
   const validate = useCallback(async () => {
     const current = generation.current;
     try {
-      await request("ping");
-      const next: SimulatorAudience = "admin";
+      const result = await request("ping");
+      const next: SimulatorAudience = shareToken === undefined ? "admin" : "shared";
+      if (result.audience !== next) throw new Error("AUTH");
       if (current !== generation.current) return false;
       const changed = next !== audienceRef.current;
       if (changed) {
@@ -58,10 +60,11 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
         generation.current++;
         setAssets(null); setDrafts({}); setBusy(false);
         audienceRef.current = next; setAudience(next);
+        if (next === "shared") setEnabled(true);
       }
-      setAvailable(true); return !changed;
-    } catch { if (current === generation.current) clear(); return false; }
-  }, [request, clear]);
+      setAccessChecked(true); setAvailable(true); return !changed;
+    } catch { if (current === generation.current) { clear(); setAccessChecked(true); } return false; }
+  }, [request, clear, shareToken]);
 
   useEffect(() => {
     void validate();
@@ -95,10 +98,10 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
     }).catch((error: Error) => {
       if (controller.signal.aborted || current !== generation.current) return;
       clear();
-      toast.error(error.message === "AUTH" ? "관리자 로그인이 필요합니다." : "스페셜 소재를 불러오지 못했습니다. 다시 눌러주세요.");
+      toast.error(error.message === "AUTH" ? (shareToken === undefined ? "관리자 로그인이 필요합니다." : "공유 링크를 확인해주세요.") : "스페셜 소재를 불러오지 못했습니다. 다시 눌러주세요.");
     }).finally(() => { if (!controller.signal.aborted && current === generation.current) setBusy(false); });
     return () => controller.abort();
-  }, [enabled, model, audience, request, clear]);
+  }, [enabled, model, audience, request, clear, shareToken]);
 
   const currentAssets = enabled && assets?.model === model ? assets : null;
   const draft = enabled ? drafts[model] : undefined;
@@ -110,12 +113,12 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
   const needsSolids = Object.keys(draft?.solids ?? {}).length > 0;
   const needsPatterns = Object.keys(draft?.patterns ?? {}).length > 0;
   return {
-    available, enabled, isAdmin: audience === "admin", assetsReady: Boolean(currentAssets), busy: busy || split.loading || solids.loading || patterns.loading, validate,
+    available, enabled, accessChecked, isAdmin: audience === "admin", canUsePrivateCatalog: audience === "admin" || audience === "shared", assetsReady: Boolean(currentAssets), busy: busy || split.loading || solids.loading || patterns.loading, validate,
     mesh, laces, beads, meshReady: split.ready, meshFailed: split.failed,
     solidsReady: solids.ready, solidsFailed: solids.failed,
     patternsReady: patterns.ready, patternsFailed: patterns.failed,
     previewReady: split.ready && (!needsSolids || solids.ready) && (!needsPatterns || patterns.ready),
-    toggle: () => { if (available && audience === "admin") setEnabled(value => !value); },
+    toggle: () => { if (available && (audience === "admin" || audience === "shared")) setEnabled(value => !value); },
     // Replace the draft even during loading. The asset response keeps an existing
     // draft, so a delayed response cannot restore the choices just cleared.
     reset: () => { setDrafts(prev => ({ ...prev, [model]: createWhiteSpecialDraft(model) })); },
@@ -140,7 +143,7 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames)
       setDrafts(prev => ({ ...prev, [model]: selectBeads(prev[model]!, color) }));
     },
     select: (part: PartId, name: string) => {
-      if (audience !== "admin" && (name === FLOWER_A || (isSpecialPattern(name) && !isPublicSpecialPattern(name)))) return;
+      if (audience === "public" && (name === FLOWER_A || (isSpecialPattern(name) && !isPublicSpecialPattern(name)))) return;
       if (!currentAssets || busy || (isSpecialSolid(name) && !solids.ready) || (isSpecialPattern(name) && !currentAssets.patterns?.[name])) return;
       setDrafts(prev => ({ ...prev, [model]: selectSpecial(prev[model]!, part, name) }));
     },

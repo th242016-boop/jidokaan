@@ -1,5 +1,6 @@
 import { createDecipheriv } from "node:crypto";
 import { assertSession, AUTH_HEADERS } from "./admin-auth.server";
+import { isSimulatorShareToken, simulatorShareUrl } from "./simulator-share.server";
 import { flowerPartsFor } from "./simulator-special";
 import { SPECIAL_PATTERNS, isMetallicPattern, type SpecialPatternAssets } from "./special-patterns";
 import { finishFor } from "./special-finishes";
@@ -31,9 +32,9 @@ function image(name: string, keyName = "SIMULATOR_SPECIAL_ASSET_KEY", mime = "im
 }
 
 function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
-  // Enforce publication before reading/decrypting assets. New names are private
-  // by default, including camouflage; public callers cannot request them by ID.
-  const visiblePatterns = SPECIAL_PATTERNS.filter(({ name }) => audience === "admin" || isPublicSpecialPattern(name));
+  // Enforce publication before reading/decrypting assets. Unlisted link holders
+  // may preview the full studio catalog; public-subset requests stay filtered.
+  const visiblePatterns = SPECIAL_PATTERNS.filter(({ name }) => audience !== "public" || isPublicSpecialPattern(name));
   if (!process.env.SIMULATOR_SPECIAL_PATTERN_KEY) return {};
   const patterns: SpecialPatternAssets = {};
   const decoded = new Map<string, { texture: string; swatch: string }>();
@@ -50,7 +51,7 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
   };
   for (const { name } of visiblePatterns) {
     if (name === "WINE CROCODILE") {
-      if (audience === "admin" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
+      if (audience !== "public" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
         try {
           const photo = image("material-wine-crocodile-atlas", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
           patterns[name] = { texture: photo, swatch: photo, sourceCrop: WINE_CROCODILE_CROP };
@@ -59,7 +60,7 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
       continue;
     }
     if (name === "MINT GOLD PEARL") {
-      if (audience === "admin" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
+      if (audience !== "public" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
         try {
           const photo = image("material-mint-gold-pearl-photo", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
           patterns[name] = { texture: photo, swatch: photo, sourceCrop: MINT_GOLD_PEARL_CROP };
@@ -68,7 +69,7 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
       continue;
     }
     if (name === "SILVER SNAKE") {
-      if (audience === "admin" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
+      if (audience !== "public" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
         try {
           const photo = image("material-silver-snake-photo", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
           patterns[name] = { texture: photo, swatch: photo, sourceCrop: SILVER_SNAKE_CROP };
@@ -79,7 +80,7 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
     if (name === "GRAY LIZARD") {
       // The existing private-photo key also protects this unmodified hide.
       // Do not alias it to the black lizard's dyed atlas or expose it publicly.
-      if (audience === "admin" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
+      if (audience !== "public" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
         try {
           const photo = image("material-gray-lizard-photo", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
           patterns[name] = {
@@ -92,8 +93,8 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
     }
     if (name === "IVORY ORNAMENT") {
       // Preserve the owner's photograph. Both the swatch and native panel
-      // renderer sample the same hand-free material region; never publish it.
-      if (audience === "admin" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
+      // renderer sample the same hand-free material region; studio access only.
+      if (audience !== "public" && process.env.SIMULATOR_IVORY_ORNAMENT_KEY) {
         try {
           const photo = image("material-ivory-ornament-photo", "SIMULATOR_IVORY_ORNAMENT_KEY", "image/jpeg");
           patterns[name] = {
@@ -161,14 +162,25 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
 export async function handleSpecialRequest(request: Request) {
   const json = (data: unknown, status = 200) => Response.json(data, { status, headers: AUTH_HEADERS });
   if (request.method !== "POST") return json({ error: "AUTH" }, 401);
-  let body: { token?: unknown; action?: unknown; model?: unknown; audience?: unknown; compact?: unknown };
+  let body: { token?: unknown; shareToken?: unknown; action?: unknown; model?: unknown; audience?: unknown; compact?: unknown };
   try { body = await request.json(); } catch { return json({ error: "BAD_REQUEST" }, 400); }
   if (!body || typeof body !== "object") return json({ error: "BAD_REQUEST" }, 400);
-  // Every special request requires a verified administrator session, including
-  // older clients requesting the formerly public subset of the catalog.
-  try { await assertSession(typeof body.token === "string" ? body.token : ""); }
-  catch { return json({ error: "AUTH" }, 401); }
-  const audience: SimulatorAudience = body.audience === "public" ? "public" : "admin";
+  // Link retrieval is an administrator-only action. A simulator capability
+  // never creates a session or grants access to management endpoints.
+  if (body.action === "share-link") {
+    try { await assertSession(typeof body.token === "string" ? body.token : ""); }
+    catch { return json({ error: "AUTH" }, 401); }
+    const url = simulatorShareUrl();
+    return url ? json({ url }) : json({ error: "SHARE_UNAVAILABLE" }, 503);
+  }
+  let audience: SimulatorAudience;
+  if (isSimulatorShareToken(body.shareToken)) {
+    audience = "shared";
+  } else {
+    try { await assertSession(typeof body.token === "string" ? body.token : ""); }
+    catch { return json({ error: "AUTH" }, 401); }
+    audience = body.audience === "public" ? "public" : "admin";
+  }
   if (body.action === "ping") return json({ ok: true, audience });
   if (body.action !== "assets" || (body.model !== "high" && body.model !== "mid")) {
     return json({ error: "BAD_REQUEST" }, 400);
@@ -179,7 +191,7 @@ export async function handleSpecialRequest(request: Request) {
     const patterns = patternAssets(audience);
     return json({
       audience,
-      ...(audience === "admin" ? {
+      ...(audience !== "public" ? {
         swatch: image("swatch"),
         layers: Object.fromEntries(flowerPartsFor(body.model).map(part => [part, image(part)])),
       } : { layers: {} }),

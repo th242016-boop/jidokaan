@@ -168,6 +168,15 @@ export default defineConfig(({ command }) => ({
     ...(command === "build"
       ? [nitro({
           preset: process.env.NITRO_PRESET || "vercel",
+          routeRules: {
+            "/special": {
+              headers: {
+                "Cache-Control": "no-store",
+                "X-Robots-Tag": "noindex, nofollow, noarchive",
+                "Referrer-Policy": "no-referrer",
+              },
+            },
+          },
           plugins: ["./src/server-plugins/order-notifications.ts"],
         })]
       : []),
