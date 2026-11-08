@@ -1,6 +1,7 @@
 import { partsForModel, photoLayerFor, type BootModel, type PartId } from "./simulator-config";
 import { SPECIAL_FINISHES, finishFor } from "./special-finishes";
 import { applyMaterialStitches } from "./material-stitches";
+import { FLOWER_D_TILE, FLOWER_D_LIGHT, FLOWER_D_CUT_ANGLES, flowerDRepeatTexture } from "./flower-d-material";
 import { SNAKE_MATERIALS, recolorSnakePixels, snakeMaterialFor } from "./snake-materials";
 import { LIZARD_MATERIALS, lizardMaterialFor, recolorLizardPixels } from "./lizard-materials";
 import { SILVER_SNAKE_LIGHT, SILVER_SNAKE_TILE, silverSnakeLinear } from "./silver-snake-material";
@@ -12,6 +13,7 @@ import { CAMOUFLAGE_MATERIALS, camouflageMaterialFor, CAMOUFLAGE_LIGHT_PROFILE }
 export const SPECIAL_PATTERNS = [
   { name: "FLOWER B", label: "FLOWER B" },
   { name: "FLOWER C", label: "FLOWER C" },
+  { name: "FLOWER D", label: "FLOWER D" },
   // Keep established IDs for saved selections; all nine share raised relief.
   { name: "BLACK SNAKE", label: "BLACK LIZARD" },
   { name: "WHITE SNAKE", label: "WHITE LIZARD" },
@@ -57,7 +59,7 @@ export const patternPartsFor = (model: BootModel, _name?: SpecialPatternName): P
 // Approximate motif sizes in the 1424×1392 photograph. They are visual previews,
 // not a physical cutting layout; the references are finished shoes, not flat scans.
 const TILE_SIZE: Partial<Record<SpecialPatternName, number>> = {
-  "FLOWER B": 540, "FLOWER C": 650,
+  "FLOWER B": 540, "FLOWER C": 650, "FLOWER D": FLOWER_D_TILE,
   "NATURAL SNAKE": 520, "HOT PINK SNAKE": 520, "ORANGE SNAKE": 520,
   "SKY BLUE SNAKE": 520, "GREEN SNAKE": 520, "YELLOW SNAKE": 520,
   "SILVER WEAVE": 137, "MICRO HOUNDSTOOTH": 220,
@@ -102,6 +104,7 @@ const displayRGB = (value: number) => {
 // Reuse the same photographed light direction with a response appropriate to
 // each surface. Matte/suede spread the light broadly instead of looking metallic.
 export function surfaceLightProfile(name: SpecialPatternName) {
+  if (name === "FLOWER D") return FLOWER_D_LIGHT;
   if (name === "SILVER SNAKE") return SILVER_SNAKE_LIGHT;
   if (name === "MINT GOLD PEARL") return MINT_GOLD_PEARL_LIGHT;
   if (name === "WINE CROCODILE") return WINE_CROCODILE_LIGHT;
@@ -131,6 +134,7 @@ export function surfaceLightProfile(name: SpecialPatternName) {
  * independent base colors, with broad low-intensity light for surface curvature.
  */
 export function renderPatternPixels(source: ImageData, material: ImageData, name: SpecialPatternName, softReflection?: ImageData, fineDetail?: ImageData, part: PartId = "b", metalReflection?: ImageData): ImageData {
+  if (name === "FLOWER D") material = flowerDRepeatTexture(material);
   const { width, height, data: src } = source;
   const out = new ImageData(width, height);
   const finish = finishFor(name);
@@ -157,7 +161,8 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   // The weave photograph and shared scale map already carry their intended
   // motif and light direction. Do not rotate those sources a second time.
   const directionalSource = name === "SILVER WEAVE" || Boolean(lizard) || name === "GRAY LIZARD" || name === "SILVER SNAKE" || name === "MINT GOLD PEARL" || name === "WINE CROCODILE";
-  const radians = directionalSource ? 0 : -0.48, cos = Math.cos(radians), sin = Math.sin(radians);
+  const radians = name === "FLOWER D" ? FLOWER_D_CUT_ANGLES[part] ?? 0 : directionalSource ? 0 : -0.48;
+  const cos = Math.cos(radians), sin = Math.sin(radians);
   const mirror = (value: number, size: number) => {
     const doubled = size * 2;
     const mod = ((value % doubled) + doubled) % doubled;
@@ -166,7 +171,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   // The weave must repeat without inventing diamonds. Lizards use a wider atlas
   // cut once per panel, so no scale is split or mirrored at a repetition seam.
   const repeat = (value: number, size: number) => ((value % size) + size) % size;
-  const sample = name === "SILVER WEAVE" || name === "SILVER SNAKE" || name === "MINT GOLD PEARL" || name === "WINE CROCODILE" ? repeat : mirror;
+  const sample = name === "FLOWER D" || name === "SILVER WEAVE" || name === "SILVER SNAKE" || name === "MINT GOLD PEARL" || name === "WINE CROCODILE" ? repeat : mirror;
   let lizardCut: { x: number; y: number; span: number } | undefined;
   let wineCut: { x: number; y: number; span: number; regionX: number; regionY: number; regionWidth: number; regionHeight: number } | undefined;
   if (lizard || name === "GRAY LIZARD" || name === "WINE CROCODILE") {
@@ -457,13 +462,14 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
         : [0, 0, material.naturalWidth, material.naturalHeight];
       // Match the shared lizard map to its native projected tile in every dye.
       // This suppresses subpixel grain aliasing without blurring panel edges.
-      const textureScale = lizardMaterialFor(name) ? Math.min(1, 820 / cropWidth) : 1;
+      const textureScale = name === "FLOWER D" ? Math.min(1, (FLOWER_D_TILE / 0.94) / cropWidth)
+        : lizardMaterialFor(name) ? Math.min(1, 820 / cropWidth) : 1;
       materialCanvas.width = Math.round(cropWidth * textureScale); materialCanvas.height = Math.round(cropHeight * textureScale);
       const ctx = sourceCanvas.getContext("2d", { willReadFrequently: true });
       const textureCtx = materialCanvas.getContext("2d", { willReadFrequently: true });
       if (!ctx || !textureCtx) throw new Error("PATTERN_CANVAS");
       ctx.drawImage(source, 0, 0);
-      if (lizardMaterialFor(name)) textureCtx.imageSmoothingQuality = "high";
+      if (lizardMaterialFor(name) || name === "FLOWER D") textureCtx.imageSmoothingQuality = "high";
       textureCtx.drawImage(material, cropX, cropY, cropWidth, cropHeight, 0, 0, materialCanvas.width, materialCanvas.height);
       const sourcePixels = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
       let softReflection: ImageData | undefined;
@@ -505,7 +511,7 @@ export function loadPatternLayer(model: BootModel, part: PartId, name: SpecialPa
       const result = renderPatternPixels(sourcePixels,
         textureCtx.getImageData(0, 0, materialCanvas.width, materialCanvas.height), name, softReflection, fineDetail, part, metalReflection);
       await applyMaterialStitches(result, sourcePixels, model, part,
-        name === "FLOWER B" || snakeMaterialFor(name) || lizardMaterialFor(name) || name === "GRAY LIZARD" || name === "SILVER SNAKE" || name === "MINT GOLD PEARL" || name === "WINE CROCODILE" || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT" || metallic
+        name === "FLOWER B" || name === "FLOWER D" || snakeMaterialFor(name) || lizardMaterialFor(name) || name === "GRAY LIZARD" || name === "SILVER SNAKE" || name === "MINT GOLD PEARL" || name === "WINE CROCODILE" || camouflageMaterialFor(name) || name === "SILVER WEAVE" || name === "MICRO HOUNDSTOOTH" || name === "IVORY ORNAMENT" || metallic
           ? "dense" : name === "FLOWER C" ? "regular" : undefined);
       ctx.putImageData(result, 0, 0);
       return sourceCanvas.toDataURL("image/png");

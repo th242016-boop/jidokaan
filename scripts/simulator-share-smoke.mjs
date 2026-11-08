@@ -45,6 +45,7 @@ try {
   const share = await server.ssrLoadModule("/src/lib/simulator-share.server.ts");
   const special = await server.ssrLoadModule("/src/lib/simulator-special.ts");
   const patterns = await server.ssrLoadModule("/src/lib/special-patterns.ts");
+  const codec = await server.ssrLoadModule("/src/lib/pattern-asset-wire.ts");
   const orders = await server.ssrLoadModule("/src/lib/orders.server.ts");
   const members = await server.ssrLoadModule("/src/lib/members.server.ts");
   const catalog = await server.ssrLoadModule("/src/lib/catalog.server.ts");
@@ -106,9 +107,14 @@ try {
       assert.deepEqual({ ...shared, audience: "admin" }, admin);
       assert.deepEqual(Object.keys(shared.layers), special.flowerPartsFor(model));
       assert.deepEqual(Object.keys(shared.patterns).sort(), patterns.SPECIAL_PATTERNS.map(({ name }) => name).sort());
+      assert.ok(shared.patterns["FLOWER D"], `${model}: the private tropical flower is available through the fixed share link`);
       const compact = await call({ shareToken, action: "assets", model, compact: true });
       assert.equal(compact.status, 200);
-      assert.equal((await compact.json()).audience, "shared");
+      const compactBody = await compact.json();
+      assert.equal(compactBody.audience, "shared");
+      assert.deepEqual(codec.expandPatternAssets(compactBody), shared.patterns, "shared compact delivery retains FLOWER D and every existing material");
+      const ordinary = await (await call({ token: adminToken, action: "assets", audience: "public", model })).json();
+      assert.equal(ordinary.patterns["FLOWER D"], undefined, "the private addition must not enter the public catalog");
     }
   });
   await check("missing or malformed server capability disables sharing but not admin", async () => {
