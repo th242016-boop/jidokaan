@@ -1,100 +1,54 @@
 import { useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
+import { ACQUISITION_COOKIE, ACQUISITION_STORAGE, acquisitionFromCookie, observeAcquisition, parseAcquisition, type Acquisition } from "@/lib/acquisition";
 
-const KEY = "jidokaan-utm";
+let inMemory: Acquisition | null = null;
+let lastPageHit = { path: "", at: 0 };
 
-function readUtm() {
+export function captureAcquisition(): Acquisition | null {
+  if (typeof window === "undefined") return null;
+  let existing = parseAcquisition(inMemory);
+  try { existing = parseAcquisition(JSON.parse(sessionStorage.getItem(ACQUISITION_STORAGE) || "null")) || existing; }
+  catch { /* Browsers may disable storage; analytics must not break shopping. */ }
+  const arrival = observeAcquisition(window.location.href, document.referrer);
+  // Preserve the source across www -> canonical OAuth redirects; a new external
+  // arrival in another tab still takes precedence over the shared cookie.
+  const value = existing || (arrival.source === "direct" ? acquisitionFromCookie(document.cookie) : null) || arrival;
+  inMemory = value;
+  try { sessionStorage.setItem(ACQUISITION_STORAGE, JSON.stringify(value)); } catch { /* optional */ }
   try {
-    return JSON.parse(sessionStorage.getItem(KEY) || "{}") as Record<string, string>;
-  } catch {
-    return {};
-  }
+    // Same-site one-day attribution; no identifier, full URL, auth code or personal fields.
+    const domain = ["jidokaan.com", "www.jidokaan.com"].includes(location.hostname) ? "; Domain=jidokaan.com" : "";
+    document.cookie = `${ACQUISITION_COOKIE}=${encodeURIComponent(JSON.stringify(value))}; Path=/; Max-Age=86400; SameSite=Lax${domain}${location.protocol === "https:" ? "; Secure" : ""}`;
+  } catch { /* optional */ }
+  return value;
 }
 
-function captureFromUrl() {
-  if (typeof window === "undefined") return readUtm();
-  const p = new URLSearchParams(window.location.search);
-  const next = { ...readUtm() };
-  const map: Record<string, string> = {
-    source: p.get("utm_source") || "",
-    medium: p.get("utm_medium") || "",
-    campaign: p.get("utm_campaign") || "",
-    keyword:
-      p.get("utm_term") ||
-      p.get("n_keyword") ||
-      p.get("n_query") ||
-      p.get("query") ||
-      p.get("q") ||
-      p.get("keyword") ||
-      "",
-  };
-  if (map.source || map.medium || map.campaign || map.keyword) {
-    if (!next.landing) next.landing = window.location.pathname + window.location.search;
-    Object.assign(next, Object.fromEntries(Object.entries(map).filter(([, v]) => v)));
-    sessionStorage.setItem(KEY, JSON.stringify(next));
-  } else if (!next.landing) {
-    next.landing = window.location.pathname;
-    sessionStorage.setItem(KEY, JSON.stringify(next));
+function sendHit(type: "page" | "cart" | "order") {
+  const acquisition = captureAcquisition();
+  if (!acquisition) return;
+  if (type === "page") {
+    if (lastPageHit.path === window.location.pathname && Date.now() - lastPageHit.at < 500) return;
+    lastPageHit = { path: window.location.pathname, at: Date.now() };
   }
-  return next;
+  void fetch("/api/analytics", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, path: window.location.pathname,
+      ...acquisition, referrer: acquisition.referrerHost ? `https://${acquisition.referrerHost}` : "" }),
+  }).catch(() => null);
 }
 
 export function AnalyticsTracker() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const last = useRef("");
-
   useEffect(() => {
-    if (path.startsWith("/admin") || path.startsWith("/api")) return;
-    if (last.current === path) return;
+    if (path.startsWith("/admin") || path.startsWith("/api") || last.current === path) return;
     last.current = path;
-    const utm = captureFromUrl();
-    const ref = typeof document !== "undefined" ? document.referrer : "";
-    void fetch("/api/analytics", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "page",
-        path,
-        referrer: ref,
-        source: utm.source || hostOf(ref),
-        medium: utm.medium || (ref ? "referral" : "direct"),
-        campaign: utm.campaign || "",
-        keyword: utm.keyword || "",
-        landing: utm.landing || path,
-      }),
-    }).catch(() => null);
+    sendHit("page");
   }, [path]);
-
   return null;
 }
 
-function hostOf(url: string) {
-  try {
-    return url ? new URL(url).hostname.replace(/^www\./, "") : "direct";
-  } catch {
-    return "direct";
-  }
-}
-
-export function trackStoreEvent(type: "cart" | "order", extra?: Record<string, string>) {
-  try {
-    const utm = readUtm();
-    void fetch("/api/analytics", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type,
-        path: window.location.pathname,
-        referrer: document.referrer,
-        source: utm.source || "",
-        medium: utm.medium || "",
-        campaign: utm.campaign || "",
-        keyword: utm.keyword || "",
-        landing: utm.landing || "",
-        ...extra,
-      }),
-    });
-  } catch {
-    /* ignore */
-  }
+export function trackStoreEvent(type: "cart" | "order", _extra?: Record<string, string>) {
+  try { sendHit(type); } catch { /* analytics must not block checkout */ }
 }

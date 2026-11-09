@@ -38,6 +38,7 @@ import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GROK_PROVIDERS } from "./providers";
 import { pgliteDialect } from "./pglite-dialect";
+import { acquisitionFromCookie, signupDevice } from "../acquisition";
 import {
   GROK_ISSUER_DEFAULT,
   PREVIEW_ALLOWED_HOSTS,
@@ -267,6 +268,29 @@ export const auth = betterAuth({
   // globalThis so HMR doesn't invalidate PGLite-backed sessions (see above).
   secret: env("BETTER_AUTH_SECRET") ?? previewAuthSecret(),
   database,
+
+  // Only a newly created user gets signup context; later logins never backfill it.
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user, context) => {
+          const headers = context?.headers ?? context?.request?.headers;
+          if (!headers) return;
+          const acquisition = acquisitionFromCookie(headers.get("cookie"));
+          try {
+            const { recordSignupAttribution } = await import("../member-attribution.server");
+            await recordSignupAttribution(user.id, {
+              ...acquisition,
+              device: signupDevice(headers.get("user-agent")),
+            });
+          } catch {
+            // Optional measurement must not block signup; no PII in logs.
+            console.warn("[members] signup attribution could not be saved");
+          }
+        },
+      },
+    },
+  },
 
   // CSRF / origin check for credentialed auth POSTs (email sign-up/sign-in, …).
   // See `trustedOrigins` construction above — must cover live preview hosts AND

@@ -20,6 +20,8 @@ export async function proxyToLive(request: Request, path: string) {
     const headers = new Headers();
     const contentType = request.headers.get("content-type");
     if (contentType) headers.set("content-type", contentType);
+    const authorization = request.headers.get("authorization");
+    if (authorization) headers.set("authorization", authorization);
     headers.set("user-agent", "jidokaan-preview-proxy");
     const init: RequestInit = { method: request.method, headers };
     if (request.method !== "GET" && request.method !== "HEAD") {
