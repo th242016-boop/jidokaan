@@ -75,12 +75,12 @@ export function CustomizePage({ lang, shareToken }: { lang?: ReturnType<typeof r
   const setCartOpen = useStore((s) => s.setCartOpen);
   const dict = t(locale);
   const navigate = useNavigate();
-  const product = getProduct("drone-custom");
   const [confirming, setConfirming] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [showKrOrder, setShowKrOrder] = useState(false);
   const model = modelOf(draftPartNames);
+  const product = getProduct(model === "mid" ? "drone-mid" : "drone-custom");
   const special = useSpecialSimulator(model, draftPartNames, shareToken);
   const [snakeSwatches, setSnakeSwatches] = useState<{ assets: typeof special.patternAssets; images: SnakeSwatches } | null>(null);
   const [lizardSwatches, setLizardSwatches] = useState<{ assets: typeof special.patternAssets; images: LizardSwatches } | null>(null);

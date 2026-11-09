@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { formatMoney, formatProductPrice, isDomesticCustomer, pickLocalized, t } from "@/lib/i18n";
 import { getProduct, naverProductUrl, productDisplayName, SMARTSTORE_HOME } from "@/lib/products";
 import { useCatalog } from "@/lib/use-catalog";
-import { useStore } from "@/lib/store";
+import { naverCartProductId, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/cart")({
   component: CartPage,
@@ -79,9 +79,9 @@ function CartPage() {
               {krOrder ? (
                 <KrOrderPanel
                   naverUrl={(() => {
-                    const p = cart[0]
-                      ? (catalog.products.find((x) => x.id === cart[0].productId) ??
-                        getProduct(cart[0].productId))
+                    const id = cart[0] ? naverCartProductId(cart[0]) : undefined;
+                    const p = id
+                      ? (catalog.products.find((x) => x.id === id) ?? getProduct(id))
                       : undefined;
                     return p ? naverProductUrl(p) : SMARTSTORE_HOME;
                   })()}

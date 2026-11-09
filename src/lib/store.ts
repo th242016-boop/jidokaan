@@ -31,6 +31,13 @@ export type CartItem = {
   color?: string;
 };
 
+/** Resolve legacy mid-cut drafts for the Naver link without changing saved cart/order data. */
+export function naverCartProductId(item: Pick<CartItem, "productId" | "partNames">) {
+  return item.productId === "drone-custom" && modelOf(item.partNames) === "mid"
+    ? "drone-mid"
+    : item.productId;
+}
+
 export function formatCartSize(item: CartItem, locale: string) {
   if (!item.size) return "";
   const g =
@@ -256,7 +263,7 @@ export const useStore = create<StoreState>()(
           draftPartNames.a,
           draftParts.a,
         );
-        addToCart("drone-custom", qty, {
+        addToCart(modelOf(draftPartNames) === "mid" ? "drone-mid" : "drone-custom", qty, {
           size: draftSize,
           sizeFit: draftFit,
           partColors: { ...draftParts, l: linked.color },

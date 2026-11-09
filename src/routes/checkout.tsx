@@ -29,7 +29,7 @@ import {
 } from "@/lib/i18n";
 import { getProduct, naverProductUrl, productDisplayName, SMARTSTORE_HOME } from "@/lib/products";
 import { quoteShipping, shipCopy } from "@/lib/shipping";
-import { formatCartSize, useStore } from "@/lib/store";
+import { formatCartSize, naverCartProductId, useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
 import { trackStoreEvent } from "@/components/analytics-tracker";
 import { couponDiscount } from "@/lib/coupon";
@@ -524,7 +524,7 @@ function CheckoutPage() {
           <div className="mb-8 max-w-lg rounded-3xl border border-border bg-surface p-5 sm:p-6">
             <KrOrderPanel
               naverUrl={(() => {
-                const p = cart[0] ? getProduct(cart[0].productId) : undefined;
+                const p = cart[0] ? getProduct(naverCartProductId(cart[0])) : undefined;
                 return p ? naverProductUrl(p) : SMARTSTORE_HOME;
               })()}
             />
