@@ -275,14 +275,17 @@ export function CustomizePage({ lang, shareToken }: { lang?: ReturnType<typeof r
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="px-3 pt-3 pb-5 md:px-5 md:pt-5 md:pb-8">
-            <StyleFinder
-              key={`${model}-${special.enabled}-${special.isAdmin}-${special.canUsePrivateCatalog}-${recommendationRevision}`}
-              model={model}
-              locale={locale}
-              special={special}
-              disabled={savingSpecial || confirming}
-              onApplied={() => { setShowKrOrder(false); setShowGuide(false); }}
-            />
+            {/* Keep recommendations private until the owner approves public launch. */}
+            {special.accessChecked && special.canUsePrivateCatalog && (
+              <StyleFinder
+                key={`${model}-${special.enabled}-${special.isAdmin}-${special.canUsePrivateCatalog}-${recommendationRevision}`}
+                model={model}
+                locale={locale}
+                special={special}
+                disabled={savingSpecial || confirming}
+                onApplied={() => { setShowKrOrder(false); setShowGuide(false); }}
+              />
+            )}
             {PICKABLE_PARTS.length === 0 ? (
               <p className="text-sm leading-relaxed text-neutral-500">
                 베이스 사진만 표시 중입니다. G 색 사진이 오면 여기서 바꿉니다.
