@@ -16,7 +16,7 @@ const copy = {
     intensity: "얼마나 눈에 띄고 싶나요?", levels: ["차분하게", "포인트만 살짝", "확실하게 눈에 띄게"], levelHints: ["색의 수를 줄인 정돈된 조합", "기본색에 포인트를 더한 균형", "좋아하는 색을 여러 부위에 시원하게"],
     mbti: "MBTI도 알려주실래요?", mbtiHint: "선택 사항이에요. 사진과 색상 취향을 우선하고, MBTI는 비슷한 조합 사이의 가벼운 참고로만 사용해요.", skip: "모르겠어요 / 건너뛰기", back: "이전", next: "다음", apply: "나와 어울리는 커스텀 해보기", loading: "색상 조합과 이미지를 준비하고 있어요…", close: "닫기", result: "취향에 맞춘 추천 조합", continue: "이 조합으로 계속하기", tweak: "색상 조금 바꾸기", another: "다른 조합 추천받기", restore: "추천 전 디자인으로 돌아가기", review: "선택 다시 하기", saved: "추천 전 디자인은 돌아가기 버튼으로 복원할 수 있어요.",
     error: "이미지를 준비하지 못했어요. 기존 디자인은 그대로입니다. 다시 시도해주세요.", baseError: "메쉬·끈·밑창에 필요한 화이트 또는 블랙 중 하나는 남겨주세요.", colorError: "사용할 수 있는 색을 하나 이상 남겨주세요.", stock: "현재 모델에서 선택 가능한 기본 색상으로 추천해요.",
-    explanation: (base: string, accent: string, mood: string) => `${mood} 느낌에 맞춰 ${base}를 중심으로${accent ? ` ${accent} 포인트를 더했어요` : " 구성했어요"}.`,
+    explanation: (base: string, accent: string, _mood: string) => `원하는 분위기에 맞춰 ${base} 중심으로 구성${accent ? `하고, ${accent} 포인트를 더했어요` : "했어요"}.`,
     likes: (colors: string) => `좋아하는 ${colors} 색상을 반영했어요.`,
   },
   en: {
@@ -86,10 +86,12 @@ export function StyleFinder({ model, locale, special, disabled, onApplied }: { m
   const [adjusting, setAdjusting] = useState(false);
   const original = useRef<Original | null>(null);
   const section = useRef<HTMLElement | null>(null);
+  const dialogBody = useRef<HTMLDivElement | null>(null);
   const pending = useRef<AbortController | null>(null);
   const current = useRef({ special, onApplied });
   current.current = { special, onApplied };
   useEffect(() => () => { pending.current?.abort(); }, []);
+  useEffect(() => { if (dialogBody.current) dialogBody.current.scrollTop = 0; }, [step, busy, open]);
   const unavailable = disabled || (special.enabled && (!special.assetsReady || !special.meshReady || special.busy));
   const visibleNames = special.enabled ? special.names : normalNames;
   const resultCurrent = Boolean(result && partsForModel(result.names).every(part => result.names[part.id] === visibleNames[part.id])
@@ -187,14 +189,14 @@ export function StyleFinder({ model, locale, special, disabled, onApplied }: { m
                 {text.steps.map((label, index) => <li key={label} aria-current={step === index ? "step" : undefined} className={cn("flex-1 border-t-2 pt-2 text-[11px]", index <= step ? "border-black font-bold text-black" : "border-neutral-200 text-neutral-400")}>{index + 1}. {label}</li>)}
               </ol>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 md:px-7" aria-busy={busy}>
+            <div ref={dialogBody} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 md:px-7" aria-busy={busy}>
               {busy ? <div role="status" className="flex min-h-52 flex-col items-center justify-center gap-5 text-center"><LoaderCircle className="size-8 animate-spin" /><p className="text-sm font-semibold">{text.loading}</p><p className="max-w-sm text-xs text-neutral-500">{text.saved}</p></div> : <>
                 <h3 className="text-base font-bold">{[text.style, text.like, text.intensity, text.mbti][step]}</h3>
                 <p className="mt-1.5 mb-5 text-xs leading-relaxed text-neutral-500">{[text.styleHint, text.likeHint, text.stock, text.mbtiHint][step]}</p>
                 {step === 0 && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                  {STYLE_PRESETS.map(preset => <button type="button" key={preset.id} aria-pressed={styleChosen && preferences.styleId === preset.id} onClick={() => { setStyleChosen(true); setPreferences(p => ({ ...p, styleId: preset.id })); }} className={cn("relative overflow-hidden rounded-2xl border-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2", styleChosen && preferences.styleId === preset.id ? "border-black" : "border-neutral-200 hover:border-neutral-400")}>
+                  {STYLE_PRESETS.map(preset => <button type="button" key={preset.id} aria-pressed={styleChosen && preferences.styleId === preset.id} onClick={() => { setStyleChosen(true); setPreferences(p => ({ ...p, styleId: preset.id })); }} className={cn("relative flex flex-col overflow-hidden rounded-2xl border-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2", styleChosen && preferences.styleId === preset.id ? "border-black" : "border-neutral-200 hover:border-neutral-400")}>
                     <img src={`/simulator/recommendations/${model}-${preset.id}.jpg`} width="480" height="470" alt={preset.title[language]} className="aspect-[48/47] w-full object-contain" />
-                    <div className="p-3"><strong className="block text-xs">{preset.title[language]}</strong><span className="mt-1 block text-[11px] leading-relaxed text-neutral-500">{preset.description[language]}</span></div>
+                    <div className="p-3 break-keep"><strong className="block text-xs">{preset.title[language]}</strong><span className="mt-1 block text-[11px] leading-relaxed text-neutral-500">{preset.description[language]}</span></div>
                     {styleChosen && preferences.styleId === preset.id && <span className="absolute top-2 right-2 rounded-full bg-black p-1 text-white"><Check className="size-3" /></span>}
                   </button>)}
                 </div>}
