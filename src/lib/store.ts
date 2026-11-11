@@ -1,4 +1,4 @@
-import { designKey } from "./design-order";
+import { completeDesign, designColors, designKey } from "./design-order";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Currency, Locale } from "@/lib/i18n";
@@ -70,6 +70,7 @@ type StoreState = {
   applyMarket: (locale: Locale, currency: Currency, picked?: boolean) => void;
   setCartOpen: (open: boolean) => void;
   setPartColor: (part: PartId, color: string, name: string) => void;
+  setDraftDesign: (names: PartColorNames) => boolean;
   setDraftSize: (size: string) => void;
   setDraftFit: (fit: SizeFit) => void;
   resetDraftColors: () => void;
@@ -189,6 +190,20 @@ export const useStore = create<StoreState>()(
           }
           return { draftParts, draftPartNames };
         }),
+      setDraftDesign: (input) => {
+        const names = completeDesign(input);
+        // A delayed recommendation must never switch models or write a design
+        // that the existing checkout/capture pipeline cannot represent.
+        if (!names || modelOf(names) !== modelOf(get().draftPartNames)) return false;
+        const parts = designColors(names);
+        const model = modelOf(names);
+        set((state) => ({
+          draftParts: parts,
+          draftPartNames: names,
+          modelDrafts: { ...state.modelDrafts, [model]: { parts, names } },
+        }));
+        return true;
+      },
       setDraftSize: (draftSize) => set({ draftSize }),
       setDraftFit: (draftFit) => set({ draftFit }),
       resetDraftColors: () =>
