@@ -3073,6 +3073,7 @@ export const COUNTRIES = [
   { code: "AR", ko: "아르헨티나", en: "Argentina", ja: "アルゼンチン", es: "Argentina", th: "อาร์เจนตินา", fr: "Argentine", de: "Argentinien", ar: "الأرجنتين" },
   { code: "CH", ko: "스위스", en: "Switzerland", ja: "スイス", es: "Suiza", th: "สวิตเซอร์แลนด์", fr: "Suisse", de: "Schweiz", ar: "سويسرا" },
   { code: "CN", ko: "중국", en: "China", ja: "中国", es: "China", th: "จีน", fr: "Chine", de: "China", ar: "الصين" },
+  { code: "HK", ko: "홍콩", en: "Hong Kong", ja: "香港", zh: "香港", es: "Hong Kong", th: "ฮ่องกง", fr: "Hong Kong", de: "Hongkong", ar: "هونغ كونغ" },
   { code: "IN", ko: "인도", en: "India", ja: "インド", es: "India", th: "อินเดีย", fr: "Inde", de: "Indien", ar: "الهند" },
   { code: "ZA", ko: "남아프리카공화국", en: "South Africa", ja: "南アフリカ", es: "Sudáfrica", th: "แอฟริกาใต้", fr: "Afrique du Sud", de: "Südafrika", ar: "جنوب أفريقيا" },
   { code: "EG", ko: "이집트", en: "Egypt", ja: "エジプト", es: "Egipto", th: "อียิปต์", fr: "Égypte", de: "Ägypten", ar: "مصر" },
@@ -3245,3 +3246,4 @@ export const HTML_LANG: Record<Locale, string> = {
 
 export const FREE_SHIP_USD_CENTS = 3600;
 export const FREE_SHIP_KRW = 50000;
+

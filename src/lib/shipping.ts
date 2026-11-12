@@ -117,6 +117,22 @@ export function applyEmsPolicy(settings: ShippingSettings): ShippingSettings {
       ),
     };
   }
+  // Add the newly supported destination without resetting saved country rates,
+  // merchant minimums, exchange rates, or reserves on already-current settings.
+  if (!Object.hasOwn(next.countryRates ?? {}, "HK")) {
+    const krw = EMS_RATES_KRW.HK;
+    next = {
+      ...next,
+      countryRates: {
+        ...next.countryRates,
+        HK: {
+          krw,
+          usd: emsUsd(krw),
+          note: "우체국 EMS · 홍콩 · 410×310×150mm · 3.5kg 구간 · 운임·추가운송수수료 합계 35,000원 · 2026-11-12 확인",
+        },
+      },
+    };
+  }
   // Recalculate on every settings read/quote. Changing FX cannot leave stale USD rates.
   return {
     ...next,
@@ -143,7 +159,7 @@ export const KR_LOCAL_FREE = 50000;
 
 const ZONE_COUNTRIES: Record<ShipZone, string[]> = {
   kr: ["KR"],
-  asia: ["JP", "CN", "SG", "TH", "PH"],
+  asia: ["JP", "CN", "HK", "SG", "TH", "PH"],
   pacific: ["US", "CA", "MX", "AU"],
   europe: ["FR", "ES", "GB", "DE", "IT", "CH", "NL", "SE"],
   world: [],
@@ -160,7 +176,7 @@ export function zoneForCountry(code: string): ShipZone {
 export function zoneLabel(zone: ShipZone, ko: boolean): string {
   const map: Record<ShipZone, [string, string]> = {
     kr: ["대한민국", "South Korea"],
-    asia: ["아시아 (일본·중국·태국·필리핀·싱가포르)", "Asia (JP, CN, TH, PH, SG)"],
+    asia: ["아시아 (일본·중국·홍콩·태국·필리핀·싱가포르)", "Asia (JP, CN, HK, TH, PH, SG)"],
     pacific: ["미주·오세아니아 (미국·캐나다·멕시코·호주)", "US, Canada, Mexico, Australia"],
     europe: ["유럽 (영·프·독·이·스·스위스 등)", "Europe (UK, FR, DE, IT, ES, CH…)"],
     world: ["그 외 국가 (중동·남미·아프리카·인도 등)", "Rest of world"],
@@ -257,3 +273,4 @@ export function shipCopy(locale: string, country?: string) {
       : "Korea: domestic courier. International: Korea Post EMS.",
   };
 }
+

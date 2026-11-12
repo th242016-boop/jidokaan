@@ -17,6 +17,8 @@ export const EMS_RATES_KRW: Record<string, number> = {
   CA: 68500,
   AU: 67000,
   CN: 32000,
+  // Hong Kong non-document 3.5 kg, transport surcharge included; checked 2026-11-12.
+  HK: 35000,
   JP: 39000,
   SG: 30000,
   TH: 30000,
@@ -45,3 +47,4 @@ export const EMS_RATES_KRW: Record<string, number> = {
 export function emsUsd(krw: number, exchange = EMS_FX_KRW_PER_USD) {
   return Math.round((krw / exchange) * 100) / 100;
 }
+

@@ -14,6 +14,7 @@ import { countOrdersByEmail } from "./orders.server";
 import { couponDiscount, couponRejectReason, findCoupon } from "./coupon";
 import { COUNTRIES } from "./i18n";
 import { normalizeInstagram } from "./order-contact";
+import { requiresPostalCode } from "./address-requirements";
 import type { StoreOrder, OrderItem } from "./order-types";
 import { quoteShipping, zoneForCountry } from "./shipping";
 export type CheckoutInput = Omit<StoreOrder, "id" | "createdAt" | "status">;
@@ -39,7 +40,7 @@ export async function quoteCheckout(raw: Partial<StoreOrder>): Promise<CheckoutI
     throw new Error("CONTACT_REQUIRED");
   if (["US", "CA", "AU", "MX", "CN", "IN", "BR", "JP"].includes(country) && !clean(raw.region))
     throw new Error("REGION_REQUIRED");
-  if (country !== "AE" && !clean(raw.postal)) throw new Error("POSTAL_REQUIRED");
+  if (requiresPostalCode(country) && !clean(raw.postal)) throw new Error("POSTAL_REQUIRED");
   const instagram = raw.contactMethod === "email" ? "" : normalizeInstagram(raw.instagram);
   const contactMethod = raw.contactMethod;
   if (contactMethod !== "instagram" && contactMethod !== "email")
@@ -174,3 +175,4 @@ export async function quoteCheckout(raw: Partial<StoreOrder>): Promise<CheckoutI
     discountUsd: discountCents / 100,
   };
 }
+

@@ -1,9 +1,9 @@
-export default  {
+export default {
   "ko": {
     "specialGalleryIndex": "02 / 스페셜오더 컬렉션",
     "specialGalleryTitle": "색상을 넘어,<br><em>소재까지.</em>",
     "specialGalleryLabel": "스페셜오더 예시 제품",
-    "specialGalleryDescription": "다른 가죽과 특수 패턴·무늬 소재를 활용한 제작 예시입니다. 원하시는 소재와 제작 가능 여부는 주문 전 상담해 주세요.",
+    "specialGalleryDescription": "다른 가죽과 특수 패턴·무늬 소재를 활용한 제작 예시입니다. 원하시는 소재와 제작 가능 여부는 주문 전 상담해 주세요. 해외 주문 기본가 USD 280. 배송비 및 해당 국가의 관부가세는 별도입니다.",
     "specialGalleryInfo": "스페셜오더 제작 안내 ↗",
     "specialSwipe": "좌우로 넘겨 예시를 살펴보세요",
     "specialViewExamples": "스페셜오더 예시 보기 ↓",
@@ -13,13 +13,14 @@ export default  {
     "specialLook1": "올리브 패턴 · 화이트",
     "specialLook2": "카무플라주 · 그레이",
     "specialLook3": "데님 패턴 · 네이비",
-    "specialLook4": "체크 패턴 · 블랙"
+    "specialLook4": "체크 패턴 · 블랙",
+    "specialDescription": "기존에 보유한 가죽 외에도 다른 가죽이나 특수 패턴·무늬 소재를 활용해 제작할 수 있습니다.<br><br>스페셜오더 시뮬레이터는 준비 중입니다. 다양한 스페셜오더 예시 제품은 사이트 내 제품 상세페이지에서 확인하실 수 있습니다.<br><br><strong>스페셜오더 제작을 원하시면 주문 전 네이버 톡톡 메시지 또는 고객센터 전화로 상담해 주세요.</strong><br><br><strong>해외 주문 기본가 USD 280. 배송비 및 해당 국가의 관부가세는 별도입니다.</strong>"
   },
   "en": {
     "specialGalleryIndex": "02 / Special-order collection",
     "specialGalleryTitle": "Beyond colour.<br><em>Into materials.</em>",
     "specialGalleryLabel": "Special-order example",
-    "specialGalleryDescription": "Examples made with alternative leathers and materials featuring special patterns or textures. Please discuss your preferred material and production options with us before ordering.",
+    "specialGalleryDescription": "Examples made with alternative leathers and materials featuring special patterns or textures. Please discuss your preferred material and production options with us before ordering. International base price: USD 280. Shipping and any applicable import taxes are additional.",
     "specialGalleryInfo": "About special orders ↗",
     "specialSwipe": "Swipe to explore the examples",
     "specialViewExamples": "View special-order examples ↓",
@@ -29,13 +30,14 @@ export default  {
     "specialLook1": "Olive pattern · White",
     "specialLook2": "Camouflage · Grey",
     "specialLook3": "Denim pattern · Navy",
-    "specialLook4": "Check pattern · Black"
+    "specialLook4": "Check pattern · Black",
+    "specialDescription": "Custom designs using patterns and special materials.<br>The special-order simulator is in preparation.<br><br><strong>International base price: USD 280. Shipping and any applicable import taxes are additional.</strong>"
   },
   "ja": {
     "specialGalleryIndex": "02 / スペシャルオーダーコレクション",
     "specialGalleryTitle": "カラーの先に、<br><em>素材の選択を。</em>",
     "specialGalleryLabel": "スペシャルオーダー製作例",
-    "specialGalleryDescription": "通常とは異なるレザーや、特殊な柄・模様の素材を使用した製作例です。ご希望の素材や製作の可否については、ご注文前にご相談ください。",
+    "specialGalleryDescription": "通常とは異なるレザーや、特殊な柄・模様の素材を使用した製作例です。ご希望の素材や製作の可否については、ご注文前にご相談ください。 海外注文の基本価格はUSD 280です。送料および該当する輸入関税・税金は別途となります。",
     "specialGalleryInfo": "スペシャルオーダーのご案内 ↗",
     "specialSwipe": "左右にスワイプして製作例を見る",
     "specialViewExamples": "スペシャルオーダー製作例を見る ↓",
@@ -45,13 +47,14 @@ export default  {
     "specialLook1": "オリーブ柄 · ホワイト",
     "specialLook2": "カモフラージュ · グレー",
     "specialLook3": "デニム柄 · ネイビー",
-    "specialLook4": "チェック柄 · ブラック"
+    "specialLook4": "チェック柄 · ブラック",
+    "specialDescription": "柄や特殊素材を用いる製作方法です。<br>スペシャルオーダー用シミュレーターは準備中です。<br><br><strong>海外注文の基本価格はUSD 280です。送料および該当する輸入関税・税金は別途となります。</strong>"
   },
   "zh": {
     "specialGalleryIndex": "02 / 特别定制系列",
     "specialGalleryTitle": "不止于色彩，<br><em>更在于材质。</em>",
     "specialGalleryLabel": "特别定制示例鞋款",
-    "specialGalleryDescription": "采用其他皮革及特殊图案、纹理材质的制作示例。请在下单前咨询您希望使用的材质及制作可行性。",
+    "specialGalleryDescription": "采用其他皮革及特殊图案、纹理材质的制作示例。请在下单前咨询您希望使用的材质及制作可行性。 海外订单基础价格为280美元。运费及适用的进口关税、税费另计。",
     "specialGalleryInfo": "特别定制说明 ↗",
     "specialSwipe": "左右滑动查看示例",
     "specialViewExamples": "查看特别定制示例 ↓",
@@ -61,13 +64,14 @@ export default  {
     "specialLook1": "橄榄绿纹理 · 白色",
     "specialLook2": "迷彩 · 灰色",
     "specialLook3": "牛仔纹理 · 海军蓝",
-    "specialLook4": "格纹 · 黑色"
+    "specialLook4": "格纹 · 黑色",
+    "specialDescription": "采用图案及特殊材质的定制方式。<br>特别定制模拟器正在筹备中。<br><br><strong>海外订单基础价格为280美元。运费及适用的进口关税、税费另计。</strong>"
   },
   "es": {
     "specialGalleryIndex": "02 / Colección de pedidos especiales",
     "specialGalleryTitle": "Más allá del color.<br><em>Elige el material.</em>",
     "specialGalleryLabel": "Ejemplo de pedido especial",
-    "specialGalleryDescription": "Ejemplos realizados con otros cueros y materiales con estampados o texturas especiales. Antes de pedir, consúltanos sobre el material que buscas y las posibilidades de fabricación.",
+    "specialGalleryDescription": "Ejemplos realizados con otros cueros y materiales con estampados o texturas especiales. Antes de pedir, consúltanos sobre el material que buscas y las posibilidades de fabricación. Precio base para pedidos internacionales: USD 280. El envío y los impuestos de importación aplicables se cobran aparte.",
     "specialGalleryInfo": "Información de pedidos especiales ↗",
     "specialSwipe": "Desliza para explorar los ejemplos",
     "specialViewExamples": "Ver ejemplos de pedidos especiales ↓",
@@ -77,6 +81,8 @@ export default  {
     "specialLook1": "Textura oliva · Blanco",
     "specialLook2": "Camuflaje · Gris",
     "specialLook3": "Textura denim · Azul marino",
-    "specialLook4": "Cuadros · Negro"
+    "specialLook4": "Cuadros · Negro",
+    "specialDescription": "Diseños con estampados y materiales especiales.<br>El simulador de pedidos especiales está en preparación.<br><br><strong>Precio base para pedidos internacionales: USD 280. El envío y los impuestos de importación aplicables se cobran aparte.</strong>"
   }
 };
+

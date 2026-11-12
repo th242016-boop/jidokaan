@@ -1,4 +1,5 @@
 import { EMS_STATE_LABEL } from "./ems-types";
+import { requiresPostalCode } from "./address-requirements";
 import type { StoreOrder } from "./order-types";
 import type {
   EmsAction,
@@ -182,7 +183,7 @@ export function emsIssues(order: StoreOrder): EmsIssue[] {
     issues.push({ field, message, packageId });
   const r = f.recipient;
   for (const key of ["name", "address", "city", "postal", "country", "phone"] as const)
-    if (!r[key]?.trim())
+    if (!r[key]?.trim() && (key !== "postal" || requiresPostalCode(r.country)))
       add(
         key,
         `${{ name: "수취인", address: "주소", city: "도시", postal: "우편번호", country: "국가", phone: "연락처" }[key]}를 확인해 주세요.`,
@@ -663,3 +664,4 @@ export function exportEmsTxt(orders: StoreOrder[]) {
     mimeType: "text/plain;charset=utf-8",
   };
 }
+

@@ -21,6 +21,7 @@ export const DIAL_CODES: Record<string, string> = {
   AR: "+54",
   CH: "+41",
   CN: "+86",
+  HK: "+852",
   IN: "+91",
   ZA: "+27",
   EG: "+20",
@@ -54,3 +55,4 @@ export function fullPhoneNumber(local: string, country: string) {
   if (!part) return dial;
   return `${dial} ${part}`;
 }
+

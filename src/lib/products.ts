@@ -144,7 +144,7 @@ export const PRODUCTS: Product[] = [
 
 ■ 제작 · 배송
 수제 제작 평균 20~30일 + 배송
-한국 288,000원 / 해외 USD 230`,
+한국 288,000원 / 해외 USD 250`,
       en: `JIDOKAAN DRONE is a fight-ready custom boxing boot, handmade one pair at a time in Seongsu, Seoul.
 
 Pick colors and size in the simulator — tap the large Custom order button.
@@ -153,7 +153,7 @@ Pick colors and size in the simulator — tap the large Custom order button.
 • Gum outsole grip
 • Handmade build, repairable in Korea (outsole recraft ₩50,000)
 • Women’s 225–245, men’s 240–300. Men often size down one.
-• About 20–30 days to make. KR ₩288,000 / worldwide USD 230.`,
+• About 20–30 days to make. KR ₩288,000 / worldwide USD 250.`,
       ja: `JIDOKAAN DRONEはソウル聖水で一足ずつ手作りする試合用カスタムボクシングシューズです。
 
 カラーとサイズはシミュレーターで選びます。大きな「カスタム注文」ボタンへ。
@@ -162,10 +162,10 @@ Pick colors and size in the simulator — tap the large Custom order button.
 ・生ゴムアウトソール
 ・韓国で修理可能（アウトソール交換₩50,000）
 ・女性225–245 / 男性240–300。男性はワンサイズ下げ推奨。
-・製作約20–30日。韓国₩288,000 / 海外USD 230。`,
+・製作約20–30日。韓国₩288,000 / 海外USD 250。`,
     },
     category: "custom",
-    priceUsd: 23000,
+    priceUsd: 25000,
     priceKrw: 288000,
     compareAtUsd: 31000,
     compareAtKrw: 388000,
@@ -222,20 +222,20 @@ Pick colors and size in the simulator — tap the large Custom order button.
 남성은 한 치수 작게, 발볼이 두꺼우면 정사이즈.
 
 ■ 제작 · 가격
-수제 평균 20~30일. 한국 288,000원 / 해외 USD 230`,
+수제 평균 20~30일. 한국 288,000원 / 해외 USD 250`,
       en: `DRONE mid-cut. Same handmade fight boot with a taller collar for extra ankle support.
 
 Colors and size are chosen in the simulator via Custom order.
 
 Women 225–245 / men 240–300. Men often size down one.
-About 20–30 days. KR ₩288,000 / worldwide USD 230.`,
+About 20–30 days. KR ₩288,000 / worldwide USD 250.`,
       ja: `DRONEミッドカット。同じ手製で、足首サポートのためカラーが高めです。
 
 カラーとサイズはシミュレーターで選択。
-製作約20–30日。韓国₩288,000 / 海外USD 230。`,
+製作約20–30日。韓国₩288,000 / 海外USD 250。`,
     },
     category: "custom",
-    priceUsd: 23000,
+    priceUsd: 25000,
     priceKrw: 288000,
     compareAtUsd: 31000,
     compareAtKrw: 388000,
@@ -677,3 +677,4 @@ export function getProductsByCategory(category?: CategoryId | "all") {
   if (!category || category === "all") return list;
   return list.filter((p) => p.category === category);
 }
+

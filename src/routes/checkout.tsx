@@ -37,6 +37,7 @@ import { dialCode, fullPhoneNumber, localPhoneNumber } from "@/lib/phone";
 import type { StoreOrder } from "@/lib/order-types";
 import { submitOrder } from "@/lib/submit-order";
 import { normalizeInstagram } from "@/lib/order-contact";
+import { requiresPostalCode } from "@/lib/address-requirements";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/checkout")({
@@ -241,6 +242,7 @@ function CheckoutPage() {
     setPay((cur) => (cur === "card" || cur === "kakao" || cur === "naver" ? "paypal" : cur));
   }, [isDomestic]);
   const regionRequired = ["US", "CA", "AU", "MX", "CN", "IN", "BR", "JP"].includes(country);
+  const postalRequired = requiresPostalCode(country);
   const qty = cart.reduce((n, i) => n + i.qty, 0);
   const quote = quoteShipping({
     country,
@@ -729,11 +731,11 @@ function CheckoutPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="postal">
-                    {dict.checkout.postal} <span className="text-accent">*</span>
+                    {dict.checkout.postal} {postalRequired && <span className="text-accent">*</span>}
                   </Label>
                   <Input
                     id="postal"
-                    required
+                    required={postalRequired}
                     autoComplete="postal-code"
                     value={postal}
                     onChange={(e) => setPostal(e.target.value)}
@@ -1356,3 +1358,4 @@ function PaypalButtons({
     </div>
   );
 }
+
