@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ADMIN_SESSION_EVENT, readAdminToken } from "./admin-session";
 import { modelOf, type BootModel, type PartColorNames, type PartId } from "./simulator-config";
-import { createWhiteSpecialDraft, selectSpecial, specialOverrides, specialSolidOverrides, meshSelection, laceSelection, beadSelection, selectMesh, selectLaces, selectBeads, type SpecialAssets, type SpecialDraft } from "./simulator-special";
+import { createWhiteSpecialDraft, selectSpecial, specialOverrides, specialSolidOverrides, meshSelection, laceSelection, beadSelection, selectMesh, selectMeshPattern, selectLaces, selectBeads, type MeshPatternName, type SpecialAssets, type SpecialDraft } from "./simulator-special";
 import { MESH_COLORS, LACE_COLORS, type MeshColor, type LaceColor } from "./mesh-laces";
 import type { BeadSelection } from "./bead-material";
 import { useMeshLaces } from "./use-mesh-laces";
@@ -139,7 +139,12 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames,
   const draft = enabled ? drafts[model] : undefined;
   const mesh = meshSelection(draft), laces = laceSelection(draft);
   const beads = beadSelection(draft);
-  const split = useMeshLaces(Boolean(enabled && currentAssets && draft), model, mesh, laces, beads);
+  const meshPattern = draft?.meshPattern;
+  const meshPatternAsset = meshPattern ? currentAssets?.patterns?.[meshPattern] : undefined;
+  const split = useMeshLaces(Boolean(enabled && currentAssets && draft), model, mesh, laces, beads,
+    meshPattern && meshPatternAsset ? { name: meshPattern, asset: meshPatternAsset } : undefined);
+  const meshPatternReady = !meshPattern || Boolean(meshPatternAsset && split.patternReady);
+  const meshPatternFailed = Boolean(meshPattern && currentAssets && (!meshPatternAsset || split.patternFailed));
   const solids = useSpecialSolids(Boolean(enabled && currentAssets && draft), model);
   const patterns = useSpecialPatterns(Boolean(enabled && currentAssets && draft), model, draft?.patterns ?? {}, currentAssets?.patterns);
   const needsSolids = Object.keys(draft?.solids ?? {}).length > 0;
@@ -157,11 +162,12 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames,
     return true;
   };
   return {
-    available, enabled, accessChecked, isAdmin: audience === "admin", canUsePrivateCatalog: audience === "admin" || audience === "shared", assetsReady: Boolean(currentAssets), busy: busy || split.loading || solids.loading || patterns.loading, validate,
-    mesh, laces, beads, meshReady: split.ready, meshFailed: split.failed,
+    available, enabled, accessChecked, isAdmin: audience === "admin", canUsePrivateCatalog: audience === "admin" || audience === "shared", assetsReady: Boolean(currentAssets), busy: busy || split.loading || Boolean(meshPattern && split.patternLoading) || solids.loading || patterns.loading, validate,
+    mesh, meshPattern, laces, beads, meshReady: split.ready, meshFailed: split.failed,
+    meshPatternReady, meshPatternFailed,
     solidsReady: solids.ready, solidsFailed: solids.failed,
     patternsReady: patterns.ready, patternsFailed: patterns.failed,
-    previewReady: split.ready && (!needsSolids || solids.ready) && (!needsPatterns || patterns.ready),
+    previewReady: split.ready && meshPatternReady && (!needsSolids || solids.ready) && (!needsPatterns || patterns.ready),
     toggle: () => {
       if (available && (audience === "admin" || audience === "shared")) {
         // Invalidate pending async recommendation callbacks immediately, before
@@ -209,6 +215,13 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames,
     selectMesh: (color: MeshColor) => {
       if (!currentAssets || !split.ready) return;
       setDrafts(prev => ({ ...prev, [model]: selectMesh(prev[model]!, color) }));
+    },
+    selectMeshPattern: (name: MeshPatternName) => {
+      if (!canReplaceDraft() || name !== "BLUE LEOPARD" || !currentAssets?.patterns?.[name]) return;
+      setDrafts(prev => {
+        const current = prev[model];
+        return current && canReplaceDraft() ? { ...prev, [model]: selectMeshPattern(current, name) } : prev;
+      });
     },
     selectLaces: (color: LaceColor) => {
       if (!currentAssets || !split.ready) return;

@@ -5,11 +5,12 @@ import { isSpecialPattern, patternPartsFor, type SpecialPatternName, type Specia
 import { BEAD_COLORS, type BeadSelection } from "./bead-material";
 
 export const FLOWER_A = "FLOWER A";
+export type MeshPatternName = "BLUE LEOPARD";
 export const flowerPartsFor = (model: BootModel): PartId[] =>
   model === "mid" ? ["b", "c", "d", "i", "j"] : ["b", "c", "d", "e", "f", "g", "h", "i", "j"];
 
 export type SpecialAssets = { audience?: "public" | "admin"; swatch?: string; layers: Partial<Record<PartId, string>>; patterns?: SpecialPatternAssets };
-export type SpecialDraft = { names: PartColorNames; flowers: Partial<Record<PartId, boolean>>; solids?: Partial<Record<PartId, SpecialSolid>>; patterns?: Partial<Record<PartId, SpecialPatternName>>; mesh?: MeshColor; laces?: LaceColor; beads?: BeadSelection };
+export type SpecialDraft = { names: PartColorNames; flowers: Partial<Record<PartId, boolean>>; solids?: Partial<Record<PartId, SpecialSolid>>; patterns?: Partial<Record<PartId, SpecialPatternName>>; mesh?: MeshColor; meshPattern?: MeshPatternName; laces?: LaceColor; beads?: BeadSelection };
 
 export function createWhiteSpecialDraft(model: BootModel): SpecialDraft {
   return {
@@ -31,7 +32,14 @@ export function selectBeads(draft: SpecialDraft, beads: BeadSelection): SpecialD
 
 export function selectMesh(draft: SpecialDraft, mesh: MeshColor): SpecialDraft {
   if (!MESH_COLORS.includes(mesh)) return draft;
-  return { ...selectSpecial(draft, "a", mesh === "BLACK" ? "BLACK" : "WHITE"), mesh, laces: laceSelection(draft) };
+  return { ...selectSpecial(draft, "a", mesh === "BLACK" ? "BLACK" : "WHITE"), mesh, meshPattern: undefined, laces: laceSelection(draft) };
+}
+
+// A fabric is separate from the leather pattern map and the ordinary order IDs.
+// Keep a valid WHITE backing and preserve the independently selected shoelaces.
+export function selectMeshPattern(draft: SpecialDraft, pattern: MeshPatternName): SpecialDraft {
+  if (pattern !== "BLUE LEOPARD") return draft;
+  return { ...selectMesh(draft, "WHITE"), meshPattern: pattern };
 }
 
 export function selectLaces(draft: SpecialDraft, laces: LaceColor): SpecialDraft {

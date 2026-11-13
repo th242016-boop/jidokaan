@@ -4,7 +4,7 @@ export type SpecialSolid = "GRAY" | "IVORY";
 export const SPECIAL_SOLID_COLORS: ColorOpt[] = [
   colorByName("GRAY")!,
   // Warm cream from the jacket reference; neutral highlights remain white.
-  { name: "IVORY", color: "#eee2cc", isBright: true },
+  { name: "IVORY", color: "#f8edd9", isBright: true },
 ];
 export const isSpecialSolid = (name: string): name is SpecialSolid => name === "GRAY" || name === "IVORY";
 // Keep new dyes private even if the historical public Special subset returns.
@@ -17,7 +17,7 @@ type PartLayers = Partial<Record<PartId, string>>;
 export type SpecialSolidLayers = Partial<Record<SpecialSolid, PartLayers>>;
 const PATENT_RGB: Record<SpecialSolid, readonly [number, number, number]> = {
   GRAY: [122, 125, 132],
-  IVORY: [238, 226, 204],
+  IVORY: [248, 237, 217],
 };
 
 /** Preserve the source's exact alpha, shading, stitching and specular highlights.
@@ -31,7 +31,17 @@ export function renderSolidPatent(source: ImageData, color: SpecialSolid): Image
   for (let i = 0; i < result.data.length; i += 4) {
     if (!source.data[i + 3]) continue;
     const neutral = Math.min(source.data[i], source.data[i + 1], source.data[i + 2]);
-    const diffuse = Math.max(0, source.data[i] - neutral);
+    let diffuse = Math.max(0, source.data[i] - neutral);
+    if (color === "IVORY" && diffuse > 0) {
+      // Pale enamel returns more diffuse light than the photographed red dye.
+      // Lift its midtones without tinting neutral reflections or opening the
+      // deepest seam shadows. The GRAY transfer remains byte-for-byte intact.
+      const capacity = 255 - neutral;
+      const shade = diffuse / capacity;
+      const shoulder = Math.max(0, Math.min(1, (shade - 0.15) / 0.35));
+      const weight = shoulder * shoulder * (3 - 2 * shoulder);
+      diffuse += (capacity * Math.pow(shade, 0.62) - diffuse) * weight;
+    }
     for (let c = 0; c < 3; c++) result.data[i + c] = Math.round(neutral + diffuse * pigment[c] / 255);
   }
   return result;

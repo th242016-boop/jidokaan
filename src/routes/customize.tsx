@@ -309,7 +309,7 @@ export function CustomizePage({ lang, shareToken }: { lang?: ReturnType<typeof r
                     <div className={cn("grid", special.enabled ? "grid-cols-10 gap-1 md:grid-cols-8" : "grid-cols-5 gap-1.5 md:grid-cols-4 md:gap-2")}>
                       {pal.map((opt) => {
                         const active =
-                          (special.enabled && part.id === "a" ? special.mesh : (special.solids[part.id] ?? colorNames?.[part.id] ?? PHOTO_NATIVE[part.id])) === opt.name && !special.flowers[part.id] && !special.patterns[part.id];
+                          (special.enabled && part.id === "a" ? special.mesh : (special.solids[part.id] ?? colorNames?.[part.id] ?? PHOTO_NATIVE[part.id])) === opt.name && !special.flowers[part.id] && !special.patterns[part.id] && !(special.enabled && part.id === "a" && special.meshPattern);
                         return (
                           <button
                             key={`${part.id}-${opt.name}`}
@@ -350,6 +350,21 @@ export function CustomizePage({ lang, shareToken }: { lang?: ReturnType<typeof r
                           </button>
                         );
                       })}
+                      {special.enabled && special.canUsePrivateCatalog && part.id === "a" && special.patternAssets["BLUE LEOPARD"] && (
+                        <button
+                          type="button"
+                          title="블루레오파드"
+                          aria-pressed={special.meshPattern === "BLUE LEOPARD"}
+                          disabled={!special.meshReady}
+                          onClick={() => special.selectMeshPattern("BLUE LEOPARD")}
+                          className={cn("relative z-10 aspect-square w-full touch-manipulation overflow-hidden rounded-[6px] border transition", special.meshPattern === "BLUE LEOPARD" ? "scale-95 border-2 border-black shadow-[0_0_0_2px_#fff_inset]" : "border-[#ddd] hover:scale-105 hover:border-[#888]")}
+                          style={{ backgroundImage: `url(${special.patternAssets["BLUE LEOPARD"].swatch})`, ...patternSwatchPlacement(special.patternAssets["BLUE LEOPARD"]), backgroundRepeat: "no-repeat" }}
+                        >
+                          <span className="absolute inset-0 flex items-center justify-center p-px text-center text-[6.5px] font-bold leading-[1.1] md:text-[8px]">
+                            <span className="min-w-0 max-w-full break-words whitespace-normal rounded bg-white/85 px-0.5 py-0.5 text-black">블루레오파드</span>
+                          </span>
+                        </button>
+                      )}
                       {special.enabled && special.canUsePrivateCatalog && special.layers[part.id] && special.swatch && (
                         <button
                           type="button"
@@ -397,6 +412,9 @@ export function CustomizePage({ lang, shareToken }: { lang?: ReturnType<typeof r
                         );
                       })}
                     </div>
+                    {special.enabled && part.id === "a" && special.meshPatternFailed && (
+                      <p role="alert" className="mt-2 text-xs text-red-700">블루레오파드를 불러오지 못했습니다. A 색상을 다시 고르거나 스페셜을 다시 눌러주세요.</p>
+                    )}
                     {special.enabled && part.id === "a" && (
                       <div data-part="laces" role="group" aria-label="신발끈 색상" className="mt-4">
                         <div className="mb-1.5 border-l-4 border-black pl-2 text-[13px] font-bold text-black md:mb-2.5 md:text-sm">{locale === "ko" ? "신발끈" : "Shoelaces"}</div>

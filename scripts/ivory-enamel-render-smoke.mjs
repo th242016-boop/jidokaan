@@ -45,7 +45,8 @@ const fixture = new ImageData(new Uint8ClampedArray([
   245, 245, 245, 255, 8, 8, 8, 255, 230, 10, 20, 63, 42, 84, 126, 0,
 ]), 7, 1);
 const tinted = solids.renderSolidPatent(fixture, "IVORY");
-assert.deepEqual([...tinted.data.slice(0, 4)], [238, 226, 204, 255], "warm ivory pigment");
+assert.deepEqual([...tinted.data.slice(0, 4)], [248, 237, 217, 255], "brighter warm ivory pigment");
+assert.ok(tinted.data[4] > 180, "ivory midtones stay bright instead of inheriting dark red dye");
 assert.deepEqual([...tinted.data.slice(12, 16)], [245, 245, 245, 255], "white reflection is untinted");
 assert.deepEqual([...tinted.data.slice(16, 20)], [8, 8, 8, 255], "neutral stitch/shadow retained");
 assert.deepEqual([...tinted.data.slice(24)], [...fixture.data.slice(24)], "transparent RGB unchanged");
@@ -68,7 +69,7 @@ for (const model of ["high", "mid"]) {
     const source = pixels(await decode(config.photoLayerFor(part, "RED", { model })));
     const image = await decode(layers.IVORY[part]), actual = pixels(image);
     const gray = solids.renderGrayPatent(source);
-    let covered = 0, low = 255, high = 0, warm = 0;
+    let covered = 0, low = 255, high = 0, warm = 0, beforeLuma = 0, afterLuma = 0;
     for (let i = 0; i < source.data.length; i += 4) {
       assert.equal(actual.data[i + 3], source.data[i + 3], `${model}:${part} alpha`);
       const neutral = Math.min(...source.data.slice(i, i + 3));
@@ -78,14 +79,21 @@ for (const model of ["high", "mid"]) {
       if (source.data[i + 3] < 250) continue;
       covered++; low = Math.min(low, actual.data[i]); high = Math.max(high, actual.data[i]);
       if (actual.data[i] > actual.data[i + 2] + 6) warm++;
+      for (let c = 0; c < 3; c++) {
+        const weight = [0.2126, 0.7152, 0.0722][c];
+        beforeLuma += Math.round(neutral + diffuse * [238, 226, 204][c] / 255) * weight;
+        afterLuma += actual.data[i + c] * weight;
+      }
     }
     assert.ok(high - low > 20, "retain highlight and shadow range");
     assert.ok(warm / covered > 0.15, "ivory distinguishable from white");
     assert.notEqual(layers.IVORY[part], layers.GRAY[part], "cache must distinguish colors");
+    const luminanceLift = (afterLuma - beforeLuma) / covered;
+    assert.ok(luminanceLift > 6, `${model}:${part} brighter than previous gray-looking ivory`);
     ctx.drawImage(image, 0, 0);
-    report.push({ model, part, covered, range: high - low, warmFraction: warm / covered, alphaDifferences: 0 });
+    report.push({ model, part, covered, range: high - low, warmFraction: warm / covered, alphaDifferences: 0, luminanceLift });
   }
   writeFileSync(resolve(output, `${model}-ivory-enamel.png`), composite.toBuffer("image/png"));
 }
 writeFileSync(resolve(output, "ivory-enamel-report.json"), JSON.stringify(report, null, 2));
-console.log(`PASS ${report.length} native parts: exact alpha, warm ivory, highlights/shadows, unchanged GRAY and separate color caches.`);
+console.log(`PASS ${report.length} native parts: exact alpha, brighter warm ivory, highlights/shadows, unchanged GRAY and separate color caches.`);
