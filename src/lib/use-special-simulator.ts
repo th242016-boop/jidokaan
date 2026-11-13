@@ -7,7 +7,7 @@ import { MESH_COLORS, LACE_COLORS, type MeshColor, type LaceColor } from "./mesh
 import type { BeadSelection } from "./bead-material";
 import { useMeshLaces } from "./use-mesh-laces";
 import { useSpecialSolids } from "./use-special-solids";
-import { isSpecialSolid } from "./special-solids";
+import { isSpecialSolid, isPublicSpecialSolid } from "./special-solids";
 import { isSpecialPattern } from "./special-patterns";
 import { useSpecialPatterns } from "./use-special-patterns";
 import { isPublicSpecialPattern, type SimulatorAudience } from "./simulator-catalog";
@@ -219,7 +219,7 @@ export function useSpecialSimulator(model: BootModel, baseNames: PartColorNames,
       setDrafts(prev => ({ ...prev, [model]: selectBeads(prev[model]!, color) }));
     },
     select: (part: PartId, name: string) => {
-      if (audience === "public" && (name === FLOWER_A || (isSpecialPattern(name) && !isPublicSpecialPattern(name)))) return;
+      if (audience === "public" && (name === FLOWER_A || (isSpecialPattern(name) && !isPublicSpecialPattern(name)) || (isSpecialSolid(name) && !isPublicSpecialSolid(name)))) return;
       if (!currentAssets || busy || (isSpecialSolid(name) && !solids.ready) || (isSpecialPattern(name) && !currentAssets.patterns?.[name])) return;
       setDrafts(prev => ({ ...prev, [model]: selectSpecial(prev[model]!, part, name) }));
     },

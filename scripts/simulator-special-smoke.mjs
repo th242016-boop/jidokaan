@@ -70,6 +70,7 @@ try {
           const expectedPatterns = patterns.SPECIAL_PATTERNS.filter(pattern =>
             (!patterns.isMetallicPattern(pattern.name) || process.env.SIMULATOR_SPECIAL_METALLIC_KEY)
             && (pattern.name !== "FLOWER D" || process.env.SIMULATOR_FLOWER_D_KEY)
+            && (pattern.name !== "BLUE LEOPARD" || process.env.SIMULATOR_BLUE_LEOPARD_KEY)
             && (!["IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE"].includes(pattern.name) || process.env.SIMULATOR_IVORY_ORNAMENT_KEY));
           assert.deepEqual(Object.keys(body.patterns).sort(), expectedPatterns.map(pattern => pattern.name).sort());
           for (const pattern of expectedPatterns) {
@@ -183,39 +184,57 @@ try {
       if (model === "mid") assert.equal(design.completeDesign({ ...initial, g: "AQUA" }), null);
     }
   });
-  await check("special GRAY stays separate, replaces FLOWER, and follows hidden line linkage", async () => {
+  await check("special GRAY and IVORY stay separate, replace FLOWER, and follow hidden line linkage", async () => {
+    assert.deepEqual(solids.SPECIAL_SOLID_COLORS.map(color => color.name), ["GRAY", "IVORY"]);
+    assert.deepEqual(solids.specialSolidColorsFor(false).map(color => color.name), ["GRAY"], "historical public Special remains limited to the existing gray dye");
+    assert.deepEqual(solids.specialSolidColorsFor(true).map(color => color.name), ["GRAY", "IVORY"], "admin and shared studio receive the new enamel dye");
+    assert.equal(solids.isPublicSpecialSolid("GRAY"), true);
+    for (const denied of ["IVORY", "FUTURE COLOR", "gray", ""])
+      assert.equal(solids.isPublicSpecialSolid(denied), false, "unknown and private dyes cannot enter the public subset");
     for (const model of ["high", "mid"]) {
       const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
       const supported = solids.specialSolidPartsFor(model);
       assert.equal(supported.length, model === "high" ? 9 : 8);
       assert.equal(supported.includes("g"), model === "high");
-      const layers = Object.fromEntries([...supported, "l"].map(part => [part, `gray-${part}`]));
-      for (const part of supported) {
-        const gray = special.selectSpecial(initial, part, "GRAY");
-        assert.equal(gray.solids[part], "GRAY");
-        assert.equal(special.specialSolidOverrides(gray, layers)[part], `gray-${part}`);
-        assert.ok(design.completeDesign(gray.names));
-        assert.equal(sim.photoLayerFor(part, "GRAY", initial.names), undefined);
-        assert.equal(design.completeDesign({ ...initial.names, [part]: "GRAY" }), null);
-        const red = special.selectSpecial(gray, part, "RED");
-        assert.equal(red.solids[part], undefined);
-        assert.equal(special.specialSolidOverrides(red, layers)[part], undefined);
+      const layers = Object.fromEntries(["GRAY", "IVORY"].map(color => [color,
+        Object.fromEntries([...supported, "l"].map(part => [part, `${color}-${part}`])),
+      ]));
+      for (const color of ["GRAY", "IVORY"]) {
+        for (const part of supported) {
+          const solid = special.selectSpecial(initial, part, color);
+          assert.equal(solid.solids[part], color);
+          assert.equal(special.specialSolidOverrides(solid, layers)[part], `${color}-${part}`);
+          assert.ok(design.completeDesign(solid.names));
+          assert.equal(sim.photoLayerFor(part, color, initial.names), undefined);
+          assert.equal(design.completeDesign({ ...initial.names, [part]: color }), null);
+          const red = special.selectSpecial(solid, part, "RED");
+          assert.equal(red.solids[part], undefined);
+          assert.equal(special.specialSolidOverrides(red, layers)[part], undefined);
+        }
+        for (const part of ["a", "k", "l", ...(model === "mid" ? ["g"] : [])])
+          assert.equal(special.selectSpecial(initial, part, color), initial);
+        const solidB = special.selectSpecial(initial, "b", color);
+        const floral = special.selectSpecial(solidB, "b", "FLOWER A");
+        assert.equal(floral.solids.b, undefined); assert.equal(floral.flowers.b, true);
+        const solidAgain = special.selectSpecial(floral, "b", color);
+        assert.equal(solidAgain.flowers.b, false); assert.equal(solidAgain.solids.b, color);
+        const solidI = special.selectSpecial(initial, "i", color);
+        assert.equal(special.specialSolidOverrides(solidI, layers).l, `${color}-l`);
+        const solidD = special.selectSpecial(solidI, "d", color);
+        assert.equal(solidD.names.l, "WHITE");
+        assert.equal(special.specialSolidOverrides(solidD, layers).l, undefined);
+        assert.ok(design.completeDesign(solidD.names));
+        for (const neutral of ["WHITE", "BLACK"]) {
+          const restored = special.selectSpecial(solidD, "d", neutral);
+          assert.equal(special.specialSolidOverrides(restored, layers).l, `${color}-l`);
+        }
       }
-      for (const part of ["a", "k", "l", ...(model === "mid" ? ["g"] : [])])
-        assert.equal(special.selectSpecial(initial, part, "GRAY"), initial);
       const grayB = special.selectSpecial(initial, "b", "GRAY");
-      const floral = special.selectSpecial(grayB, "b", "FLOWER A");
-      assert.equal(floral.solids.b, undefined); assert.equal(floral.flowers.b, true);
-      const grayAgain = special.selectSpecial(floral, "b", "GRAY");
-      assert.equal(grayAgain.flowers.b, false); assert.equal(grayAgain.solids.b, "GRAY");
-      const grayI = special.selectSpecial(initial, "i", "GRAY");
-      assert.equal(special.specialSolidOverrides(grayI, layers).l, "gray-l");
-      const grayD = special.selectSpecial(grayI, "d", "GRAY");
-      assert.equal(grayD.names.l, "WHITE");
-      assert.equal(special.specialSolidOverrides(grayD, layers).l, undefined);
-      assert.ok(design.completeDesign(grayD.names));
-      const restored = special.selectSpecial(grayD, "d", "WHITE");
-      assert.equal(special.specialSolidOverrides(restored, layers).l, "gray-l");
+      const mixed = special.selectSpecial(grayB, "c", "IVORY");
+      assert.deepEqual(special.specialSolidOverrides(mixed, layers), { b: "GRAY-b", c: "IVORY-c" });
+      const bothIvory = special.selectSpecial(mixed, "b", "IVORY");
+      assert.deepEqual(special.specialSolidOverrides(bothIvory, layers), { b: "IVORY-b", c: "IVORY-c" });
+      assert.deepEqual(special.specialSolidOverrides(mixed, { GRAY: layers.GRAY }), { b: "GRAY-b" }, "an unavailable color never substitutes another dye");
       assert.deepEqual(initial.names, { ...sim.defaultPartNames(), model });
     }
   });
@@ -227,13 +246,14 @@ try {
     assert.deepEqual(snakes.SNAKE_MATERIALS.map(snake => snake.name), requestedSnakes);
     const requestedLizards = ["RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE"].map(color => `${color} LIZARD`);
     const requestedCamouflage = ["GRAY CAMO", "WOODLAND CAMO"];
-    assert.equal(patterns.SPECIAL_PATTERNS.length, 53);
+    assert.equal(patterns.SPECIAL_PATTERNS.length, 54);
+    assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "BLUE LEOPARD")?.label, "블루레오파드");
     assert.deepEqual(patterns.SPECIAL_PATTERNS.filter(pattern => pattern.name.startsWith("FLOWER ")).map(pattern => pattern.name), ["FLOWER B", "FLOWER C", "FLOWER D"], "the new flower follows the existing sequence");
     assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "GRAY LIZARD")?.label, "그레이 도마뱀");
     assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "SILVER SNAKE")?.label, "실버 스네이크");
     assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "MINT GOLD PEARL")?.label, "민트골드 펄");
     assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "WINE CROCODILE")?.label, "와인 크로커다일");
-    assert.deepEqual(new Set(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name)), new Set(["FLOWER B", "FLOWER C", "FLOWER D", "BLACK SNAKE", "WHITE SNAKE", ...requestedLizards, ...requestedSnakes, "SILVER WEAVE", "MICRO HOUNDSTOOTH", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE", "BRONZE", "PINK GOLD", ...requestedFinishes, ...requestedCamouflage]));
+    assert.deepEqual(new Set(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name)), new Set(["FLOWER B", "FLOWER C", "FLOWER D", "BLACK SNAKE", "WHITE SNAKE", ...requestedLizards, ...requestedSnakes, "SILVER WEAVE", "MICRO HOUNDSTOOTH", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE", "BLUE LEOPARD", "BRONZE", "PINK GOLD", ...requestedFinishes, ...requestedCamouflage]));
     for (const model of ["high", "mid"]) {
       const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
       const original = structuredClone(initial);

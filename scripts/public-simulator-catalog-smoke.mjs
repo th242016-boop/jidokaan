@@ -10,13 +10,15 @@ import ts from "typescript";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const nativeRequire = createRequire(import.meta.url);
-const keyNames = ["SIMULATOR_SPECIAL_ASSET_KEY", "SIMULATOR_SPECIAL_PATTERN_KEY", "SIMULATOR_SPECIAL_METALLIC_KEY", "SIMULATOR_REFERENCE_MATERIALS_20261021_KEY", "SIMULATOR_SILVER_WEAVE_PHOTO_KEY", "SIMULATOR_BLACK_LIZARD_20261023_KEY", "SIMULATOR_BLACK_LIZARD_PLATES_KEY", "SIMULATOR_IVORY_ORNAMENT_KEY", "SIMULATOR_FLOWER_D_KEY"];
+const keyNames = ["SIMULATOR_SPECIAL_ASSET_KEY", "SIMULATOR_SPECIAL_PATTERN_KEY", "SIMULATOR_SPECIAL_METALLIC_KEY", "SIMULATOR_REFERENCE_MATERIALS_20261021_KEY", "SIMULATOR_SILVER_WEAVE_PHOTO_KEY", "SIMULATOR_BLACK_LIZARD_20261023_KEY", "SIMULATOR_BLACK_LIZARD_PLATES_KEY", "SIMULATOR_IVORY_ORNAMENT_KEY", "SIMULATOR_FLOWER_D_KEY", "SIMULATOR_BLUE_LEOPARD_KEY"];
 for (const name of keyNames) assert.equal(process.env[name], undefined, "Run in isolation without live keys");
 assert.equal(process.env.SIMULATOR_SPECIAL_SHARE_TOKEN, undefined, "Run in isolation without a live share token");
 const shareToken = randomBytes(32).toString("hex");
 const keys = keyNames.map(() => randomBytes(32));
 const encrypted = {};
 const filenames = new Set(await readdir(resolve(root, "src/lib/special-assets")));
+for (const suffix of ["", "-swatch"])
+  assert.ok(filenames.has(`material-blue-leopard${suffix}.enc`), "private blue leopard texture and swatch must both be bundled");
 for (const photo of ["ivory-ornament", "gray-lizard", "silver-snake", "mint-gold-pearl", "wine-crocodile", "flower-d"])
   assert.ok(filenames.has(`material-${photo}-photo.enc`), "each private original photograph must be bundled");
 assert.ok(filenames.has("material-wine-crocodile-atlas.enc"), "corrected heterogeneous wine atlas must be bundled");
@@ -27,7 +29,7 @@ for (const name of ["reference-lizard", "reference-silver-weave", "gray-camo", "
   for (const suffix of ["", "-swatch"]) filenames.add(`material-${name}${suffix}.enc`);
 for (const filename of filenames) {
   if (!filename.endsWith(".enc")) continue;
-  const keyIndex = filename === "material-flower-d-photo.enc" ? 8
+  const keyIndex = /^material-blue-leopard(-swatch)?\.enc$/.test(filename) ? 9 : filename === "material-flower-d-photo.enc" ? 8
     : filename === "material-wine-crocodile-atlas.enc" ? 7 : /^material-(ivory-ornament|gray-lizard|silver-snake|mint-gold-pearl|wine-crocodile)-photo\.enc$/.test(filename) ? 7
     : /^material-black-lizard-plates(-swatch)?\.enc$/.test(filename) ? 6
     : /^material-black-lizard-20261023(-swatch)?\.enc$/.test(filename) ? 5
@@ -65,13 +67,13 @@ const payload = async body => { const response = await call({ token: "fixture-ad
 const assertPublic = result => {
   assert.equal(result.audience, "public"); assert.equal(result.swatch, undefined); assert.deepEqual(result.layers, {});
   assert.deepEqual(Object.keys(result.patterns).sort(), [...policy.PUBLIC_SPECIAL_PATTERNS].sort());
-  for (const denied of ["FLOWER A", "FLOWER D", "GRAY CAMO", "WOODLAND CAMO", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE", "FUTURE MATERIAL"]) assert.equal(result.patterns[denied], undefined);
+  for (const denied of ["FLOWER A", "FLOWER D", "GRAY CAMO", "WOODLAND CAMO", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE", "BLUE LEOPARD", "FUTURE MATERIAL"]) assert.equal(result.patterns[denied], undefined);
 };
 try {
   keyNames.forEach((name, i) => { process.env[name] = keys[i].toString("base64"); });
   process.env.SIMULATOR_SPECIAL_SHARE_TOKEN = shareToken;
   assert.equal(policy.PUBLIC_SPECIAL_PATTERNS.length, 45);
-  for (const denied of ["FLOWER A", "FLOWER D", "GRAY CAMO", "WOODLAND CAMO", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE", "FUTURE MATERIAL"]) assert.equal(policy.isPublicSpecialPattern(denied), false);
+  for (const denied of ["FLOWER A", "FLOWER D", "GRAY CAMO", "WOODLAND CAMO", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE", "BLUE LEOPARD", "FUTURE MATERIAL"]) assert.equal(policy.isPublicSpecialPattern(denied), false);
   for (const model of ["high", "mid"]) {
     const released = await payload({ audience: "public", model }); assertPublic(released);
     const black = released.patterns["BLACK SNAKE"];
@@ -93,10 +95,16 @@ try {
     assert.ok(JSON.stringify(compact).length < JSON.stringify(released).length);
     assert.deepEqual(codec.expandPatternAssets(released), released.patterns, "new client accepts legacy response");
     assert.deepEqual((await payload({ audience: "public", model, compact: "true" })).patterns, released.patterns, "only a boolean opt-in changes the wire format");
-    for (const asset of compact.patternSources) assert.doesNotMatch(Buffer.from(asset.texture.split(",")[1], "base64").toString(), /gray-camo|woodland-camo|ivory-ornament|gray-lizard|silver-snake|mint-gold-pearl|wine-crocodile|flower-d|fixture:swatch/);
+    for (const asset of compact.patternSources) assert.doesNotMatch(Buffer.from(asset.texture.split(",")[1], "base64").toString(), /gray-camo|woodland-camo|ivory-ornament|gray-lizard|silver-snake|mint-gold-pearl|wine-crocodile|flower-d|blue-leopard|fixture:swatch/);
     const admin = await payload({ audience: "admin", token: "fixture-admin", model });
     assert.equal(admin.audience, "admin"); assert.ok(admin.swatch); assert.ok(Object.keys(admin.layers).length);
-    assert.equal(Object.keys(admin.patterns).length, 53);
+    assert.equal(Object.keys(admin.patterns).length, 54);
+    const blueLeopard = admin.patterns["BLUE LEOPARD"];
+    assert.ok(blueLeopard, `${model}: BLUE LEOPARD must be available to administrators`);
+    assert.match(blueLeopard.texture, /^data:image\/jpeg;base64,/);
+    assert.match(blueLeopard.swatch, /^data:image\/jpeg;base64,/);
+    assert.equal(Buffer.from(blueLeopard.texture.split(",")[1], "base64").toString(), "fixture:material-blue-leopard.enc");
+    assert.equal(Buffer.from(blueLeopard.swatch.split(",")[1], "base64").toString(), "fixture:material-blue-leopard-swatch.enc");
     const flowerD = admin.patterns["FLOWER D"];
     assert.ok(flowerD, `${model}: FLOWER D must be available to administrators`);
     assert.equal(Buffer.from(flowerD.texture.split(",")[1], "base64").toString(), "fixture:material-flower-d-photo.enc");
@@ -111,6 +119,8 @@ try {
     const shared = await payload({ token: undefined, shareToken, model });
     assert.equal(shared.audience, "shared");
     assert.deepEqual(shared.patterns, admin.patterns, "a verified share link receives the full material catalog on both models");
+    assert.deepEqual(shared.patterns["BLUE LEOPARD"], blueLeopard);
+    assertPublic(await payload({ audience: "public", model, material: "BLUE LEOPARD" }));
     assertPublic(await payload({ audience: "public", model, material: "FLOWER D" }));
     const ornament = admin.patterns["IVORY ORNAMENT"];
     assert.ok(ornament, `${model}: the new material must be available to administrators`);
@@ -152,9 +162,12 @@ try {
     for (const name of ["NATURAL SNAKE", "BLACK SNAKE", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL"])
       assert.notDeepEqual(wineCrocodile, admin.patterns[name], "wine crocodile must retain its independent mixed-shape scale topology");
     const compactAdmin = await payload({ audience: "admin", token: "fixture-admin", model, compact: true });
+    assert.equal(compactAdmin.patternSources.length, 19, "the private blue leopard pair adds one source without duplicating shared dye families");
+    assert.equal(Object.keys(compactAdmin.patternRefs).length, 54);
     assert.deepEqual(codec.expandPatternAssets(compactAdmin), admin.patterns);
     assert.deepEqual(compactAdmin.layers, admin.layers); assert.equal(compactAdmin.swatch, admin.swatch);
     const expanded = codec.expandPatternAssets(compactAdmin);
+    assert.deepEqual(expanded["BLUE LEOPARD"], blueLeopard, "compact delivery preserves the private satin texture and swatch");
     assert.deepEqual(expanded["FLOWER D"], flowerD, "compact delivery preserves the tropical photograph and source crop");
     assert.deepEqual(expanded["IVORY ORNAMENT"], ornament, "compact delivery preserves the exact hand-free source crop");
     assert.deepEqual(expanded["GRAY LIZARD"], grayLizard, "compact delivery preserves the mixed-shape gray source and its crop");
@@ -165,7 +178,7 @@ try {
       assert.equal(expanded[name], expanded["BLACK SNAKE"], "all nine lizard colors share one decoded atlas object");
     assert.equal(expanded["MATTE RED"], expanded["MATTE BLACK"]);
     for (const name of policy.PUBLIC_SPECIAL_PATTERNS) assert.deepEqual(admin.patterns[name], released.patterns[name]);
-    for (const name of ["FLOWER D", "GRAY CAMO", "WOODLAND CAMO", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE"]) {
+    for (const name of ["FLOWER D", "GRAY CAMO", "WOODLAND CAMO", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE", "BLUE LEOPARD"]) {
       if (patterns.SPECIAL_PATTERNS.some(pattern => pattern.name === name)) assert.ok(admin.patterns[name], `${name} should be in the authenticated studio only`);
     }
   }
@@ -179,13 +192,34 @@ try {
         assert.deepEqual(codec.expandPatternAssets(fullCatalog), expected, "a failed photo must not change any unrelated material for admin or shared access");
         assert.ok(fullCatalog.swatch); assert.ok(Object.keys(fullCatalog.layers).length, "FLOWER A remains available");
       }
-      for (const material of ["FLOWER D", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE"]) {
+      for (const material of ["FLOWER D", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE", "BLUE LEOPARD"]) {
         const released = await payload({ audience: "public", model, material });
         assertPublic(released);
         assert.deepEqual(released.patterns, priorReleasedPatterns, "private asset failures cannot affect the retained subset");
       }
     }
   };
+  // A new private material cannot take an established catalog down if either
+  // its independent key or one half of the texture/swatch pair is unavailable.
+  for (const value of [undefined, "invalid", randomBytes(32).toString("base64")]) {
+    if (value === undefined) delete process.env.SIMULATOR_BLUE_LEOPARD_KEY;
+    else process.env.SIMULATOR_BLUE_LEOPARD_KEY = value;
+    await expectOnlyPhotosUnavailable(["BLUE LEOPARD"]);
+  }
+  process.env.SIMULATOR_BLUE_LEOPARD_KEY = keys[9].toString("base64");
+  for (const suffix of ["", "-swatch"]) {
+    const path = `./special-assets/material-blue-leopard${suffix}.enc`;
+    const ciphertext = encrypted[path];
+    delete encrypted[path];
+    await expectOnlyPhotosUnavailable(["BLUE LEOPARD"]);
+    const damaged = Buffer.from(ciphertext, "base64");
+    damaged[damaged.length - 1] ^= 1;
+    encrypted[path] = damaged.toString("base64");
+    await expectOnlyPhotosUnavailable(["BLUE LEOPARD"]);
+    encrypted[path] = ciphertext;
+  }
+  assert.deepEqual((await payload({ audience: "admin" })).patterns, withPrivatePhotos.patterns);
+  console.log("PASS BLUE LEOPARD admin/shared availability, public exclusion and isolated key/pair failures on both models");
   const photographicMaterials = ["IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE"];
   delete process.env.SIMULATOR_IVORY_ORNAMENT_KEY;
   await expectOnlyPhotosUnavailable(photographicMaterials);
@@ -332,7 +366,7 @@ try {
   for (const audience of [undefined, "public", "admin", "ADMIN"]) {
     for (const token of [undefined, "", "forged"]) {
       for (const action of ["ping", "assets"]) {
-        for (const material of ["FLOWER D", "MINT GOLD PEARL", "WINE CROCODILE"]) {
+        for (const material of ["FLOWER D", "MINT GOLD PEARL", "WINE CROCODILE", "BLUE LEOPARD"]) {
           const denied = await call({ audience, token, action, model: "high", admin: true, material });
           assert.equal(denied.status, 401, `${audience ?? "default"} ${action}/${material} rejects missing/forged credentials`);
           assert.equal(denied.headers.get("cache-control"), "no-store");

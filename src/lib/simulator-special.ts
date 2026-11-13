@@ -61,13 +61,17 @@ export function selectSpecial(draft: SpecialDraft, part: PartId, name: string): 
 }
 
 export function specialSolidOverrides(draft: SpecialDraft | undefined, layers: SpecialSolidLayers) {
-  const result: SpecialSolidLayers = {};
+  const result: Partial<Record<PartId, string>> = {};
   if (!draft) return result;
   for (const part of Object.keys(draft.solids ?? {}) as PartId[]) {
-    if (draft.solids?.[part] && layers[part]) result[part] = layers[part];
+    const color = draft.solids?.[part];
+    const layer = color && layers[color]?.[part];
+    if (layer) result[part] = layer;
   }
-  if ((draft.names.d === "WHITE" || draft.names.d === "BLACK") && draft.solids?.i && layers.l)
-    result.l = layers.l;
+  const linkedColor = draft.solids?.i;
+  const linkedLayer = linkedColor && layers[linkedColor]?.l;
+  if ((draft.names.d === "WHITE" || draft.names.d === "BLACK") && linkedLayer)
+    result.l = linkedLayer;
   return result;
 }
 

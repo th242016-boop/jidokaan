@@ -51,6 +51,13 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
     return decoded.get(id)!;
   };
   for (const { name } of visiblePatterns) {
+    if (name === "BLUE LEOPARD") {
+      if (audience !== "public" && process.env.SIMULATOR_BLUE_LEOPARD_KEY) {
+        try { patterns[name] = pair("blue-leopard", "SIMULATOR_BLUE_LEOPARD_KEY"); }
+        catch { console.error("BLUE LEOPARD texture unavailable"); }
+      }
+      continue;
+    }
     if (name === "FLOWER D") {
       if (audience !== "public" && process.env.SIMULATOR_FLOWER_D_KEY) {
         try {

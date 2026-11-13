@@ -3,7 +3,7 @@ import { StyleFinder } from "@/components/customizer/style-finder";
 import { useSpecialSimulator } from "@/lib/use-special-simulator";
 import { FLOWER_A } from "@/lib/simulator-special";
 import { isPublicSpecialPattern } from "@/lib/simulator-catalog";
-import { SPECIAL_SOLID_COLORS, isSpecialSolid, specialSolidPartsFor } from "@/lib/special-solids";
+import { specialSolidColorsFor, isSpecialSolid, specialSolidPartsFor } from "@/lib/special-solids";
 import { SPECIAL_PATTERNS, patternPartsFor, patternSwatchPlacement } from "@/lib/special-patterns";
 import { loadSnakeSwatches, snakeMaterialFor, type SnakeSwatches } from "@/lib/snake-materials";
 import { loadLizardSwatches, lizardMaterialFor, type LizardSwatches } from "@/lib/lizard-materials";
@@ -299,7 +299,7 @@ export function CustomizePage({ lang, shareToken }: { lang?: ReturnType<typeof r
                   ? paletteFor(part).filter((o) => o.name === "WHITE" || Boolean(supplied[o.name]))
                   : paletteFor(part);
                 const pal = special.enabled && part.id === "a" ? MESH_COLORS.map(name => colorByName(name)!)
-                  : special.enabled && specialSolidPartsFor(model).includes(part.id) ? [...standardPalette, ...SPECIAL_SOLID_COLORS]
+                  : special.enabled && specialSolidPartsFor(model).includes(part.id) ? [...standardPalette, ...specialSolidColorsFor(special.canUsePrivateCatalog)]
                   : standardPalette;
                 return (
                   <div key={part.id} data-part={part.id} className="mb-3.5 md:mb-8">

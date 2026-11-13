@@ -107,6 +107,7 @@ try {
       assert.deepEqual({ ...shared, audience: "admin" }, admin);
       assert.deepEqual(Object.keys(shared.layers), special.flowerPartsFor(model));
       assert.deepEqual(Object.keys(shared.patterns).sort(), patterns.SPECIAL_PATTERNS.map(({ name }) => name).sort());
+      assert.ok(shared.patterns["BLUE LEOPARD"], `${model}: private BLUE LEOPARD is available through the fixed share link`);
       assert.ok(shared.patterns["FLOWER D"], `${model}: the private tropical flower is available through the fixed share link`);
       const compact = await call({ shareToken, action: "assets", model, compact: true });
       assert.equal(compact.status, 200);
@@ -114,6 +115,7 @@ try {
       assert.equal(compactBody.audience, "shared");
       assert.deepEqual(codec.expandPatternAssets(compactBody), shared.patterns, "shared compact delivery retains FLOWER D and every existing material");
       const ordinary = await (await call({ token: adminToken, action: "assets", audience: "public", model })).json();
+      assert.equal(ordinary.patterns["BLUE LEOPARD"], undefined, "new BLUE LEOPARD must stay outside the public subset");
       assert.equal(ordinary.patterns["FLOWER D"], undefined, "the private addition must not enter the public catalog");
     }
   });
