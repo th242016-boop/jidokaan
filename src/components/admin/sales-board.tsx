@@ -27,10 +27,11 @@ export function SalesBoard({ token }: { token: string }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
-        <Card label="판매금액" value={`${sales.toLocaleString()}원`} />
+        <Card label="주문 원화 참고액" value={`${sales.toLocaleString()}원`} />
         <Card label="주문건수" value={`${count}건`} />
-        <Card label="객단가" value={`${aov.toLocaleString()}원`} />
+        <Card label="주문당 원화 참고액" value={`${aov.toLocaleString()}원`} />
       </div>
+      <p className="text-xs leading-relaxed text-[#666]">상품의 원화 기준액을 합산한 참고 통계입니다. 외화 결제의 실제 환전·정산액이 아니며, 취소 외 상태에는 미입금 주문도 포함됩니다. 실제 결제 통화와 금액은 각 주문 상세에서 확인하세요.</p>
       <section className="rounded-lg border border-[#e3e6ea] bg-white p-4">
         <h3 className="mb-3 text-sm font-semibold">상품별 판매</h3>
         {top.length === 0 ? (

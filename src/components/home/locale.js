@@ -1,6 +1,13 @@
+import { specialOrderContactHref } from "../../lib/special-order-copy";
 import faqCopy from './faq-copy.js';
+import faqInternationalCopy from './faq-international-copy.js';
+import koreanFaqCopy from './faq-korean-copy.js';
+import { supportCopy } from '../../lib/customer-support-copy';
 import specialCopy from './special-copy.js';
 import craftCopy from './craft-copy.js';
+import { LOCALES } from '../../lib/i18n';
+import { internationalHomeCopy } from './international-copy';
+import { brandInternationalCopy } from './brand-international-copy.js';
 export function createHomeLocale(root, onLocaleChange) {
   const strings = {};
   // Korean source content also provides a complete no-JavaScript fallback.
@@ -10,6 +17,7 @@ export function createHomeLocale(root, onLocaleChange) {
     root.querySelectorAll(`[data-i18n-${attr}]`).forEach(el => strings.ko[el.getAttribute(`data-i18n-${attr}`)] = el.getAttribute(attr));
   }
   Object.assign(strings.ko, {menuOpen:'메뉴 열기', menuClose:'메뉴 닫기', title:'지도칸 — 당신의 방식으로 완성하는 복싱화', description:'색상부터 소재까지, 당신의 방식으로 완성하는 지도칸 수제 커스텀 복싱화.'});
+  Object.assign(strings.ko, koreanFaqCopy);
   strings.en = {
     skip:'Skip to shoe designs',home:'JIDOKAAN home',mainMenu:'Main navigation',mobileMenu:'Mobile navigation',language:'Select language',menuOpen:'Open menu',menuClose:'Close menu',
     navDetail:'Details',navCollection:'Collection',navAtelier:'The process',navOrder:'Start customizing',
@@ -42,6 +50,16 @@ export function createHomeLocale(root, onLocaleChange) {
     orderIndex:'04 / 设计我的拳击鞋',orderTitle:'将你的风格，<br><em>带上拳台。</em>',orderButton:'开始定制',specialButton:'特别定制说明',orderNote:'告诉我们你的喜好。',backTop:'返回顶部',companyTitle:'公司信息',companyNameLabel:'公司名称',companyName:'JIDOKAAN',ownerLabel:'代表人',owner:'Choi Taehoon',addressLabel:'营业地址',address:'韩国首尔特别市城东区圣水二路18街36号主楼2层，邮编04782',phoneLabel:'联系电话',businessLabel:'营业执照登记号',commerceLabel:'网络销售备案号',commerce:'2018首尔城东0927号',contactTitle:'咨询',emailLabel:'咨询邮箱',contactPhoneLabel:'咨询电话',hoursLabel:'客服时间',hours:'周一至周五 10:00–17:00（韩国时间）',closedLabel:'周六及公共假日',closed:'暂停咨询',brandDescription:'JIDOKAAN · 手工定制拳击鞋',
     closeImage:'关闭 <span>×</span>',close:'关闭 ×',dialogIndex:'JIDOKAAN 设计系列',exampleProduct:'此鞋款为定制订单示例。',createCombination:'创建我的组合 <span>↗</span>',specialIndex:'特别定制',specialTitle:'以材质表达品味。',specialDescription:'采用图案及特殊材质的定制方式。<br>特别定制模拟器正在筹备中。',specialContact:'客服电话 010-3481-5598 ↗',introLabel:'JIDOKAAN 定制拳击鞋介绍',heroAlt:'白色、黑色和金色搭配的 JIDOKAAN 拳击鞋',detailAlt:'白金配色拳击鞋的皮革、网布与缝线',galleryLabel:'五款定制订单示例鞋款',previous:'上一款设计',next:'下一款设计',emblemAlt:'JIDOKAAN 金属徽标',closeImageLabel:'关闭放大图片',closeLabel:'关闭说明',title:'JIDOKAAN — 专属于你的拳击鞋',description:'从色彩到材质，随心打造 JIDOKAAN 手工定制拳击鞋。'
   };
+  strings["zh-Hant"] = {
+    skip:'跳轉至鞋款設計',home:'JIDOKAAN 首頁',mainMenu:'主導航',mobileMenu:'移動端導航',language:'選擇語言',menuOpen:'打開菜單',menuClose:'關閉菜單',navDetail:'細節',navCollection:'設計系列',navAtelier:'訂製流程',navOrder:'開始訂製',
+    heroKicker:'手工訂製拳擊鞋',heroTitle1:'你的拳擊，',heroTitle2:'你的風格。',heroDescription:'將個性融入色彩與材質。<br>專屬鞋款，從 JIDOKAAN 開始。',heroLink:'探索設計系列',heroBrand:'JIDOKAAN · 專屬訂製',scroll:'向下滾動，探索更多',statement:'萬千組合之中，<br><span>只屬於你的那一雙。</span>',
+    detailIndex:'01 / 材質與細節',detailTitle:'細微之處，<br><em>彰顯自我。</em>',detailDescription:'皮革色彩、網布紋理與點綴的組合。<br>每一次選擇，都讓你的設計更鮮明。',leather:'皮革',leatherDetail:'色彩與質感',mesh:'網布',meshDetail:'組合的基底',accent:'點綴',accentDetail:'設計的收尾',focusIndex:'01 / 近距離欣賞',focusTitle:'精緻設計，<br><em>更添舒適腳感。</em>',focusDescription:'歷經兩年、超過50次鞋楦測試，<br>打造理想的貼合與舒適。',handmade:'JIDOKAAN 手工拳擊鞋',
+    collectionIndex:'02 / 設計系列',examplesTitle:'訂製訂單示例鞋款',collectionTitle:'相同輪廓，<br><em>不同的你。</em>',collectionDescription:'從簡約白色到鮮明色彩與圖案，<br>尋找契合你品味的組合。',look0:'白色 · 金色',look1:'海軍藍 · 白色',look2:'紅色 · 黑色',look3:'綠色 · 紅色',look4:'花卉 · 黑色',enlarge:'放大查看 ↗',exampleLabel:'訂製訂單示例鞋款',galleryDirection:'滾動瀏覽不同組合',identityCaption:'以形態詮釋 JIDOKAAN 的品牌個性',
+    atelierIndex:'03 / 專屬訂製',atelierTitle:'你的選擇，<br><em>成就你的一雙。</em>',process1:'選擇顏色',process1Description:'在訂製模擬器中，查看各部位的配色組合。',process2:'確認設計',process2Description:'查看所選組合併調整為理想設計。圖案及特殊材質請參閱特別訂製說明。',process3:'打造專屬鞋款',process3Description:'選定設計後，請按照訂單說明繼續操作。具體製作條件可在下單過程中確認。',
+    orderIndex:'04 / 設計我的拳擊鞋',orderTitle:'將你的風格，<br><em>帶上拳台。</em>',orderButton:'開始訂製',specialButton:'特別訂製說明',orderNote:'告訴我們你的喜好。',backTop:'返回頂部',companyTitle:'公司資訊',companyNameLabel:'公司名稱',companyName:'JIDOKAAN',ownerLabel:'代表人',owner:'Choi Taehoon',addressLabel:'營業地址',address:'韓國首爾特別市城東區聖水二路18街36號主樓2層，郵政編碼04782',phoneLabel:'聯絡電話',businessLabel:'營業執照登記號',commerceLabel:'網絡銷售備案號',commerce:'2018首爾城東0927號',contactTitle:'諮詢',emailLabel:'諮詢電郵地址',contactPhoneLabel:'諮詢電話',hoursLabel:'客服時間',hours:'週一至週五 10:00–17:00（韓國時間）',closedLabel:'週六及公共假日',closed:'暫停諮詢',brandDescription:'JIDOKAAN · 手工訂製拳擊鞋',
+    closeImage:'關閉 <span>×</span>',close:'關閉 ×',dialogIndex:'JIDOKAAN 設計系列',exampleProduct:'此鞋款為訂製訂單示例。',createCombination:'創建我的組合 <span>↗</span>',specialIndex:'特別訂製',specialTitle:'以材質表達品味。',specialDescription:'採用圖案及特殊材質的訂製方式。<br>特別訂製模擬器正在籌備中。',specialContact:'客服電話 010-3481-5598 ↗',introLabel:'JIDOKAAN 訂製拳擊鞋介紹',heroAlt:'白色、黑色和金色搭配的 JIDOKAAN 拳擊鞋',detailAlt:'白金配色拳擊鞋的皮革、網布與縫線',galleryLabel:'五款訂製訂單示例鞋款',previous:'上一款設計',next:'下一款設計',emblemAlt:'JIDOKAAN 金屬徽標',closeImageLabel:'關閉放大圖片',closeLabel:'關閉說明',title:'JIDOKAAN — 專屬於你的拳擊鞋',description:'從色彩到材質，隨心打造 JIDOKAAN 手工訂製拳擊鞋。'
+  };
+
   strings.es = {
     skip:'Ir a los diseños',home:'Inicio de JIDOKAAN',mainMenu:'Navegación principal',mobileMenu:'Menú móvil',language:'Seleccionar idioma',menuOpen:'Abrir menú',menuClose:'Cerrar menú',navDetail:'Detalles',navCollection:'Colección',navAtelier:'El proceso',navOrder:'Personalizar',
     heroKicker:'Botas de boxeo artesanales a medida',heroTitle1:'Tu boxeo.',heroTitle2:'Tu identidad.',heroDescription:'Tu estilo, en cada color y material.<br>Tu par empieza en JIDOKAAN.',heroLink:'Explora la colección',heroBrand:'JIDOKAAN · Por encargo',scroll:'Desliza para descubrir',statement:'Infinitas combinaciones.<br><span>Un par que solo habla de ti.</span>',
@@ -54,6 +72,12 @@ export function createHomeLocale(root, onLocaleChange) {
   for (const [lang,copy] of Object.entries(faqCopy)) Object.assign(strings[lang],copy);
   for (const [lang,copy] of Object.entries(specialCopy)) Object.assign(strings[lang],copy);
   for (const [lang,copy] of Object.entries(craftCopy)) Object.assign(strings[lang],copy);
+  // Keep the original five translations and complete the editorial, workshop,
+  // gallery and accessible labels for the other selectable languages.
+  for (const [lang, copy] of Object.entries(brandInternationalCopy)) {
+    strings[lang] = { ...strings.en, ...copy };
+    strings[lang].specialContact = `${supportCopy(lang).phone}: +82 10 3481 5598 ↗`;
+  }
   const arrow='<span aria-hidden="true">↗</span>';
   for (const [lang,d] of Object.entries(strings)) {
     if (lang==='ko') continue;
@@ -76,27 +100,51 @@ export function createHomeLocale(root, onLocaleChange) {
     }
   }
 
-  const serviceCopy = {
-    ko:['샵','주문조회','배송 안내','내 계정','브랜드','문의','이용약관','개인정보처리방침','관리자'],
-    en:['Shop','Orders','Shipping','Account','Brand','Contact','Terms','Privacy','Admin'],
-    ja:['ショップ','注文確認','配送案内','アカウント','ブランド','お問い合わせ','利用規約','プライバシー','管理者'],
-    zh:['商店','查询订单','配送说明','我的账户','品牌','联系我们','使用条款','隐私政策','管理'],
-    es:['Tienda','Pedidos','Envíos','Mi cuenta','Marca','Contacto','Condiciones','Privacidad','Admin']
-  };
-  for (const [lang, values] of Object.entries(serviceCopy)) {
-    ['shopLink','ordersLink','shippingLink','accountLink','brandLink','contactLink','termsLink','privacyLink','adminLink'].forEach((key,i)=>strings[lang][key]=values[i]);
+  // All supported home languages now have editorial translations as well as
+  // the shared transactional guidance, purchase FAQs and service links.
+  const fullBrandLanguages = new Set(Object.keys(strings));
+  for (const { id } of LOCALES) {
+    if (!strings[id]) strings[id] = { ...strings.en };
+    Object.assign(strings[id], faqInternationalCopy[id] || {});
+    const support = supportCopy(id);
+    for (const key of ['shop','orders','shipping','account','brand','contact','terms','privacy','admin']) {
+      strings[id][`${key}Link`] = support.nav[key];
+    }
+    Object.assign(strings[id], {
+      contactTitle: support.title, emailLabel: support.email, contactPhoneLabel: support.phone,
+      hoursLabel: support.hours, hours: support.hoursValue,
+      closedLabel: support.closedLabel, closed: support.closedValue,
+    });
   }
   let locale='ko';
-  const t=key=>strings[locale][key] ?? strings.ko[key] ?? key;
+  let country='';
+  let orderCopy = {};
+  const t=key=>orderCopy[key] ?? strings[locale][key] ?? strings.en[key] ?? strings.ko[key] ?? key;
   const select=root.querySelector('#site-language');
-  function applyLanguage(next) {
+  // Language labels are self-names and stay readable before a selection.
+  select.replaceChildren(...LOCALES.map(({ id, native }) => {
+    const option = document.createElement('option');
+    option.value = id;
+    option.lang = id === 'zh' ? 'zh-CN' : id;
+    option.textContent = native;
+    return option;
+  }));
+  function applyLanguage(next, shippingCountry = '') {
     locale=Object.hasOwn(strings,next)?next:'en';
+    country = shippingCountry.trim().toUpperCase();
+    orderCopy = internationalHomeCopy(locale, country);
     root.lang=locale==='zh'?'zh-CN':locale;
+    root.dataset.partialTranslation = String(!fullBrandLanguages.has(locale));
     root.querySelectorAll('[data-i18n]').forEach(el=>el.innerHTML=t(el.dataset.i18n));
     for(const attr of ['aria-label','alt']) root.querySelectorAll(`[data-i18n-${attr}]`).forEach(el=>el.setAttribute(attr,t(el.getAttribute(`data-i18n-${attr}`))));
     const toggle=root.querySelector('.menu-toggle');
     toggle.setAttribute('aria-label',t(toggle.getAttribute('aria-expanded')==='true'?'menuClose':'menuOpen'));
     select.value=locale;
+    root.querySelectorAll('[data-i18n="specialContact"]').forEach(link => link.setAttribute('href', specialOrderContactHref(locale, country)));
+    const phone = locale === 'ko' ? '010 3481 5598' : '+82 10 3481 5598';
+    root.querySelectorAll('a[href="tel:+821034815598"]').forEach(link => {
+      link.textContent = String(link.textContent ?? '').replace(/(?:\+82[ -]?)?0?10[ -]?3481[ -]?5598/g, phone);
+    });
     // These are full-page links; carry the selection even if storage is blocked.
     root.querySelectorAll('a[href="/customize"], a[href^="/customize?"], a[href="/shop"], a[href^="/shop?"]').forEach(link=>{
       const url=new URL(link.getAttribute('href'),'https://jidokaan.com');
@@ -107,5 +155,5 @@ export function createHomeLocale(root, onLocaleChange) {
   }
   const onChange=()=>onLocaleChange(select.value);
   select.addEventListener('change',onChange);
-  return {t, applyLanguage, get locale(){return locale;}, destroy(){select.removeEventListener('change',onChange);}};
+  return {t, applyLanguage, get locale(){return locale;}, get specialContactHref(){return specialOrderContactHref(locale, country);}, destroy(){select.removeEventListener('change',onChange);}};
 }

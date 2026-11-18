@@ -7,25 +7,23 @@ import { SeoTags } from "@/components/seo-tags";
 import { CartDrawer } from "@/components/store/cart-drawer";
 import { authEnabled, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { FLAG_MARKETS, t, type Locale } from "@/lib/i18n";
+import { LOCALES, t, type Locale } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
 import { DEFAULT_COMPANY, DEFAULT_SUPPORT, type InfoRow } from "@/lib/site-defaults";
 import { createHomeLocale, type HomeLocale } from "./locale.js";
 import { mountHomeMotion } from "./motion.js";
 import { HomeShop } from "./home-shop";
+import { HomeRegionSelect } from "./region-select";
+import { PurchaseGuide } from "./purchase-guide";
 import approvedMarkup from "./page.html?raw";
 
 const markup = { __html: approvedMarkup };
-const homeLanguages = new Set(["ko", "en", "ja", "zh", "es"]);
+const homeLanguages = new Set<string>(LOCALES.map(l => l.id));
 
 function pickLocale(next: string) {
   if (!homeLanguages.has(next)) return;
-  const market = FLAG_MARKETS.find((entry) => entry.locale === next);
-  useStore.getState().applyMarket(next as Locale, next === "ko" ? "KRW" : "USD", true);
-  try {
-    sessionStorage.setItem("jidokaan-ship-country", (next === "ko" ? "KR" : (market?.code ?? "us")).toUpperCase());
-  } catch { /* Storage may be unavailable in private browsing. */ }
+  useStore.getState().setLocale(next as Locale);
 }
 
 // Keep the existing administrator's company/support settings live on the new home.
@@ -41,10 +39,19 @@ function updateInfoRows(root: HTMLElement, selector: string, rows: InfoRow[], de
     label.textContent = index >= 0 ? copy.t(labels[index]) : row.label;
     const value = document.createElement("dd");
     const key = index >= 0 ? values[index] : null;
-    const text = key && row.value === defaults[index].value ? copy.t(key) : row.value;
-    if (row.href && /^(https?:|mailto:|tel:|\/(?!\/))/.test(row.href)) {
+    let text = key && row.value === defaults[index].value ? copy.t(key) : row.value;
+    let href = row.href;
+    // Catalog rows are rendered after locale.applyLanguage, so normalize here too.
+    if (copy.locale !== "ko" && href?.startsWith("tel:")) {
+      const number = href.slice(4).replace(/[\s()-]/g, "");
+      if (number === "01034815598" || number === "+821034815598") {
+        href = "tel:+821034815598";
+        text = "+82 10 3481 5598";
+      }
+    }
+    if (href && /^(https?:|mailto:|tel:|\/(?!\/))/.test(href)) {
       const link = document.createElement("a");
-      link.href = row.href;
+      link.href = href;
       link.textContent = text;
       value.append(link);
     } else value.textContent = text;
@@ -57,9 +64,12 @@ function updateInfoRows(root: HTMLElement, selector: string, rows: InfoRow[], de
 export function CinematicHome() {
   const rootRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<{copy: HomeLocale; motion: ReturnType<typeof mountHomeMotion>} | null>(null);
+  const [regionSlot, setRegionSlot] = useState<HTMLElement | null>(null);
   const [accountSlot, setAccountSlot] = useState<HTMLElement | null>(null);
+  const [purchaseSlot, setPurchaseSlot] = useState<HTMLElement | null>(null);
   const [shopSlot, setShopSlot] = useState<HTMLElement | null>(null);
   const locale = useStore((state) => state.locale);
+  const shippingCountry = useStore((state) => state.shippingCountry);
   const currency = useStore((state) => state.currency);
   const cartCount = useStore((state) => state.cartCount());
   const setCartOpen = useStore((state) => state.setCartOpen);
@@ -72,11 +82,15 @@ export function CinematicHome() {
     if (!root) return;
     const requested = new URLSearchParams(location.search).get("lang");
     if (requested && homeLanguages.has(requested)) pickLocale(requested);
+    const language = root.querySelector<HTMLSelectElement>("#site-language");
+    if (language) language.replaceChildren(...LOCALES.map(l => { const option = document.createElement("option"); option.value = l.id; option.lang = l.id; option.textContent = l.native; return option; }));
     const copy = createHomeLocale(root, pickLocale);
     const motion = mountHomeMotion(root, copy);
     runtimeRef.current = {copy, motion};
+    setRegionSlot(root.querySelector<HTMLElement>("[data-home-region]"));
     setAccountSlot(root.querySelector<HTMLElement>("[data-account-tools]"));
     setShopSlot(root.querySelector<HTMLElement>("[data-home-shop]"));
+    setPurchaseSlot(root.querySelector<HTMLElement>("[data-purchase-guide]"));
     return () => {
       motion.destroy();
       copy.destroy();
@@ -88,7 +102,7 @@ export function CinematicHome() {
     const root = rootRef.current;
     const runtime = runtimeRef.current;
     if (!root || !runtime) return;
-    runtime.copy.applyLanguage(locale);
+    runtime.copy.applyLanguage(locale, shippingCountry);
     updateInfoRows(root, "[data-company-rows]", catalog.company, DEFAULT_COMPANY,
       ["companyNameLabel", "ownerLabel", "addressLabel", "phoneLabel", "businessLabel", "commerceLabel"],
       ["companyName", "owner", "address", null, null, "commerce"], runtime.copy);
@@ -101,13 +115,15 @@ export function CinematicHome() {
       notice.hidden = !catalog.notice.enabled || !catalog.notice.text;
     }
     runtime.motion.measure();
-  }, [locale, catalog]);
+  }, [locale, shippingCountry, catalog]);
 
   return <>
     <LocaleSync />
     <AnalyticsTracker />
     <SeoTags title={catalog.seo.title} description={catalog.seo.description} keywords={catalog.seo.keywords} />
-    <div id="cinematic-home" ref={rootRef} dangerouslySetInnerHTML={markup} />
+    <div id="cinematic-home" className="shopping-first" ref={rootRef} dangerouslySetInnerHTML={markup} />
+    {regionSlot && createPortal(<HomeRegionSelect />, regionSlot)}
+    {purchaseSlot && createPortal(<PurchaseGuide />, purchaseSlot)}
     {shopSlot && createPortal(<HomeShop products={catalog.products} ready={ready} locale={locale} currency={currency} />, shopSlot)}
     {accountSlot && createPortal(<>
       <button type="button" onClick={() => setCartOpen(true)} aria-label={dict.nav.cart} title={dict.nav.cart}>

@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { t } from "@/lib/i18n";
+import { useStore } from "@/lib/store";
 
 export function KrOrderPanel({
   naverUrl,
@@ -7,11 +9,12 @@ export function KrOrderPanel({
   naverUrl: string;
   onOverseas?: () => void;
 }) {
+  const locale = useStore((s) => s.locale);
+  const copy = t(locale).custom;
   return (
     <div className="space-y-3">
-      <p className="text-sm leading-relaxed text-[#222]">
-        국내 고객은 네이버 스토어에서 주문해 주세요.
-        해외 고객은 이 사이트에서 결제할 수 있습니다.
+      <p className="text-base leading-relaxed text-fg">
+        {copy.krOrderHint}
       </p>
       <Button
         size="lg"
@@ -19,7 +22,7 @@ export function KrOrderPanel({
         asChild
       >
         <a href={naverUrl} target="_blank" rel="noopener noreferrer">
-          네이버 스토어에서 주문
+          {copy.naverOrder}
         </a>
       </Button>
       {onOverseas ? (
@@ -30,7 +33,7 @@ export function KrOrderPanel({
           type="button"
           onClick={onOverseas}
         >
-          해외 고객은 이 사이트에서 결제
+          {copy.overseasPay}
         </Button>
       ) : null}
     </div>

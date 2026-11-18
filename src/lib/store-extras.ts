@@ -1,3 +1,5 @@
+import { productionCopy } from "./production-copy";
+
 export type FaqItem = {
   id: string;
   q: string;
@@ -43,11 +45,31 @@ export function normalizeCoupon(c: {
   };
 }
 
+/** Exact old default text for display deduplication only; stored merchant FAQs are not modified. */
+export const LEGACY_FAQ_TIMING: Pick<FaqItem, "q" | "a">[] = [
+  {
+    q: "제작은 얼마나 걸리나요?",
+    a: "수제 제작 평균 20~30일 + 배송입니다. 주문 후 제작에 들어갑니다.",
+  },
+  {
+    q: "How long does making take?",
+    a: "Handmade production is typically 20–30 days, then shipping. We start after you order.",
+  },
+  {
+    q: "제작은 얼마나 걸리나요?",
+    a: "수제 제작은 평균 20~30일(달력일 기준) 소요됩니다. 주문 후 제작에 들어가며, 배송 및 통관 기간은 별도입니다.",
+  },
+  {
+    q: "How long does making take?",
+    a: "Handmade production takes an average of 20–30 calendar days. We start after you order. Shipping and customs time are additional.",
+  },
+];
+
 export const DEFAULT_FAQS: FaqItem[] = [
   {
     id: "lead",
     q: "제작은 얼마나 걸리나요?",
-    a: "수제 제작 평균 20~30일 + 배송입니다. 주문 후 제작에 들어갑니다.",
+    a: productionCopy("ko").notice,
     enabled: true,
   },
   {
@@ -80,7 +102,7 @@ export const DEFAULT_FAQS_EN: FaqItem[] = [
   {
     id: "lead",
     q: "How long does making take?",
-    a: "Handmade production is typically 20–30 days, then shipping. We start after you order.",
+    a: productionCopy("en").notice,
     enabled: true,
   },
   {

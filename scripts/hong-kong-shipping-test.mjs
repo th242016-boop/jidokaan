@@ -31,7 +31,19 @@ async function load(path) {
       }, { identifier: path })
     : new SourceTextModule(stripTypeScriptTypes(await readFile(path, "utf8")), { identifier: path });
   modules.set(path, mod);
-  await mod.link((specifier) => load(resolve(dirname(path), `${specifier}.ts`)));
+  await mod.link(async (specifier) => {
+    if (specifier === "libphonenumber-js/max") {
+      if (modules.has(specifier)) return modules.get(specifier);
+      const exports = await import(specifier);
+      const external = new SyntheticModule(Object.keys(exports), function () {
+        for (const [name, value] of Object.entries(exports)) this.setExport(name, value);
+      }, { identifier: specifier });
+      modules.set(specifier, external);
+      await external.link(() => { throw new Error("UNEXPECTED_EXTERNAL_IMPORT"); });
+      return external;
+    }
+    return load(resolve(dirname(path), `${specifier}.ts`));
+  });
   return mod;
 }
 async function api(name) {
@@ -51,6 +63,7 @@ const i18n = await api("i18n");
 const addresses = await api("address-requirements");
 const quoteModule = await api("checkout-quote.server");
 const ems = await api("ems-workflow");
+const { IMPORT_POLICY_VERSION } = await api("country-import-policy");
 const quote = (country, qty = 1, settings = shipping.DEFAULT_SHIPPING) => shipping.quoteShipping({ country, qty, method: "standard", subtotalKrw: 288000 * qty, subtotalUsd: 250 * qty, settings });
 
 await check("Hong Kong selectable with correct country name and +852 phone prefix", () => {
@@ -58,7 +71,7 @@ await check("Hong Kong selectable with correct country name and +852 phone prefi
   assert.ok(hk);
   assert.equal(i18n.countryName(hk, "ko"), "홍콩");
   assert.equal(i18n.countryName(hk, "en"), "Hong Kong");
-  assert.equal(i18n.countryName(hk, "zh"), "香港");
+  assert.match(i18n.countryName(hk, "zh"), /香港/);
   assert.equal(phone.fullPhoneNumber("91234567", "HK"), "+852 91234567");
   assert.equal(phone.localPhoneNumber("+852 91234567", "HK"), "91234567");
   assert.equal(shipping.zoneForCountry("HK"), "asia");
@@ -92,8 +105,8 @@ await check("existing HK merchant override survives normalization", () => {
   assert.deepEqual(shipping.applyEmsPolicy(settings).countryRates.HK, settings.countryRates.HK);
 });
 
-currentCatalog = { products: [{ id: "test-shoe", name: { ko: "TEST ONLY" }, priceUsd: 25000, priceKrw: 288000, inStock: true, visible: true, customizable: false }], shipping: shipping.DEFAULT_SHIPPING, coupons: [] };
-const input = { country: "HK", pay: "paypal", email: "test@example.invalid", name: "TEST ONLY", phone: "+852 91234567", address: "TEST ADDRESS", city: "Hong Kong", region: "", postal: "", contactMethod: "email", termsAccepted: true, termsVersion: "test", checkoutLocale: "en", items: [{ productId: "test-shoe", qty: 1 }] };
+currentCatalog = { products: [{ id: "test-shoe", category: "custom", name: { ko: "TEST ONLY" }, priceUsd: 25000, priceKrw: 288000, inStock: true, visible: true, customizable: false }], shipping: shipping.DEFAULT_SHIPPING, coupons: [] };
+const input = { country: "HK", pay: "paypal", email: "test@example.invalid", name: "TEST ONLY", phone: "+852 91234567", address: "TEST ADDRESS", city: "Hong Kong", region: "", postal: "", contactMethod: "email", termsAccepted: true, termsVersion: "test", importPolicyVersion: IMPORT_POLICY_VERSION, checkoutLocale: "en", items: [{ productId: "test-shoe", qty: 1 }] };
 await check("server accepts HK without invented postcode and quotes catalog price plus shipping", async () => {
   const result = await quoteModule.quoteCheckout({ ...input, totalUsd: 1 });
   assert.equal(result.postal, "");
@@ -104,11 +117,11 @@ await check("server accepts HK without invented postcode and quotes catalog pric
   const two = await quoteModule.quoteCheckout({ ...input, items: [{ productId: "test-shoe", qty: 2 }] });
   assert.equal(two.totalUsd, 562);
 });
-await check("postcode exception preserves AE and requires real codes for other destinations", async () => {
+await check("historical AE postcode exception remains while new AE sales are blocked", async () => {
   assert.equal(addresses.requiresPostalCode(" hk "), false);
   assert.equal(addresses.requiresPostalCode("AE"), false);
   assert.equal(addresses.requiresPostalCode("SG"), true);
-  assert.equal((await quoteModule.quoteCheckout({ ...input, country: "AE" })).postal, "");
+  await assert.rejects(quoteModule.quoteCheckout({ ...input, country: "AE" }), /DESTINATION_SALES_UNAVAILABLE/);
   await assert.rejects(quoteModule.quoteCheckout({ ...input, country: "SG" }), /POSTAL_REQUIRED/);
   await assert.rejects(quoteModule.quoteCheckout({ ...input, country: "TW" }), /SHIPPING_COUNTRY/);
 });

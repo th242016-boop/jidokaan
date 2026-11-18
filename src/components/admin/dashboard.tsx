@@ -107,15 +107,16 @@ export function Dashboard({
           <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-[15px] font-semibold">
               <span className="inline-block size-2.5 rounded-full bg-[#00c73c]" />
-              정산 관리
+              주문 금액 참고
             </h2>
             <button type="button" onClick={() => onGo("settle")} className="text-[12px] text-[#00a832]">
               바로가기
             </button>
           </div>
-          <Row label="오늘정산" value={`${settleToday.toLocaleString()}원`} />
-          <Row label="정산예정" value={`${pending.toLocaleString()}원`} />
-          <Row label="이번 달 매출" value={`${orders.reduce((s, o) => s + (o.totalKrw || 0), 0).toLocaleString()}원`} />
+          <Row label="완료 주문 원화 기준액" value={`${settleToday.toLocaleString()}원`} />
+          <Row label="진행 주문 원화 기준액" value={`${pending.toLocaleString()}원`} />
+          <Row label="조회된 전체 주문 원화 기준액" value={`${orders.reduce((s, o) => s + (o.totalKrw || 0), 0).toLocaleString()}원`} />
+          <p className="mt-3 text-xs leading-relaxed text-[#888]">상품의 원화 기준 참고액입니다. 실제 외화 결제·환전·수수료 차감 후 정산액과 다릅니다. 전체 합계에는 미입금·취소 주문도 포함됩니다.</p>
         </section>
       </div>
 

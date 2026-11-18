@@ -10,10 +10,7 @@ import { KrOrderPanel } from "@/components/store/kr-order-panel";
 import { ProductVisual } from "@/components/store/product-visual";
 import { SiteShell } from "@/components/store/site-shell";
 import {
-  formatProductCompare,
-  formatProductPrice,
   isDomesticCustomer,
-  pickLocalized,
   t,
 } from "@/lib/i18n";
 import { findSku } from "@/lib/product-options";
@@ -22,10 +19,15 @@ import {
   MEN_BOOT_SIZES,
   naverProductUrl,
   productDisplayName,
+  localizedProductText,
   productGallery,
   WOMEN_BOOT_SIZES,
   type Product,
 } from "@/lib/products";
+import { storefrontProductPrice, storefrontProductCompare } from "@/lib/storefront-money";
+import { productionCopy } from "@/lib/production-copy";
+import { productOptionLabel, productShippingCopy, storefrontDetailCopy } from "@/lib/storefront-detail-copy";
+import { specialOrderContactHref, specialOrderCopy } from "@/lib/special-order-copy";
 import { useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
 import { SeoTags } from "@/components/seo-tags";
@@ -37,6 +39,8 @@ export const Route = createFileRoute("/products/$productId")({
 
 function ProductPage() {
   const { productId } = Route.useParams();
+  const locale = useStore((s) => s.locale);
+  const detailCopy = storefrontDetailCopy(locale);
   const { catalog, ready } = useCatalog();
   const product = catalog.products.find((p) => p.id === productId);
 
@@ -51,9 +55,9 @@ function ProductPage() {
     return (
       <SiteShell>
         <div className="container-page flex min-h-[40vh] flex-col items-center justify-center gap-4 py-20 text-center">
-          <p className="text-muted">상품을 찾을 수 없습니다.</p>
+          <p className="text-muted">{detailCopy.notFound}</p>
           <Button asChild>
-            <Link to="/shop">샵으로</Link>
+            <Link to="/shop">{detailCopy.backShop}</Link>
           </Button>
         </div>
       </SiteShell>
@@ -73,12 +77,16 @@ function ProductDetail({
 }) {
   const locale = useStore((s) => s.locale);
   const currency = useStore((s) => s.currency);
+  const country = useStore((s) => s.shippingCountry);
   const addToCart = useStore((s) => s.addToCart);
   const draftFit = useStore((s) => s.draftFit);
   const draftSize = useStore((s) => s.draftSize);
   const setDraftFit = useStore((s) => s.setDraftFit);
   const setDraftSize = useStore((s) => s.setDraftSize);
   const dict = t(locale);
+  const detailCopy = storefrontDetailCopy(locale);
+  const shippingCopy = productShippingCopy(locale);
+  const specialCopy = specialOrderCopy(locale, country);
 
   const [qty, setQty] = useState(1);
   const [krOrder, setKrOrder] = useState(false);
@@ -92,7 +100,7 @@ function ProductDetail({
   const [shot, setShot] = useState(0);
   const gallery = productGallery(product);
 
-  const compare = formatProductCompare(product, currency);
+  const compare = storefrontProductCompare(product, currency, country);
   const related = useMemo(
     () =>
       catalogProducts
@@ -119,7 +127,7 @@ function ProductDetail({
 
   function handleAdd() {
     if (optionOn && !optionOk) {
-      toast.error(locale === "ko" ? "품절이거나 없는 옵션입니다." : "Option unavailable");
+      toast.error(detailCopy.optionUnavailable);
       return;
     }
     addToCart(product.id, qty, {
@@ -138,7 +146,7 @@ function ProductDetail({
 
   function handleOrder() {
     if (optionOn && !optionOk) {
-      toast.error(locale === "ko" ? "품절이거나 없는 옵션입니다." : "Option unavailable");
+      toast.error(detailCopy.optionUnavailable);
       return;
     }
     if (isDomesticCustomer(currency)) {
@@ -164,7 +172,7 @@ function ProductDetail({
                 <div className="overflow-hidden rounded-2xl bg-surface shadow-soft">
                   <img
                     src={gallery[shot] ?? gallery[0]}
-                    alt=""
+                    alt={productDisplayName(product, locale)}
                     className="aspect-[4/5] w-full object-contain"
                   />
                 </div>
@@ -174,6 +182,8 @@ function ProductDetail({
                       <button
                         key={`${i}-${src.slice(0, 20)}`}
                         type="button"
+                        aria-label={`${productDisplayName(product, locale)} · ${i + 1} / ${gallery.length}`}
+                        aria-pressed={shot === i}
                         onClick={() => setShot(i)}
                         className={`size-16 shrink-0 overflow-hidden rounded-lg border-2 ${
                           shot === i ? "border-primary" : "border-transparent"
@@ -203,13 +213,13 @@ function ProductDetail({
                 {productDisplayName(product, locale)}
               </h1>
               <p className="text-base text-muted">
-                {pickLocalized(product.tagline, locale)}
+                {localizedProductText(product, "tagline", locale)}
               </p>
             </div>
 
             <div className="mt-6 flex items-end gap-3">
               <p className="price-num text-3xl font-semibold">
-                {formatProductPrice(product, currency)}
+                {storefrontProductPrice({ ...product, priceKrw: product.priceKrw + extraKrw, priceUsd: product.priceUsd + extraUsd }, currency, country, locale)}
               </p>
               {compare ? (
                 <p className="price-num pb-1 text-base text-subtle line-through">
@@ -223,11 +233,12 @@ function ProductDetail({
                 <div>
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <p className="text-sm font-medium">{dict.product.size}</p>
-                    <div className="flex gap-1.5">
+                    <div className="flex flex-wrap gap-1.5" role="group" aria-label={`${dict.custom.men} / ${dict.custom.women}`}>
                       {(["women", "men"] as const).map((g) => (
                         <button
                           key={g}
                           type="button"
+                          aria-pressed={draftFit === g}
                           onClick={() => {
                             const next = g === "women" ? WOMEN_BOOT_SIZES : MEN_BOOT_SIZES;
                             setDraftFit(g);
@@ -235,7 +246,7 @@ function ProductDetail({
                               setDraftSize(closestBootSize(draftSize, next));
                             }
                           }}
-                          className={`h-9 rounded-full px-3.5 text-sm font-medium ${
+                          className={`min-h-11 rounded-full px-3.5 text-sm font-medium ${
                             draftFit === g
                               ? "bg-primary text-primary-fg"
                               : "border border-border bg-surface text-muted hover:text-fg"
@@ -246,12 +257,13 @@ function ProductDetail({
                       ))}
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2" role="group" aria-label={dict.product.size}>
                     {(draftFit === "women" ? WOMEN_BOOT_SIZES : MEN_BOOT_SIZES).map(
                       (s) => (
                         <button
                           key={s}
                           type="button"
+                          aria-pressed={draftSize === s}
                           onClick={() => setDraftSize(s)}
                           className={`min-h-11 min-w-14 rounded-full border px-3 text-sm font-medium transition-colors ${
                             draftSize === s
@@ -270,31 +282,33 @@ function ProductDetail({
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button size="lg" className="h-14 flex-1 text-base font-semibold" asChild>
+                  <Button size="lg" className="min-h-14 flex-1 whitespace-normal py-3 text-center text-base font-semibold" asChild>
                     <Link to="/customize">{dict.product.customOrder}</Link>
                   </Button>
                   <Button
                     size="lg"
                     variant="secondary"
-                    className="h-14 flex-1 text-base font-semibold"
-                    type="button"
-                    onClick={() => toast.message(dict.product.specialSoon)}
+                    className="min-h-14 flex-1 whitespace-normal py-3 text-center text-base font-semibold"
+                    asChild
                   >
-                    {dict.product.specialOrder}
+                    <a href={specialOrderContactHref(locale, country)} target={country === "KR" ? undefined : "_blank"} rel={country === "KR" ? undefined : "noopener noreferrer"}>
+                      {dict.product.specialOrder} · {specialCopy.contactLabel}
+                    </a>
                   </Button>
                 </div>
 
+                <p className="text-sm leading-relaxed text-muted">{specialCopy.notice}</p>
                 <div className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-4">
                   <Truck className="mt-0.5 size-5 shrink-0 text-accent" />
                   <div className="text-sm">
-                    <p className="font-medium">{dict.product.shipsWorldwide}</p>
-                    <p className="mt-1 text-muted">{dict.product.freeOver}</p>
+                    <p className="font-medium">{shippingCopy.title}</p>
+                    <p className="mt-1 text-muted">{shippingCopy.body}</p>
                   </div>
                 </div>
                 {product.leadDays ? (
                   <p className="text-sm text-muted">
                     <span className="font-medium text-fg">{dict.product.leadTime}: </span>
-                    {locale === "ko" ? "평균 20~30일" : "typically 20–30 days"}
+                    {productionCopy(locale).average}
                   </p>
                 ) : null}
               </div>
@@ -305,45 +319,41 @@ function ProductDetail({
               {optionOn ? (
                 <div className="space-y-4">
                   {(product.options?.groups ?? []).map((g) => (
-                    <div key={g.name}>
-                      <p className="mb-2 text-sm font-medium">{g.name}</p>
+                    <label key={g.name} className="block">
+                      <span className="mb-2 block text-sm font-medium">{productOptionLabel(g.name, locale)}</span>
                       <select
-                        className="h-12 w-full rounded-lg border border-border bg-surface px-3 text-sm"
-                        value={picked[g.name] ?? ""}
+                        className="h-12 w-full rounded-lg border border-border bg-surface px-3 text-base"
+                        value={picked[g.name] ?? g.values[0] ?? ""}
                         onChange={(e) =>
                           setPicked((s) => ({ ...s, [g.name]: e.target.value }))
                         }
                       >
                         <option value="">
-                          {locale === "ko" ? "아래 옵션 중 선택" : "Select an option"}
+                          {detailCopy.chooseOption}
                         </option>
                         {g.values.map((v) => (
                           <option key={v} value={v}>
-                            {v}
+                            {productOptionLabel(v, locale)}
                           </option>
                         ))}
                       </select>
-                    </div>
+                    </label>
                   ))}
                   {selectedValues.every(Boolean) ? (
                     sku ? (
                       <p className="text-xs text-muted">
                         {sku.stock > 0
-                          ? locale === "ko"
-                            ? `재고 ${sku.stock}개${extraKrw ? ` · 추가 ₩${extraKrw.toLocaleString()}` : ""}`
-                            : `Stock ${sku.stock}`
-                          : locale === "ko"
-                            ? "이 옵션은 품절입니다"
-                            : "Sold out"}
+                          ? detailCopy.stock.replace("{n}", String(sku.stock))
+                          : detailCopy.soldOut}
                       </p>
                     ) : (
                       <p className="text-xs text-muted">
-                        {locale === "ko" ? "선택 불가 조합입니다." : "Unavailable combination"}
+                        {detailCopy.optionUnavailable}
                       </p>
                     )
                   ) : (
                     <p className="text-xs text-muted">
-                      {locale === "ko" ? "옵션을 모두 선택해 주세요." : "Please select all options."}
+                      {detailCopy.chooseAll}
                     </p>
                   )}
                 </div>
@@ -352,11 +362,12 @@ function ProductDetail({
               {!optionOn && product.sizes && product.sizes.length > 0 ? (
                 <div>
                   <p className="mb-2 text-sm font-medium">{dict.product.size}</p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2" role="group" aria-label={dict.product.size}>
                     {product.sizes.map((s) => (
                       <button
                         key={s}
                         type="button"
+                        aria-pressed={size === s}
                         onClick={() => setSize(s)}
                         className={`min-h-11 min-w-14 rounded-full border px-3 text-sm font-medium transition-colors ${
                           size === s
@@ -374,19 +385,20 @@ function ProductDetail({
               {product.colors.length > 0 && !product.customizable ? (
                 <div>
                   <p className="mb-2 text-sm font-medium">{dict.product.color}</p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2" role="group" aria-label={dict.product.color}>
                     {product.colors.map((c) => (
                       <button
                         key={c}
                         type="button"
+                        aria-pressed={color === c}
                         onClick={() => setColor(c)}
-                        className={`size-9 rounded-full border-2 transition ${
+                        className={`size-11 rounded-full border-2 transition ${
                           color === c
                             ? "border-primary bg-primary ring-2 ring-primary/30"
                             : "border-border"
                         }`}
                         style={{ background: c }}
-                        aria-label={c}
+                        aria-label={`${dict.product.color}: ${c}`}
                       />
                     ))}
                   </div>
@@ -399,6 +411,7 @@ function ProductDetail({
                   <button
                     type="button"
                     className="flex size-11 items-center justify-center rounded-full hover:bg-surface-muted"
+                    aria-label={detailCopy.decrease}
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
                   >
                     <Minus className="size-4" />
@@ -409,6 +422,7 @@ function ProductDetail({
                   <button
                     type="button"
                     className="flex size-11 items-center justify-center rounded-full hover:bg-surface-muted"
+                    aria-label={detailCopy.increase}
                     onClick={() => setQty((q) => q + 1)}
                   >
                     <Plus className="size-4" />
@@ -448,8 +462,8 @@ function ProductDetail({
               <div className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-4">
                 <Truck className="mt-0.5 size-5 shrink-0 text-accent" />
                 <div className="text-sm">
-                  <p className="font-medium">{dict.product.shipsWorldwide}</p>
-                  <p className="mt-1 text-muted">{dict.product.freeOver}</p>
+                  <p className="font-medium">{shippingCopy.title}</p>
+                  <p className="mt-1 text-muted">{shippingCopy.body}</p>
                 </div>
               </div>
               {product.leadDays ? (
@@ -467,7 +481,7 @@ function ProductDetail({
         </div>
       </div>
 
-      <ProductDetailStory product={product} locale={locale} />
+      <ProductDetailStory product={product} locale={locale} currency={currency} country={country} />
 
       {related.length > 0 ? (
         <div className="container-page pb-16">

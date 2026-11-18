@@ -1,3 +1,4 @@
+import { adminOrderWithGuidance } from "@/lib/admin-shipping-guidance.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { AUTH_HEADERS, assertSession } from "@/lib/admin-auth.server";
 import {
@@ -39,7 +40,9 @@ export const Route = createFileRoute("/api/ems")({
           const token = tokenFor(request);
           await assertSession(token);
           const id = new URL(request.url).searchParams.get("id");
-          return json(id ? await readEmsOrder(token, id) : { capabilities: getEmsCapabilities() });
+          if (!id) return json({ capabilities: getEmsCapabilities() });
+          const result = await readEmsOrder(token, id);
+          return json({ ...result, order: adminOrderWithGuidance(result.order) });
         } catch (error) {
           return errorResponse(error);
         }
@@ -51,8 +54,10 @@ export const Route = createFileRoute("/api/ems")({
             token = tokenFor(request, body);
           await assertSession(token);
           const action = String(body.action || "");
-          if (action === "prepare")
-            return json(await prepareEmsOrders(token, body.ids as string[]));
+          if (action === "prepare") {
+            const result = await prepareEmsOrders(token, body.ids as string[]);
+            return json({ ...result, orders: result.orders.map(adminOrderWithGuidance) });
+          }
           if (action === "export") return json(await exportEmsOrders(token, body.ids as string[]));
           const id = String(body.id || ""),
             version = Number(body.version),
@@ -67,7 +72,7 @@ export const Route = createFileRoute("/api/ems")({
               body.confirmed === true,
             );
             return json({
-              order,
+              order: adminOrderWithGuidance(order),
               revision: emsOrderRevision(order),
               capabilities: getEmsCapabilities(),
               issues: emsIssues(order),
@@ -82,7 +87,7 @@ export const Route = createFileRoute("/api/ems")({
               String(body.packageId || ""),
               body.confirmed === true,
             );
-            return json({ order, capabilities: getEmsCapabilities(), issues: emsIssues(order) });
+            return json({ order: adminOrderWithGuidance(order), capabilities: getEmsCapabilities(), issues: emsIssues(order) });
           }
           if (
             ![
@@ -132,7 +137,7 @@ export const Route = createFileRoute("/api/ems")({
               note: String(body.note || ""),
             };
           const order = await mutateEms(token, id, version, operationId, mutation);
-          return json({ order, capabilities: getEmsCapabilities(), issues: emsIssues(order) });
+          return json({ order: adminOrderWithGuidance(order), capabilities: getEmsCapabilities(), issues: emsIssues(order) });
         } catch (error) {
           return errorResponse(error);
         }

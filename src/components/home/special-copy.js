@@ -67,6 +67,23 @@ export default {
     "specialLook4": "格纹 · 黑色",
     "specialDescription": "采用图案及特殊材质的定制方式。<br>特别定制模拟器正在筹备中。<br><br><strong>海外订单基础价格为280美元。运费及适用的进口关税、税费另计。</strong>"
   },
+  "zh-Hant": {
+    "specialGalleryIndex": "02 / 特別訂製系列",
+    "specialGalleryTitle": "不止於色彩，<br><em>更在於材質。</em>",
+    "specialGalleryLabel": "特別訂製示例鞋款",
+    "specialGalleryDescription": "採用其他皮革及特殊圖案、紋理材質的製作示例。請在下單前諮詢您希望使用的材質及製作可行性。 海外訂單基礎價格為280美元。運費及適用的進口關稅、稅費另計。",
+    "specialGalleryInfo": "特別訂製說明 ↗",
+    "specialSwipe": "左右滑動查看示例",
+    "specialViewExamples": "查看特別訂製示例 ↓",
+    "specialDialogIndex": "JIDOKAAN 特別訂製系列",
+    "specialExampleProduct": "此鞋款為特別訂製示例。請在下單前通過Naver TalkTalk消息或客服電話諮詢材質及製作可行性。",
+    "specialLook0": "黑色紋理 · 藍色",
+    "specialLook1": "橄欖綠紋理 · 白色",
+    "specialLook2": "迷彩 · 灰色",
+    "specialLook3": "牛仔紋理 · 海軍藍",
+    "specialLook4": "格紋 · 黑色",
+    "specialDescription": "採用圖案及特殊材質的訂製方式。<br>特別訂製模擬器正在籌備中。<br><br><strong>海外訂單基礎價格為280美元。運費及適用的進口關稅、稅費另計。</strong>"
+  },
   "es": {
     "specialGalleryIndex": "02 / Colección de pedidos especiales",
     "specialGalleryTitle": "Más allá del color.<br><em>Elige el material.</em>",

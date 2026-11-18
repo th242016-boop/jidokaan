@@ -1,5 +1,6 @@
 import type { ProductOptions } from "./product-options";
 import { getCatalogCache } from "./catalog-cache";
+import { catalogProductCopy } from "./catalog-product-copy";
 
 export type CategoryId = "custom" | "ready" | "care" | "gear";
 
@@ -136,14 +137,14 @@ export const PRODUCTS: Product[] = [
 · 부위별 컬러 커스텀
 · 생고무창 접지력
 · 미즈노 피니셔와 같은 수제 공정
-· 국내 제작 → 수선 가능, 아웃솔 교체 50,000원
+· 국내 제작 → 수선 가능, 아웃솔 교체 65,000원
 
 ■ 사이즈 가이드
 여성 225–245 / 남성 240–300
 여성은 보통 정사이즈, 남성은 일반 운동화보다 약간 크다는 평가가 많아 한 치수 작게 권장합니다. 발볼이 두꺼우면 정사이즈가 더 맞을 수 있습니다.
 
 ■ 제작 · 배송
-수제 제작 평균 20~30일 + 배송
+제작은 평균 15~21일(달력일 기준) 소요됩니다. 배송 및 통관 기간은 별도입니다.
 한국 288,000원 / 해외 USD 250`,
       en: `JIDOKAAN DRONE is a fight-ready custom boxing boot, handmade one pair at a time in Seongsu, Seoul.
 
@@ -151,18 +152,18 @@ Pick colors and size in the simulator — tap the large Custom order button.
 
 • Panel-by-panel color custom
 • Gum outsole grip
-• Handmade build, repairable in Korea (outsole recraft ₩50,000)
+• Handmade build, repairable in Korea (outsole recraft ₩65,000)
 • Women’s 225–245, men’s 240–300. Men often size down one.
-• About 20–30 days to make. KR ₩288,000 / worldwide USD 250.`,
+• Production takes an average of 15–21 calendar days; shipping and customs time are additional. KR ₩288,000 / international product price USD 250. Select your destination to check availability and shipping cost.`,
       ja: `JIDOKAAN DRONEはソウル聖水で一足ずつ手作りする試合用カスタムボクシングシューズです。
 
 カラーとサイズはシミュレーターで選びます。大きな「カスタム注文」ボタンへ。
 
 ・パネルごとにカラー指定
 ・生ゴムアウトソール
-・韓国で修理可能（アウトソール交換₩50,000）
+・韓国で修理可能（アウトソール交換₩65,000）
 ・女性225–245 / 男性240–300。男性はワンサイズ下げ推奨。
-・製作約20–30日。韓国₩288,000 / 海外USD 250。`,
+・製作には平均15～21日（暦日）かかります。配送・通関期間は別途かかります。韓国₩288,000 / 海外の商品価格USD 250。配送先を選択し、配送可否と送料をご確認ください。`,
     },
     category: "custom",
     priceUsd: 25000,
@@ -222,17 +223,17 @@ Pick colors and size in the simulator — tap the large Custom order button.
 남성은 한 치수 작게, 발볼이 두꺼우면 정사이즈.
 
 ■ 제작 · 가격
-수제 평균 20~30일. 한국 288,000원 / 해외 USD 250`,
+제작은 평균 15~21일(달력일 기준) 소요됩니다. 배송 및 통관 기간은 별도입니다. 한국 288,000원 / 해외 USD 250`,
       en: `DRONE mid-cut. Same handmade fight boot with a taller collar for extra ankle support.
 
 Colors and size are chosen in the simulator via Custom order.
 
 Women 225–245 / men 240–300. Men often size down one.
-About 20–30 days. KR ₩288,000 / worldwide USD 250.`,
+Production takes an average of 15–21 calendar days; shipping and customs time are additional. KR ₩288,000 / international product price USD 250. Select your destination to check availability and shipping cost.`,
       ja: `DRONEミッドカット。同じ手製で、足首サポートのためカラーが高めです。
 
 カラーとサイズはシミュレーターで選択。
-製作約20–30日。韓国₩288,000 / 海外USD 250。`,
+製作には平均15～21日（暦日）かかります。配送・通関期間は別途かかります。韓国₩288,000 / 海外の商品価格USD 250。配送先を選択し、配送可否と送料をご確認ください。`,
     },
     category: "custom",
     priceUsd: 25000,
@@ -602,20 +603,66 @@ JDKL A2 / 200cm × 6mm / 폴리에스터 로프`,
 
 const HANGUL = /[가-힣]/;
 
+/** Summary/ordering copy only. Product detail renders the unmodified public description. */
+export function currentFootwearDescription(id: string, text: string): string {
+  if (!["drone-custom", "drone-mid"].includes(id)) return text;
+  const current = id === "drone-mid" ? text
+    .replace("목이 조금 더 높아 발목 지지가 필요할 때 고릅니다.", "장목보다 낮은 높이로 제작됩니다.")
+    .replace("중목 미드컷 — 발목 지지 강화", "중목 미드컷 — 장목보다 낮은 높이")
+    .replace("Same handmade fight boot with a taller collar for extra ankle support.", "Handmade fight boots with a lower collar than the high-cut model.")
+    .replace("同じ手製で、足首サポートのためカラーが高めです。", "ハイカットより履き口が低い手作りのボクシングシューズです。")
+    : text;
+  return current
+    .replaceAll("아웃솔 교체 50,000원", "아웃솔 교체 65,000원")
+    .replaceAll("outsole recraft ₩50,000", "outsole recraft ₩65,000")
+    .replaceAll("アウトソール交換₩50,000", "アウトソール交換₩65,000")
+    .replaceAll("수제 제작 평균 20~30일 + 배송", "제작은 평균 15~21일(달력일 기준) 소요됩니다. 배송 및 통관 기간은 별도입니다.")
+    .replaceAll("수제 평균 20~30일.", "제작은 평균 15~21일(달력일 기준) 소요됩니다. 배송 및 통관 기간은 별도입니다.")
+    .replace(/About 20–30 days(?: to make)?\. KR ₩288,000 \/ worldwide USD (?:230|250)\./g,
+      "Production takes an average of 15–21 calendar days; shipping and customs time are additional. KR ₩288,000 / international product price USD 250. Select your destination to check availability and shipping cost.")
+    .replace(/製作約20–30日。韓国₩288,000 \/ 海外USD (?:230|250)。/g,
+      "製作には平均15～21日（暦日）かかります。配送・通関期間は別途かかります。韓国₩288,000 / 海外の商品価格USD 250。配送先を選択し、配送可否と送料をご確認ください。");
+}
+
+function isOriginalCatalogText(id: string, field: "name" | "tagline" | "description", value: Localized, locale: string) {
+  const original = PRODUCTS.find((p) => p.id === id)?.[field];
+  if (!original) return false;
+  const translated = value as Localized & Record<string, string>;
+  // A Korean merchant edit must not disable translations of unchanged English/Japanese copy.
+  // A merchant's own translation (or edited fallback English) always takes precedence.
+  const key = translated[locale] ? locale : translated.en ? "en" : "ko";
+  const baseline = (original as Localized & Record<string, string>)[key];
+  if (typeof baseline !== "string" || typeof translated[key] !== "string") return false;
+  const normalize = (text: string) => field === "description" ? currentFootwearDescription(id, text) : text;
+  return normalize(translated[key]) === normalize(baseline);
+}
+
+/** Translate the original catalog without replacing subsequent merchant-written copy. */
+export function localizedProductText(product: Product, field: "tagline" | "description", locale: string) {
+  const copy = catalogProductCopy(product.id, locale);
+  if (copy && isOriginalCatalogText(product.id, field, product[field], locale)) return copy[field];
+  const value = product[field] as Localized & Record<string, string>;
+  const text = value[locale] || value.en || value.ko || "";
+  return field === "description" ? currentFootwearDescription(product.id, text) : text;
+}
+
 export function productDisplayName(
   product: Pick<Product, "id" | "name" | "shape" | "customizable">,
   locale: string,
 ) {
+  // Keep the merchant's Korean storefront title intact; translations are for other locales.
   if (locale === "ko") return product.name.ko || product.name.en || "지도칸";
+  const copy = catalogProductCopy(product.id, locale);
+  if (copy && isOriginalCatalogText(product.id, "name", product.name, locale)) return copy.name;
   const preferred =
     locale === "ja" ? product.name.ja || product.name.en : product.name.en;
   if (preferred && !HANGUL.test(preferred)) return preferred;
   if (product.name.en && !HANGUL.test(product.name.en)) return product.name.en;
   if (product.id.includes("mid") || product.shape === "classic") {
-    return "JIDOKAAN DRONE Mid-Cut Custom Boxing Shoes";
+    return catalogProductCopy("drone-mid", locale)!.name;
   }
   if (product.customizable || product.shape === "drone") {
-    return "JIDOKAAN DRONE Custom Boxing Shoes";
+    return catalogProductCopy("drone-custom", locale)!.name;
   }
   return product.name.en || product.name.ja || "JIDOKAAN";
 }

@@ -25,3 +25,6 @@ AGENTS.project.md
 startup.sh
 
 data/
+dist-review/
+.review-build/
+.release-local/

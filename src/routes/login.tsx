@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SiteShell } from "@/components/store/site-shell";
 import { authClient, authEnabled, signIn, signInSocial } from "@/lib/auth/client";
-import { shipCountryCode, t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -32,25 +32,14 @@ function inPreviewHost() {
   );
 }
 
-function explainError(raw: string, failed: string) {
-  const msg = raw.trim();
-  const lower = msg.toLowerCase();
-  if (!msg) return failed;
-  if (lower.includes("provider not found") || lower.includes("provider_not_found")) {
-    return failed;
-  }
-  if (lower.includes("invalid origin")) return failed;
-  if (lower.includes("invalid email") || lower.includes("invalid password")) return failed;
-  if (lower.includes("user already exists") || lower.includes("already exists")) {
-    return failed;
-  }
-  return msg.length > 180 ? failed : msg;
+function explainError(raw: string, failed: string, phoneInvalid: string) {
+  return raw.trim() === phoneInvalid ? phoneInvalid : failed;
 }
 
 function LoginPage() {
   const locale = useStore((s) => s.locale);
   const dict = t(locale);
-  const [domesticLogin, setDomesticLogin] = useState(true);
+  const domesticLogin = useStore((s) => s.shippingCountry === "KR");
   const navigate = useNavigate();
   const { next } = Route.useSearch();
   const dest = safeNext(next);
@@ -63,10 +52,6 @@ function LoginPage() {
     null,
   );
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setDomesticLogin(shipCountryCode() === "KR");
-  }, []);
 
   async function onGoogle() {
     setError(null);
@@ -84,7 +69,7 @@ function LoginPage() {
         errorCallbackURL: "/login",
       });
     } catch (err) {
-      setError(explainError(err instanceof Error ? err.message : "", dict.login.failed));
+      setError(explainError(err instanceof Error ? err.message : "", dict.login.failed, dict.login.phoneInvalid));
     } finally {
       setBusy(null);
     }
@@ -99,7 +84,7 @@ function LoginPage() {
         errorCallbackURL: "/login",
       });
     } catch (err) {
-      setError(explainError(err instanceof Error ? err.message : "", dict.login.failed));
+      setError(explainError(err instanceof Error ? err.message : "", dict.login.failed, dict.login.phoneInvalid));
     } finally {
       setBusy(null);
     }
@@ -114,7 +99,7 @@ function LoginPage() {
         errorCallbackURL: "/login",
       });
     } catch (err) {
-      setError(explainError(err instanceof Error ? err.message : "", dict.login.failed));
+      setError(explainError(err instanceof Error ? err.message : "", dict.login.failed, dict.login.phoneInvalid));
     } finally {
       setBusy(null);
     }
@@ -149,7 +134,7 @@ function LoginPage() {
       }
       await navigate({ to: dest });
     } catch (err) {
-      setError(explainError(err instanceof Error ? err.message : "", dict.login.failed));
+      setError(explainError(err instanceof Error ? err.message : "", dict.login.failed, dict.login.phoneInvalid));
     } finally {
       setBusy(null);
     }
@@ -171,7 +156,7 @@ function LoginPage() {
           <p className="mt-2 text-sm text-muted">
             {domesticLogin
               ? dict.login.body
-              : "Google is recommended for international orders. You can also use email."}
+              : dict.login.internationalBody}
           </p>
 
           <div className="mt-6 space-y-3">
@@ -242,7 +227,6 @@ function LoginPage() {
                       type="tel"
                       required
                       inputMode="tel"
-                      placeholder="010-0000-0000"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       autoComplete="tel"

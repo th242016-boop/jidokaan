@@ -95,6 +95,14 @@ try {
     await assert.rejects(orders.listOrders("wrong"), /AUTH/);
     assert.equal((await orders.listOrders(token)).length, 1);
   });
+  await check("legacy PayPal lookup requires matching email and preserves stored amounts", async () => {
+    const found = await orders.lookupOrderByPaypalId(input.paypalOrderId, `  ${input.email.toUpperCase()}  `);
+    assert.equal(found.id, saved.id);
+    assert.deepEqual(found.items, saved.items);
+    assert.equal(found.totalUsd, saved.totalUsd);
+    assert.equal(await orders.lookupOrderByPaypalId(input.paypalOrderId, "other@example.invalid"), null);
+    assert.equal(await orders.lookupOrderByPaypalId("TEST-MISSING-PAYMENT", input.email), null);
+  });
   await check("PayPal retries produce one order, even concurrently", async () => {
     const copies = await Promise.all([orders.placeOrder(input), orders.placeOrder(input)]);
     assert.ok(copies.every((o) => o.id === saved.id));
@@ -132,12 +140,12 @@ try {
     assert.equal(o.status, "wait");
     assert.equal((await orders.lookupOrder(o.id, o.email)).instagram, "");
   });
-  await check("original carton EMS country rates and one carton per pair", async () => {
+  await check("current approved EMS country rates and one carton per pair", async () => {
     for (const [country, usd] of [
       ["SG", 27],
-      ["CN", 28],
       ["US", 85],
-      ["AE", 61],
+      ["CH", 61],
+      ["MX", 60],
     ]) {
       const q = shipping.quoteShipping({
         country,
@@ -159,7 +167,7 @@ try {
       }).usd,
       170,
     );
-    for (const country of ["IT", "ZA", ""])
+    for (const country of ["CN", "IT", "ZA", "AE", "FR", "ES", "DE", "NL", ""])
       assert.equal(
         shipping.quoteShipping({
           country,
@@ -294,9 +302,11 @@ try {
   );
   // Historical records above deliberately have partial design data and old prices.
   // New checkout requires a complete simulator specification and saved preview.
+  input.phone = "+6581234567";
   input.contactMethod = "instagram";
   input.termsAccepted = true;
   input.termsVersion = design.ORDER_TERMS_VERSION;
+  input.importPolicyVersion = (await server.ssrLoadModule("/src/lib/country-import-policy.ts")).IMPORT_POLICY_VERSION;
   input.checkoutLocale = "en";
   input.items[0].partNames = { ...sim.defaultPartNames(), b: "GOLD", k: "BLACK" };
   input.items[0].partColors = design.designColors(input.items[0].partNames);
@@ -403,9 +413,9 @@ try {
     async () => {
       const config = { ...shipping.DEFAULT_SHIPPING, exchangeKrwPerUsd: 1250 };
       await catalog.writeShipping(token, config);
-      const updated = await quoteModule.quoteCheckout({ ...input, country: "US", region: "CA" });
+      const updated = await quoteModule.quoteCheckout({ ...input, country: "US", region: "CA", postal: "94105" });
       assert.equal(updated.shippingUsd, 91);
-      assert.equal(updated.totalUsd, 321);
+      assert.equal(updated.totalUsd, 341);
       assert.match(updated.shippingBasis, /1,250|1250/);
       assert.equal(
         shipping.quoteShipping({
@@ -437,9 +447,9 @@ try {
         shippingUsd: 0,
         items: input.items.map((i) => ({ ...i, priceUsd: 1 })),
       });
-      assert.equal(q.totalUsd, 257);
+      assert.equal(q.totalUsd, 277);
       assert.equal(q.shippingUsd, 27);
-      assert.equal(q.items[0].priceUsd, 230);
+      assert.equal(q.items[0].priceUsd, 250);
     },
   );
   await check("country override is used by both server quote and checkout calculator", async () => {
@@ -503,7 +513,7 @@ try {
           quoteModule.quoteCheckout({ ...input, items: [{ ...input.items[0], ...change }] }),
           /DESIGN_REQUIRED/,
         );
-      const us = await quoteModule.quoteCheckout({ ...input, country: "US", region: "CA" });
+      const us = await quoteModule.quoteCheckout({ ...input, country: "US", region: "CA", postal: "94105" });
       assert.equal(us.shippingUsd, 85);
       assert.equal(us.dutyTerms, "PREPAID_BEFORE_DISPATCH");
       assert.equal(us.acknowledgedTerms.duty, copies.CHECKOUT_COPY.en.usDuty);
@@ -529,7 +539,8 @@ try {
       assert.equal(pending[0].payload.instagram, "test_customer");
       assert.equal(pending[0].payload.items[0].designPreview, input.items[0].designPreview);
       assert.equal(pending[0].payload.termsVersion, design.ORDER_TERMS_VERSION);
-      assert.equal(request.purchase_units[0].shipping.address.country_code, "SG");
+      assert.equal(request.purchase_units[0].shipping.address.country_code, pending[0].payload.country);
+      assert.equal(pending[0].payload.importPolicyVersion, input.importPolicyVersion);
       assert.equal(
         request.payment_source.paypal.experience_context.shipping_preference,
         "SET_PROVIDED_ADDRESS",
@@ -559,7 +570,7 @@ try {
           amount: { currency_code: "USD", value: record.expected },
           seller_receivable_breakdown: {
             paypal_fee: { currency_code: "USD", value: "11.21" },
-            net_amount: { currency_code: "USD", value: "236.79" },
+            net_amount: { currency_code: "USD", value: (Number(record.expected) - 11.21).toFixed(2) },
           },
         },
       ];
@@ -574,10 +585,10 @@ try {
   await check(
     "PayPal checkout saves design BEFORE capture; capture stores complete order",
     async () => {
-      newId = await drafts.startPaypalCheckout(input, "257.00");
+      newId = await drafts.startPaypalCheckout(input, "277.00");
       const o = await drafts.completePaypalCheckout(newId, true);
       assert.equal(o.paypalOrderId, newId);
-      assert.equal(o.paypalNetUsd, 236.79);
+      assert.equal(o.paypalNetUsd, 265.79);
       assert.equal(o.paypalShipping.country, "SG");
       assert.deepEqual(o.items[0].partNames, input.items[0].partNames);
       assert.equal(o.items[0].designPreview, input.items[0].designPreview);
@@ -599,7 +610,7 @@ try {
     },
   );
   await check("database failure after payment is recoverable without a second charge", async () => {
-    const id = await drafts.startPaypalCheckout(input, "257.00");
+    const id = await drafts.startPaypalCheckout(input, "277.00");
     const realQuery = sql.query;
     sql.query = async (text, ...args) => {
       if (text.startsWith("insert into store_orders")) throw new Error("TEST_DB_OUTAGE");
@@ -613,14 +624,14 @@ try {
     assert.ok((await drafts.pendingPaypalCheckouts(token)).some((p) => p.paypalOrderId === id));
     const charges = captureCalls;
     const recovered = await drafts.recoverPaypalCheckout(token, id);
-    assert.equal(recovered.totalUsd, 257);
+    assert.equal(recovered.totalUsd, 277);
     assert.equal(captureCalls, charges);
     assert.ok(!(await drafts.pendingPaypalCheckouts(token)).some((p) => p.paypalOrderId === id));
   });
   await check(
     "an in-progress PayPal quote keeps its original amount and terms after settings change",
     async () => {
-      const id = await drafts.startPaypalCheckout(input, "257.00");
+      const id = await drafts.startPaypalCheckout(input, "277.00");
       const original = await sql.query(
         "select payload from paypal_checkout_drafts where paypal_id=$1",
         [id],
@@ -633,14 +644,36 @@ try {
       await catalog.writeShipping(token, { ...shipping.DEFAULT_SHIPPING, exchangeKrwPerUsd: 1100 });
       const completed = await drafts.completePaypalCheckout(id, true);
       assert.equal(completed.shippingUsd, 27);
-      assert.equal(completed.totalUsd, 257);
+      assert.equal(completed.totalUsd, 277);
       assert.equal(completed.termsVersion, "2026-09-30-ems-design-v1");
       assert.equal(completed.shippingBasis, payload.shippingBasis);
       await catalog.writeShipping(token, shipping.DEFAULT_SHIPPING);
     },
   );
+  await check("Mexico full-price checkout persists once with private admin notes excluded", async () => {
+    const mexico = { ...input, country: "MX", city: "Ciudad de Mexico", region: "CDMX", postal: "06000", phone: "+525555001234", checkoutLocale: "es" };
+    const quote = await quoteModule.quoteCheckout(mexico);
+    assert.equal(quote.totalUsd, 310);
+    assert.equal(quote.shippingUsd, 60);
+    assert.equal(quote.items[0].priceUsd, 250);
+    const id = await drafts.startPaypalCheckout(mexico, "310.00");
+    const completed = await drafts.completePaypalCheckout(id, true);
+    assert.equal(completed.country, "MX");
+    assert.equal(completed.paypalShipping.country, "MX");
+    assert.equal(completed.totalUsd, 310);
+    assert.equal(completed.items[0].designPreview, input.items[0].designPreview);
+    const charges = captureCalls;
+    const retries = await Promise.all([drafts.completePaypalCheckout(id, false), drafts.completePaypalCheckout(id, false)]);
+    assert.ok(retries.every(order => order.id === completed.id));
+    assert.equal(captureCalls, charges);
+    assert.equal((await orders.listOrders(token)).filter(order => order.paypalOrderId === id).length, 1);
+    const customer = orderTypes.customerOrder({ ...completed, note: "PRIVATE IMPORT CHECK" });
+    assert.equal("note" in customer, false);
+    assert.ok(!JSON.stringify(customer).includes("PRIVATE IMPORT CHECK"));
+    assert.ok(!JSON.stringify(customer).includes("50" + " USD"));
+  });
   await check("admin recovery never captures an unpaid draft", async () => {
-    const id = await drafts.startPaypalCheckout(input, "257.00");
+    const id = await drafts.startPaypalCheckout(input, "277.00");
     const charges = captureCalls;
     await assert.rejects(drafts.recoverPaypalCheckout(token, id), /PAYPAL_UNPAID/);
     assert.equal(captureCalls, charges);

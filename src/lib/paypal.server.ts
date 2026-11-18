@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { CheckoutInput } from "./checkout-quote.server";
+import { paypalAmountValue } from "./order-money";
 function env(key: string) {
   return (process.env[key] ?? "").trim();
 }
@@ -39,11 +40,11 @@ async function accessToken() {
 }
 
 export async function createPaypalOrder(
-  valueUsd: string,
+  paymentValue: string,
   checkout?: { requestId: string; order: CheckoutInput },
 ) {
-  const value = Number(valueUsd).toFixed(2);
-  if (!(Number(value) > 0)) throw new Error("PAYPAL_AMOUNT");
+  const currency = checkout?.order.currency ?? "USD";
+  const value = paypalAmountValue(Number(paymentValue), currency);
   const token = await accessToken();
   const res = await fetch(`${apiBase()}/v2/checkout/orders`, {
     method: "POST",
@@ -56,7 +57,7 @@ export async function createPaypalOrder(
       intent: "CAPTURE",
       purchase_units: [
         {
-          amount: { currency_code: "USD", value },
+          amount: { currency_code: currency, value },
           ...(checkout
             ? {
                 custom_id: checkout.requestId,
@@ -143,7 +144,7 @@ type PaypalOrder = {
   }[];
 };
 
-export function verifiedPayment(data: PaypalOrder, id: string, expectedUsd: number) {
+export function verifiedPayment(data: PaypalOrder, id: string, expectedAmount: number, currency = "USD") {
   const units = data.purchase_units ?? [];
   const captures = units.flatMap((unit) => unit.payments?.captures ?? []);
   const capture = captures[0];
@@ -158,15 +159,17 @@ export function verifiedPayment(data: PaypalOrder, id: string, expectedUsd: numb
     throw new Error("PAYPAL_UNPAID");
   const gross = Number(capture.amount?.value);
   if (
-    capture.amount?.currency_code !== "USD" ||
-    !Number.isFinite(expectedUsd) ||
-    expectedUsd <= 0 ||
+    !["USD", "JPY"].includes(currency) ||
+    capture.amount?.currency_code !== currency ||
+    !Number.isFinite(expectedAmount) ||
+    expectedAmount <= 0 ||
     !Number.isFinite(gross) ||
-    Math.round(gross * 100) !== Math.round(expectedUsd * 100)
+    (currency === "JPY" && (!Number.isSafeInteger(gross) || !Number.isSafeInteger(expectedAmount))) ||
+    Math.round(gross * 100) !== Math.round(expectedAmount * 100)
   )
     throw new Error("PAYPAL_AMOUNT_MISMATCH");
-  const usd = (money?: PaypalMoney) =>
-    money?.currency_code === "USD" && money.value != null && Number.isFinite(Number(money.value))
+  const amount = (money?: PaypalMoney) =>
+    money?.currency_code === currency && money.value != null && Number.isFinite(Number(money.value))
       ? Number(money.value)
       : undefined;
   const shipping = units[0].shipping;
@@ -174,9 +177,15 @@ export function verifiedPayment(data: PaypalOrder, id: string, expectedUsd: numb
   return {
     paypalOrderId: id,
     paypalCaptureId: capture.id,
-    paypalGrossUsd: gross,
-    paypalFeeUsd: usd(capture.seller_receivable_breakdown?.paypal_fee),
-    paypalNetUsd: usd(capture.seller_receivable_breakdown?.net_amount),
+    paypalCurrency: currency as "USD" | "JPY",
+    paypalGrossAmount: gross,
+    paypalFeeAmount: amount(capture.seller_receivable_breakdown?.paypal_fee),
+    paypalNetAmount: amount(capture.seller_receivable_breakdown?.net_amount),
+    ...(currency === "USD" ? {
+      paypalGrossUsd: gross,
+      paypalFeeUsd: amount(capture.seller_receivable_breakdown?.paypal_fee),
+      paypalNetUsd: amount(capture.seller_receivable_breakdown?.net_amount),
+    } : {}),
     paypalShipping: address
       ? {
           name: shipping?.name?.full_name,
@@ -191,7 +200,7 @@ export function verifiedPayment(data: PaypalOrder, id: string, expectedUsd: numb
   };
 }
 
-export async function verifyPaypalPayment(orderId: string, expectedUsd: number) {
+export async function verifyPaypalPayment(orderId: string, expectedAmount: number, currency = "USD") {
   const id = orderId.trim();
   if (!/^[A-Za-z0-9-]{6,80}$/.test(id)) throw new Error("PAYPAL_ORDER");
   const token = await accessToken();
@@ -199,5 +208,5 @@ export async function verifyPaypalPayment(orderId: string, expectedUsd: number) 
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error("PAYPAL_VERIFY");
-  return verifiedPayment((await res.json()) as PaypalOrder, id, expectedUsd);
+  return verifiedPayment((await res.json()) as PaypalOrder, id, expectedAmount, currency);
 }

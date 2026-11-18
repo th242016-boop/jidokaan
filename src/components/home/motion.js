@@ -194,7 +194,7 @@ export function mountHomeMotion(root, locale) {
     description.dataset.i18n=isCraft?'craftDescription':isSpecial?'specialExampleProduct':'exampleProduct';
     action.dataset.i18n=isSpecial?'specialContact':'createCombination';
     [index,description,action].forEach(el=>el.innerHTML=t(el.dataset.i18n));
-    action.href=isSpecial?'tel:+821034815598':`/customize?lang=${encodeURIComponent(locale.locale)}`;
+    action.href=isSpecial?locale.specialContactHref:`/customize?lang=${encodeURIComponent(locale.locale)}`;
     action.removeAttribute('target');
     action.hidden=isCraft;
     [['#dialog-prev',isCraft?'craftPrevious':'previous'],['#dialog-next',isCraft?'craftNext':'next']].forEach(([selector,key])=>{

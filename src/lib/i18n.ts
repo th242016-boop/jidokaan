@@ -1,3 +1,9 @@
+import { storefrontDetailCopy } from "./storefront-detail-copy";
+import { simulatorUiCopy, orderUiCopy } from "./simulator-ui-copy";
+import { domesticOrderCopy } from "./domestic-order-copy";
+import { productionCopy } from "./production-copy";
+import { currencyForDestination, isSupportedShippingCountry, readLegacyShippingCountry } from "./shipping-destination";
+
 export type Locale =
   | "ko"
   | "en"
@@ -13,26 +19,21 @@ export type Locale =
   | "tr"
   | "uz"
   | "zh"
+  | "zh-Hant"
   | "hi"
   | "tl";
 export type Currency = "USD" | "EUR" | "KRW" | "JPY" | "GBP";
 
 export function currencyForCountry(code: string): Currency {
-  return code.toUpperCase() === "KR" ? "KRW" : "USD";
+  return currencyForDestination(code);
 }
 
-export function shipCountryCode(fallback = "KR") {
-  try {
-    const saved = sessionStorage.getItem("jidokaan-ship-country");
-    if (saved) return saved.toUpperCase();
-  } catch {
-    /* ignore */
-  }
-  return fallback.toUpperCase();
+export function shipCountryCode(fallback = "") {
+  return readLegacyShippingCountry() || fallback.toUpperCase();
 }
 
 export function isDomesticCustomer(currency?: Currency) {
-  const code = shipCountryCode(currency === "USD" ? "US" : "KR");
+  const code = shipCountryCode(currency === "KRW" ? "KR" : "");
   return code === "KR";
 }
 
@@ -65,7 +66,8 @@ export const LOCALES: { id: Locale; label: string; native: string }[] = [
   { id: "fr", label: "French", native: "Français" },
   { id: "de", label: "German", native: "Deutsch" },
   { id: "ja", label: "Japanese", native: "日本語" },
-  { id: "zh", label: "Chinese", native: "中文" },
+  { id: "zh", label: "Chinese (Simplified)", native: "简体中文" },
+  { id: "zh-Hant", label: "Chinese (Traditional, Hong Kong)", native: "繁體中文（香港）" },
   { id: "ru", label: "Russian", native: "Русский" },
   { id: "it", label: "Italian", native: "Italiano" },
   { id: "pt", label: "Portuguese", native: "Português" },
@@ -157,6 +159,8 @@ export type Dictionary = {
     cart: string;
     account: string;
     signIn: string;
+    logOut: string;
+    menu: string;
     custom: string;
     orders: string;
   };
@@ -279,6 +283,9 @@ export type Dictionary = {
     continue: string;
     remove: string;
     qty: string;
+    decrease: string;
+    increase: string;
+    close: string;
   };
   checkout: {
     title: string;
@@ -360,6 +367,7 @@ export type Dictionary = {
   login: {
     title: string;
     body: string;
+    internationalBody: string;
     continueWith: string;
     disabled: string;
     back: string;
@@ -401,6 +409,8 @@ const EN: Dictionary = {
     cart: "Cart",
     account: "Account",
     signIn: "Sign in",
+    logOut: "Log out",
+    menu: "Menu",
     custom: "Custom order",
     orders: "Orders",
   },
@@ -410,7 +420,7 @@ const EN: Dictionary = {
     body: "JIDOKAAN builds Korea’s first custom handmade boxing boots. Pick your colors, get pro-level comfort, ship worldwide from Seoul.",
     cta: "Shop custom boots",
     secondary: "Shipping info",
-    ships: "Handcrafted in Seongsu · typically 20–30 days · global delivery",
+    ships: `Handcrafted in Seongsu · ${productionCopy("en").average} · global delivery`,
   },
   home: {
     originKicker: "ORIGIN",
@@ -424,8 +434,8 @@ const EN: Dictionary = {
     craftKicker: "CRAFT",
     craftTitle: "No compromise on fit.",
     craftBody:
-      "Wide last, locked-in support, ring-ready grip. Pro feel first — then your design on top. Typically 20–30 days handmade.",
-    craftItems: ["Wide last", "High-grip sole", "20–30 day make"],
+      `Wide last, locked-in support, ring-ready grip. Pro feel first — then your design on top. Handmade production: ${productionCopy("en").average}.`,
+    craftItems: ["Wide last", "High-grip sole", productionCopy("en").average],
     clickStudio: "Click · Custom studio",
     buildTitle: "Build your pair.",
     buildBody: "Design in Custom Studio, pick your country, place the order.",
@@ -529,6 +539,9 @@ const EN: Dictionary = {
     continue: "Continue shopping",
     remove: "Remove",
     qty: "Qty",
+    decrease: "Decrease quantity",
+    increase: "Increase quantity",
+    close: "Close",
   },
   checkout: {
     title: "Checkout",
@@ -587,7 +600,7 @@ const EN: Dictionary = {
   },
   shippingPage: {
     title: "Shipping, duties & production",
-    body: "Handmade first, then shipped. Made-to-order typically takes 20–30 days.",
+    body: productionCopy("en").notice,
     zones: "Shipping zones",
     asia: "Korea & Asia",
     asiaBody: "2–5 business days after make (KR) · 3–8 (Asia)",
@@ -614,6 +627,7 @@ const EN: Dictionary = {
   login: {
     title: "Sign in",
     body: "One account on jidokaan.com — Korea and worldwide.",
+    internationalBody: "Google is recommended for international orders. You can also use email.",
     continueWith: "Continue with",
     disabled: "Sign-in is disabled.",
     back: "Back home",
@@ -699,7 +713,7 @@ export const DICT: Record<Locale, Dictionary> = {
       body: "지도칸은 국내 최초 커스텀 제작 수제 복싱화 브랜드입니다. 원하는 컬러로 주문하고, 세계 어디서나 같은 착용감으로 신으세요.",
       cta: "커스텀 복싱화 보기",
       secondary: "배송 안내",
-      ships: "성수 공방 제작 · 평균 20~30일 · 글로벌 배송",
+      ships: `성수 공방 제작 · ${productionCopy("ko").average} · 글로벌 배송`,
     },
     home: {
       originTitle: "15년 수제화 경력에서 시작된 복싱화",
@@ -711,8 +725,8 @@ export const DICT: Record<Locale, Dictionary> = {
         "지도칸은 대한민국에서 수제로 제작하는 커스텀 전문 스포츠화 브랜드입니다.\n당신이 좋아하는 컬러를 조합하여 제작할 수 있습니다.",
       craftTitle: "착화감은 타협하지 않습니다.",
       craftBody:
-        "넓은 발볼, 안정적인 지지, 링 위 그립. 프로 장비의 감각을 유지하면서 원하는 디자인을 입힐 수 있게 설계했습니다. 수제 제작 평균 20~30일.",
-      craftItems: ["와이드 라스트", "고그립 솔", "평균 20~30일 제작"],
+        `넓은 발볼, 안정적인 지지, 링 위 그립. 프로 장비의 감각을 유지하면서 원하는 디자인을 입힐 수 있게 설계했습니다. 수제 제작은 ${productionCopy("ko").average} 소요됩니다.`,
+      craftItems: ["와이드 라스트", "고그립 솔", productionCopy("ko").average],
       clickStudio: "클릭 · 커스텀 스튜디오",
       buildTitle: "나만의 복싱화를 만드세요.",
       buildBody: "커스텀 스튜디오에서 디자인한 뒤, 배송 국가만 고르면 주문이 끝납니다.",
@@ -872,7 +886,7 @@ export const DICT: Record<Locale, Dictionary> = {
     },
     shippingPage: {
       title: "배송 · 관세 · 제작",
-      body: "주문 후 제작 상품으로 평균적으로 20~30일 정도 소요됩니다.",
+      body: productionCopy("ko").notice,
       zones: "배송 권역",
       asia: "국내 · 아시아",
       asiaBody: "제작 후 2–5 영업일 (국내) · 3–8일 (아시아)",
@@ -934,13 +948,14 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "アカウント",
       signIn: "ログイン",
       custom: "カスタム注文",
+      orders: "注文確認",
     },
     hero: {
       title: "自分だけの\nボクシングシューズを",
       body: "JIDOKAANは韓国初のカスタム手製ボクシングシューズ。好きなカラーでオーダーし、世界中どこでも同じ履き心地を。",
       cta: "カスタムを見る",
       secondary: "配送について",
-      ships: "聖水で手製 · 約10日 · 海外配送",
+      ships: `聖水で手製 · ${productionCopy("ja").average} · 海外配送`,
     },
     home: {
       originTitle: "15年の靴づくりから始まった\nボクシングシューズ。",
@@ -949,8 +964,8 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["聖水で手製", "受注生産", "100% Made in Korea"],
       craftTitle: "履き心地は妥協しない。",
       craftBody:
-        "幅広フィット、安定したサポート、リングのグリップ。プロ仕様の感覚を保ちながら、好きなデザインを。",
-      craftItems: ["ワイドラスト", "高グリップソール", "約10日製作"],
+        `幅広フィット、安定したサポート、リングのグリップ。プロ仕様の感覚を保ちながら、好きなデザインを。 製作期間：${productionCopy("ja").average}。`,
+      craftItems: ["ワイドラスト", "高グリップソール", productionCopy("ja").average],
       clickStudio: "クリック · カスタムスタジオ",
       buildTitle: "自分だけの一足を。",
       buildBody: "カスタムスタジオでデザインして、配送国を選ぶだけ。",
@@ -979,8 +994,153 @@ export const DICT: Record<Locale, Dictionary> = {
       sizeGuideBody:
         "レディースは一般的な靴とほぼ同じなので、いつものサイズでご注文いただく方が多いです。メンズはナイキなど一般的なスニーカーよりやや大きめとの声が多く、ワンサイズ下げてのご注文をおすすめします。ただし、足幅が広い方はいつものサイズの方が合う場合もあります。",
     },
+    shop: {
+      "title": "すべての商品",
+      "all": "すべて",
+      "filter": "カテゴリー",
+      "sort": "並び替え",
+      "sortFeatured": "おすすめ",
+      "sortPriceAsc": "価格の安い順",
+      "sortPriceDesc": "価格の高い順",
+      "sortRating": "評価の高い順",
+      "results": "商品",
+      "empty": "条件に一致する商品がありません。",
+      "inStock": "注文可能",
+      "outOfStock": "売り切れ"
+    },
+    product: {
+      "addToCart": "カートに追加",
+      "added": "追加しました",
+      "buyNow": "注文する",
+      "shipsWorldwide": "海外配送に対応",
+      "freeOver": "韓国・ソウルの聖水から発送します",
+      "materials": "素材",
+      "weight": "重量",
+      "shipsFrom": "発送元",
+      "reviews": "レビュー",
+      "description": "商品詳細",
+      "qty": "数量",
+      "related": "関連商品",
+      "size": "サイズ（mm）",
+      "color": "カラー",
+      "leadTime": "製作期間",
+      "leadDays": "日",
+      "customHint": "次の画面のカスタムシミュレーターでカラーとサイズを選択できます。",
+      "customOrder": "カスタムオーダー",
+      "specialOrder": "スペシャルオーダー",
+      "specialSoon": "シミュレーターは準備中です",
+      "naverReviews": "Naver Smart Storeですべてのレビューを見る",
+      "naverReviewsHint": "Naverの商品ページを開きます。韓国国内への配送はそちらからご注文ください。",
+      "upper": "アッパー",
+      "stripe": "ライン",
+      "sole": "ソール"
+    },
+    cart: {
+      "title": "カート",
+      "empty": "カートは空です。",
+      "emptyCta": "商品を見る",
+      "subtotal": "小計",
+      "shipping": "送料",
+      "shippingCalc": "注文手続きで計算します",
+      "total": "合計",
+      "checkout": "注文手続きへ",
+      "continue": "買い物を続ける",
+      "remove": "削除",
+      "qty": "数量"
+    },
+    checkout: {
+      "title": "注文手続き",
+      "contact": "連絡先",
+      "email": "メールアドレス",
+      "phone": "電話番号",
+      "shipping": "配送先住所",
+      "firstName": "名",
+      "lastName": "姓",
+      "address": "住所",
+      "address2": "建物名・部屋番号（任意）",
+      "city": "市区町村",
+      "region": "都道府県・地域",
+      "postal": "郵便番号",
+      "country": "配送先の国・地域",
+      "payment": "お支払い方法",
+      "card": "カード番号",
+      "nameOnCard": "カード名義",
+      "expiry": "有効期限",
+      "cvc": "セキュリティコード",
+      "placeOrder": "注文を確定",
+      "placing": "注文を処理中…",
+      "note": "韓国国内への配送はNaver Smart Store、海外への配送はこのサイトで注文できます。",
+      "summary": "注文内容",
+      "freeShipNote": "韓国国内の送料無料条件を満たしています",
+      "duty": "関税・税金の見積額",
+      "freeShipAdd": "追加すると韓国国内の送料が無料になります",
+      "payCard": "クレジットカード",
+      "payKakao": "Kakao Pay",
+      "payNaver": "Naver Pay",
+      "payTransfer": "銀行振込",
+      "payPaypal": "PayPal",
+      "signInFirst": "ログインするとアカウントに注文を保存できます",
+      "payNote": "画面に表示されているお支払い方法を選択してください。",
+      "shipAuto": "送料は配送先に応じて計算します。韓国国内は宅配便、海外は韓国郵便のEMSで発送します。",
+      "phoneHint": "配送時に連絡可能な電話番号を入力してください。",
+      "noPobox": "私書箱や転送サービスの住所は利用できません。"
+    },
+    success: {
+      "title": "注文を受け付けました",
+      "body": "注文番号を保管してください。注文番号と注文時のメールアドレスで状況を確認できます。",
+      "order": "注文番号",
+      "continue": "商品一覧に戻る"
+    },
+    shippingPage: {
+      "title": "配送・関税・製作について",
+      body: productionCopy("ja").notice,
+      "zones": "配送地域",
+      "asia": "韓国・アジア",
+      "asiaBody": "配送日数は配送先と通関状況によって異なります。",
+      "americas": "南北アメリカ",
+      "americasBody": "配送日数は配送先と通関状況によって異なります。",
+      "europe": "ヨーロッパ・その他の地域",
+      "europeBody": "配送日数は配送先と通関状況によって異なります。",
+      "returns": "受注製作商品のご案内",
+      "returnsBody": "一足ずつご希望に合わせて製作する商品のため、製作開始後のお客様都合による交換・返品は、事前の説明と書面・電子的な同意など法定の条件を満たす場合に制限されます。製作不良やご注文内容との相違がある場合はお問い合わせください。法令で認められた権利は制限されません。"
+    },
+    login: {
+      "title": "ログイン",
+      "body": "JIDOKAANのアカウントで注文を確認できます。",
+      "continueWith": "次の方法で続行",
+      "disabled": "現在ログインを利用できません。",
+      "back": "ホームへ戻る",
+      "google": "Googleで続行",
+      "kakao": "Kakaoでログイン",
+      "naver": "Naverでログイン",
+      "email": "メールアドレス",
+      "password": "パスワード",
+      "name": "氏名",
+      "phone": "携帯電話番号",
+      "phoneNeed": "注文に関する連絡のため、携帯電話番号を入力してください。",
+      "phoneSave": "電話番号を保存",
+      "phoneInvalid": "有効な携帯電話番号を入力してください。",
+      "signIn": "ログイン",
+      "signUp": "アカウントを作成",
+      "haveAccount": "アカウントをお持ちですか？ ログイン",
+      "noAccount": "初めてご利用ですか？ アカウントを作成",
+      "orEmail": "またはメールアドレスで",
+      "guestCheckout": "会員登録なしで注文",
+      "failed": "ログインできませんでした。もう一度お試しください。"
+    },
+    footer: {
+      "shop": "ショップ",
+      "help": "ご利用ガイド",
+      "company": "ブランド",
+      "rights": "無断転載を禁じます。",
+      "contact": "お問い合わせ",
+      "faq": "よくあるご質問",
+      "privacy": "プライバシーポリシー",
+      "terms": "利用規約",
+      "instagram": "Instagram",
+      "address": "韓国・ソウル聖水 — JIDOKAAN工房"
+    },
     about: { studio: "工房" },
-    footer: { address: "ソウル 聖水（JIDOKAAN工房）" },
     common: { currency: "通貨", language: "言語", close: "閉じる", loading: "読み込み中…" },
   }),
   es: overlay(EN, {
@@ -993,13 +1153,14 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "Cuenta",
       signIn: "Entrar",
       custom: "Pedido custom",
+      orders: "Consultar pedidos",
     },
     hero: {
       title: "Tus zapatos de boxeo.\nEn cualquier país.",
       body: "JIDOKAAN fabrica a mano en Seúl el primer botín de boxeo custom de Corea. Elige colores, recibe confort de pro y envío mundial.",
       cta: "Ver custom",
       secondary: "Envíos",
-      ships: "Hecho a mano en Seongsu · ~10 días · envío global",
+      ships: `Hecho a mano en Seongsu · ${productionCopy("es").average} · envío global`,
     },
     home: {
       originTitle: "El primero de Corea\nhecho a mano.",
@@ -1008,8 +1169,8 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["Hecho a mano en Seongsu", "Bajo pedido", "100% Made in Korea"],
       craftTitle: "Sin concesiones en el ajuste.",
       craftBody:
-        "Horma ancha, sujeción firme, grip de ring. Primero el feeling pro, luego tu diseño. ~10 días de fabricación.",
-      craftItems: ["Horma ancha", "Suela de alto grip", "~10 días"],
+        `Horma ancha, sujeción firme, grip de ring. Primero el feeling pro, luego tu diseño. ${productionCopy("es").average} de fabricación artesanal.`,
+      craftItems: ["Horma ancha", "Suela de alto grip", productionCopy("es").average],
       clickStudio: "Clic · Estudio custom",
       buildTitle: "Crea tu par.",
       buildBody: "Diseña en el estudio, elige el país y pide.",
@@ -1053,6 +1214,9 @@ export const DICT: Record<Locale, Dictionary> = {
       outOfStock: "Agotado",
     },
     product: {
+      customOrder: "Personalizar",
+      specialOrder: "Pedido especial",
+      specialSoon: "El simulador estará disponible próximamente.",
       addToCart: "Añadir al carrito",
       added: "Añadido",
       buyNow: "Pedir ahora",
@@ -1090,11 +1254,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "Pago",
       contact: "Contacto",
       email: "Email",
-      phone: "Teléfono (opcional)",
+      phone: "Teléfono",
       shipping: "Dirección de envío",
       firstName: "Nombre",
       lastName: "Apellido",
       address: "Dirección",
+      address2: "Apartamento, piso, puerta (opcional)",
       city: "Ciudad",
       region: "Estado / región",
       postal: "Código postal",
@@ -1123,7 +1288,7 @@ export const DICT: Record<Locale, Dictionary> = {
     },
     shippingPage: {
       title: "Envíos, aranceles y fabricación",
-      body: "Primero a mano, luego envío nacional o internacional. ~10 días de fabricación + tránsito.",
+      body: productionCopy("es").notice,
       zones: "Zonas de envío",
       asia: "Corea y Asia",
       americas: "Américas",
@@ -1163,13 +1328,14 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "บัญชี",
       signIn: "เข้าสู่ระบบ",
       custom: "สั่งคัสตอม",
+      orders: "ตรวจสอบคำสั่งซื้อ",
     },
     hero: {
       title: "รองเท้ามวยของคุณ\nส่งได้ทั่วโลก",
       body: "JIDOKAAN ทำรองเท้ามวยแฮนด์เมดคัสตอมแห่งแรกของเกาหลี เลือกสี สวมสบายระดับโปร ส่งจากโซลทั่วโลก",
       cta: "ดูคัสตอม",
       secondary: "การจัดส่ง",
-      ships: "ทำมือที่ซองซู · ประมาณ 10 วัน · ส่งทั่วโลก",
+      ships: `ทำมือที่ซองซู · ${productionCopy("th").average} · ส่งทั่วโลก`,
     },
     home: {
       originTitle: "แห่งแรกของเกาหลี\nทำมือคัสตอม",
@@ -1178,8 +1344,8 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["ทำมือที่ซองซู", "ทำตามสั่ง", "100% Made in Korea"],
       craftTitle: "ไม่ยอมลดเรื่องฟิต",
       craftBody:
-        "ลาสต์กว้าง ล็อกแน่น กริปริง รู้สึกแบบโปรก่อน แล้วค่อยใส่ดีไซน์ของคุณ ใช้เวลาทำมือประมาณ 10 วัน",
-      craftItems: ["ลาสต์กว้าง", "พื้นกริปสูง", "ทำประมาณ 10 วัน"],
+        `ลาสต์กว้าง ล็อกแน่น กริปริง รู้สึกแบบโปรก่อน แล้วค่อยใส่ดีไซน์ของคุณ ระยะเวลาผลิต${productionCopy("th").average}`,
+      craftItems: ["ลาสต์กว้าง", "พื้นกริปสูง", productionCopy("th").average],
       clickStudio: "คลิก · สตูดิโอคัสตอม",
       buildTitle: "สร้างคู่ของคุณ",
       buildBody: "ออกแบบในสตูดิโอ เลือกประเทศ แล้วสั่งได้เลย",
@@ -1219,6 +1385,9 @@ export const DICT: Record<Locale, Dictionary> = {
       outOfStock: "หมด",
     },
     product: {
+      customOrder: "ออกแบบเอง",
+      specialOrder: "สั่งทำพิเศษ",
+      specialSoon: "เครื่องมือออกแบบกำลังอยู่ระหว่างการเตรียมพร้อม",
       addToCart: "ใส่ตะกร้า",
       added: "ใส่แล้ว",
       buyNow: "สั่งเลย",
@@ -1255,11 +1424,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "ชำระเงิน",
       contact: "ติดต่อ",
       email: "อีเมล",
-      phone: "โทร (ไม่บังคับ)",
+      phone: "หมายเลขโทรศัพท์",
       shipping: "ที่อยู่จัดส่ง",
       firstName: "ชื่อ",
       lastName: "นามสกุล",
       address: "ที่อยู่",
+      address2: "อาคาร ห้อง หรือชั้น (ไม่บังคับ)",
       city: "เมือง",
       region: "รัฐ / จังหวัด",
       postal: "รหัสไปรษณีย์",
@@ -1286,6 +1456,7 @@ export const DICT: Record<Locale, Dictionary> = {
       studio: "เวิร์กช็อป",
     },
     shippingPage: {
+      body: productionCopy("th").notice,
       title: "การจัดส่ง ภาษี และการผลิต",
       zones: "โซนจัดส่ง",
       asia: "เกาหลีและเอเชีย",
@@ -1325,13 +1496,14 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "Compte",
       signIn: "Connexion",
       custom: "Commande custom",
+      orders: "Suivi de commande",
     },
     hero: {
       title: "Vos chaussures de boxe.\nPartout dans le monde.",
       body: "JIDOKAAN fabrique à Séoul les premières bottines de boxe custom coréennes. Choisissez vos couleurs, confort pro, livraison mondiale.",
       cta: "Voir le custom",
       secondary: "Livraison",
-      ships: "Fait main à Seongsu · ~10 jours · mondial",
+      ships: `Fait main à Seongsu · ${productionCopy("fr").average} · mondial`,
     },
     home: {
       originTitle: "Premier de Corée,\nfait main sur mesure.",
@@ -1340,8 +1512,8 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["Fait main à Seongsu", "Sur commande", "100% Made in Korea"],
       craftTitle: "Aucun compromis sur le fit.",
       craftBody:
-        "Forme large, maintien ferme, grip de ring. Le feeling pro d’abord, puis votre design. ~10 jours de fabrication.",
-      craftItems: ["Forme large", "Semelle high-grip", "~10 jours"],
+        `Forme large, maintien ferme, grip de ring. Le feeling pro d’abord, puis votre design. Fabrication artisanale : ${productionCopy("fr").average}.`,
+      craftItems: ["Forme large", "Semelle high-grip", productionCopy("fr").average],
       clickStudio: "Clic · Studio custom",
       buildTitle: "Créez votre paire.",
       buildBody: "Design dans le studio, choisissez le pays, commandez.",
@@ -1385,6 +1557,9 @@ export const DICT: Record<Locale, Dictionary> = {
       outOfStock: "Épuisé",
     },
     product: {
+      customOrder: "Personnaliser",
+      specialOrder: "Commande spéciale",
+      specialSoon: "Le simulateur est en cours de préparation.",
       addToCart: "Ajouter au panier",
       added: "Ajouté",
       buyNow: "Commander",
@@ -1421,11 +1596,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "Paiement",
       contact: "Contact",
       email: "E-mail",
-      phone: "Téléphone (optionnel)",
+      phone: "Téléphone",
       shipping: "Adresse de livraison",
       firstName: "Prénom",
       lastName: "Nom",
       address: "Adresse",
+      address2: "Appartement, étage, bâtiment (facultatif)",
       city: "Ville",
       region: "Région / État",
       postal: "Code postal",
@@ -1452,6 +1628,7 @@ export const DICT: Record<Locale, Dictionary> = {
       studio: "Atelier",
     },
     shippingPage: {
+      body: productionCopy("fr").notice,
       title: "Livraison, droits et fabrication",
       zones: "Zones de livraison",
       asia: "Corée & Asie",
@@ -1482,7 +1659,7 @@ export const DICT: Record<Locale, Dictionary> = {
     },
   }),
   de: overlay(EN, {
-    tagline: "Koreas erste maßgefertigten Boxschuhe aus Handarbeit",
+    tagline: "Koreas erste handgefertigte Boxschuhe nach Wunsch",
     nav: {
       shop: "Shop",
       about: "Marke",
@@ -1491,25 +1668,26 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "Konto",
       signIn: "Anmelden",
       custom: "Custom-Bestellung",
+      orders: "Bestellung ansehen",
     },
     hero: {
-      title: "Deine Boxschuhe.\nÜberall auf der Welt.",
+      title: "Ihre Boxschuhe.\nÜberall auf der Welt.",
       body: "JIDOKAAN fertigt in Seoul Koreas erste Custom-Boxstiefel von Hand. Farben wählen, Profi-Komfort, weltweiter Versand.",
       cta: "Custom ansehen",
       secondary: "Versand",
-      ships: "Handarbeit in Seongsu · ~10 Tage · weltweit",
+      ships: `Handarbeit in Seongsu · ${productionCopy("de").average} · weltweit`,
     },
     home: {
       originTitle: "Koreas erste\nCustom-Handarbeit.",
       originBody:
-        "Jedes Paar entsteht von Hand in Seongsu, Seoul — in deiner Farbe und Größe, keine Massenware.",
+        "Jedes Paar entsteht von Hand in Seongsu, Seoul — in Ihrer Farbe und Grösse, keine Massenware.",
       originItems: ["Handarbeit in Seongsu", "Auf Bestellung", "100% Made in Korea"],
       craftTitle: "Kein Kompromiss bei der Passform.",
       craftBody:
-        "Weite Leisten, fester Halt, Ring-Grip. Erst das Profi-Gefühl, dann dein Design. ~10 Tage Fertigung.",
-      craftItems: ["Weiter Leisten", "High-Grip-Sohle", "~10 Tage"],
+        `Weite Leisten, fester Halt, Ring-Grip. Erst das Profi-Gefühl, dann Ihr Design. Fertigung: ${productionCopy("de").average}.`,
+      craftItems: ["Weiter Leisten", "High-Grip-Sohle", productionCopy("de").average],
       clickStudio: "Klick · Custom-Studio",
-      buildTitle: "Bau dein Paar.",
+      buildTitle: "Gestalten Sie Ihr Paar.",
       buildBody: "Im Studio gestalten, Land wählen, bestellen.",
     },
     custom: {
@@ -1528,13 +1706,13 @@ export const DICT: Record<Locale, Dictionary> = {
       rotateHint: "Ziehen zum Drehen",
       added: "Design gesichert — im Warenkorb",
       colorNote: "Die Simulatorfarben können vom Original abweichen",
-      expandPreview: "Foto antippen zum Vergrößern",
-      closePreview: "Schließen",
+      expandPreview: "Foto antippen zum Vergrössern",
+      closePreview: "Schliessen",
       men: "Herren",
       women: "Damen",
-      sizeGuideTitle: "Größenratgeber",
+      sizeGuideTitle: "Grössenratgeber",
       sizeGuideBody:
-        "Damengrößen entsprechen weitgehend normalen Schuhen, deshalb bestellen viele ihre übliche Größe. Herrengrößen fallen im Vergleich zu Nike und anderen gängigen Sneakern oft etwas größer aus — wir empfehlen eine Nummer kleiner. Bei einem breiten Fuß kann die normale Größe aber besser passen.",
+        "Damengrössen entsprechen weitgehend normalen Schuhen, deshalb bestellen viele ihre übliche Grösse. Herrengrössen fallen im Vergleich zu Nike und anderen gängigen Sneakern oft etwas grösser aus — wir empfehlen eine Nummer kleiner. Bei einem breiten Fuss kann die normale Grösse aber besser passen.",
     },
     shop: {
       title: "Alle Produkte",
@@ -1551,6 +1729,9 @@ export const DICT: Record<Locale, Dictionary> = {
       outOfStock: "Ausverkauft",
     },
     product: {
+      customOrder: "Selbst gestalten",
+      specialOrder: "Sonderanfertigung",
+      specialSoon: "Der Simulator wird derzeit vorbereitet.",
       addToCart: "In den Warenkorb",
       added: "Hinzugefügt",
       buyNow: "Jetzt bestellen",
@@ -1561,8 +1742,8 @@ export const DICT: Record<Locale, Dictionary> = {
       reviews: "Bewertungen",
       description: "Details",
       qty: "Menge",
-      related: "Das könnte dir gefallen",
-      size: "Größe (mm)",
+      related: "Das könnte Ihnen gefallen",
+      size: "Grösse (mm)",
       color: "Farbe",
       leadTime: "Fertigungszeit",
       leadDays: "Tage (Handarbeit)",
@@ -1571,7 +1752,7 @@ export const DICT: Record<Locale, Dictionary> = {
       sole: "Sohle",
     },
     cart: {
-      title: "Dein Warenkorb",
+      title: "Ihr Warenkorb",
       empty: "Der Warenkorb ist leer.",
       emptyCta: "Shop ansehen",
       subtotal: "Zwischensumme",
@@ -1587,11 +1768,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "Kasse",
       contact: "Kontakt",
       email: "E-Mail",
-      phone: "Telefon (optional)",
+      phone: "Telefon",
       shipping: "Lieferadresse",
       firstName: "Vorname",
       lastName: "Nachname",
       address: "Adresse",
+      address2: "Wohnung, Etage, Gebäude (optional)",
       city: "Stadt",
       region: "Region / Bundesland",
       postal: "PLZ",
@@ -1618,6 +1800,7 @@ export const DICT: Record<Locale, Dictionary> = {
       studio: "Werkstatt",
     },
     shippingPage: {
+      body: productionCopy("de").notice,
       title: "Versand, Zölle & Fertigung",
       zones: "Versandzonen",
       asia: "Korea & Asien",
@@ -1643,7 +1826,7 @@ export const DICT: Record<Locale, Dictionary> = {
     common: {
       currency: "Währung",
       language: "Sprache",
-      close: "Schließen",
+      close: "Schliessen",
       loading: "Lädt…",
     },
   }),
@@ -1657,13 +1840,14 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "الحساب",
       signIn: "تسجيل الدخول",
       custom: "طلب مخصص",
+      orders: "الطلبات",
     },
     hero: {
       title: "حذاء الملاكمة الخاص بك.\nإلى أي مكان في العالم.",
       body: "JIDOKAAN يصنع في سيول أول بوت ملاكمة كوري مخصص يدوياً. اختر الألوان، راحة احترافية، وشحن عالمي.",
       cta: "شاهد التخصيص",
       secondary: "الشحن",
-      ships: "صناعة يدوية في سونغسو · نحو 10 أيام · شحن عالمي",
+      ships: `صناعة يدوية في سونغسو · ${productionCopy("ar").average} · شحن عالمي`,
     },
     home: {
       originTitle: "الأول في كوريا\nصناعة يدوية مخصصة.",
@@ -1672,8 +1856,8 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["صناعة يدوية في سونغسو", "حسب الطلب", "100% Made in Korea"],
       craftTitle: "لا تنازل عن المقاس.",
       craftBody:
-        "قالب عريض، ثبات محكم، قبضة الحلبة. الإحساس الاحترافي أولاً ثم تصميمك. نحو 10 أيام صناعة.",
-      craftItems: ["قالب عريض", "نعل عالي القبضة", "نحو 10 أيام"],
+        `قالب عريض، ثبات محكم، قبضة الحلبة. الإحساس الاحترافي أولاً ثم تصميمك. مدة التصنيع: ${productionCopy("ar").average}.`,
+      craftItems: ["قالب عريض", "نعل عالي القبضة", productionCopy("ar").average],
       clickStudio: "انقر · استوديو التخصيص",
       buildTitle: "اصنع زوجك.",
       buildBody: "صمّم في الاستوديو، اختر الدولة، ثم اطلب.",
@@ -1753,11 +1937,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "الدفع",
       contact: "التواصل",
       email: "البريد",
-      phone: "الهاتف (اختياري)",
+      phone: "الهاتف",
       shipping: "عنوان الشحن",
       firstName: "الاسم",
       lastName: "العائلة",
       address: "العنوان",
+      address2: "الشقة أو الطابق أو المبنى (اختياري)",
       city: "المدينة",
       region: "المنطقة / الولاية",
       postal: "الرمز البريدي",
@@ -1784,6 +1969,7 @@ export const DICT: Record<Locale, Dictionary> = {
       studio: "الورشة",
     },
     shippingPage: {
+      body: productionCopy("ar").notice,
       title: "الشحن والرسوم والتصنيع",
       zones: "مناطق الشحن",
       asia: "كوريا وآسيا",
@@ -1823,13 +2009,14 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "Аккаунт",
       signIn: "Войти",
       custom: "Кастом-заказ",
+      orders: "Проверить заказ",
     },
     hero: {
       title: "Ваши боксёрские кроссовки.\nВ любую точку мира.",
       body: "JIDOKAAN шьёт в Сеуле первые корейские кастомные боксёрские ботинки. Выберите цвета, получите комфорт профи и доставку по миру.",
       cta: "Смотреть кастом",
       secondary: "Доставка",
-      ships: "Ручная работа в Сонсу · ~10 дней · по миру",
+      ships: `Ручная работа в Сонсу · ${productionCopy("ru").average} · по миру`,
     },
     home: {
       originTitle: "Первые в Корее\nкастомные, вручную.",
@@ -1838,8 +2025,8 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["Ручная работа в Сонсу", "Под заказ", "100% Made in Korea"],
       craftTitle: "Без компромиссов по посадке.",
       craftBody:
-        "Широкая колодка, жёсткая фиксация, грип ринга. Сначала ощущение профи, потом ваш дизайн. ~10 дней.",
-      craftItems: ["Широкая колодка", "Подошва high-grip", "~10 дней"],
+        `Широкая колодка, жёсткая фиксация, грип ринга. Сначала ощущение профи, потом ваш дизайн. Срок изготовления: ${productionCopy("ru").average}.`,
+      craftItems: ["Широкая колодка", "Подошва high-grip", productionCopy("ru").average],
       clickStudio: "Нажмите · Кастом-студия",
       buildTitle: "Соберите свою пару.",
       buildBody: "Дизайн в студии, страна доставки, заказ.",
@@ -1879,6 +2066,9 @@ export const DICT: Record<Locale, Dictionary> = {
       outOfStock: "Нет в наличии",
     },
     product: {
+      customOrder: "Свой дизайн",
+      specialOrder: "Особый заказ",
+      specialSoon: "Симулятор находится в разработке.",
       addToCart: "В корзину",
       added: "Добавлено",
       buyNow: "Заказать",
@@ -1915,11 +2105,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "Оформление",
       contact: "Контакты",
       email: "Email",
-      phone: "Телефон (необяз.)",
+      phone: "Телефон",
       shipping: "Адрес доставки",
       firstName: "Имя",
       lastName: "Фамилия",
       address: "Адрес",
+      address2: "Квартира, офис, корпус (необязательно)",
       city: "Город",
       region: "Регион",
       postal: "Индекс",
@@ -1942,6 +2133,7 @@ export const DICT: Record<Locale, Dictionary> = {
     },
     about: { title: "JIDOKAAN — кастомные боксёрские кроссовки", mission: "Наше обещание", studio: "Мастерская" },
     shippingPage: {
+      body: productionCopy("ru").notice,
       title: "Доставка, пошлины и производство",
       zones: "Зоны доставки",
       asia: "Корея и Азия",
@@ -1976,13 +2168,14 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "Account",
       signIn: "Accedi",
       custom: "Ordine custom",
+      orders: "Consulta ordini",
     },
     hero: {
       title: "Le tue scarpe da boxe.\nOvunque nel mondo.",
       body: "JIDOKAAN confeziona a Seul i primi stivali da boxe custom coreani. Scegli i colori, comfort da pro, spedizione mondiale.",
       cta: "Vedi custom",
       secondary: "Spedizione",
-      ships: "Fatto a mano a Seongsu · ~10 giorni · mondiale",
+      ships: `Fatto a mano a Seongsu · ${productionCopy("it").average} · mondiale`,
     },
     home: {
       originTitle: "I primi in Corea\ncustom fatti a mano.",
@@ -1991,8 +2184,8 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["Fatto a mano a Seongsu", "Su ordinazione", "100% Made in Korea"],
       craftTitle: "Nessun compromesso sulla calzata.",
       craftBody:
-        "Forma larga, tenuta ferma, grip da ring. Prima il feeling pro, poi il tuo design. ~10 giorni.",
-      craftItems: ["Forma larga", "Suola high-grip", "~10 giorni"],
+        `Forma larga, tenuta ferma, grip da ring. Prima il feeling pro, poi il tuo design. Produzione: ${productionCopy("it").average}.`,
+      craftItems: ["Forma larga", "Suola high-grip", productionCopy("it").average],
       clickStudio: "Clic · Studio custom",
       buildTitle: "Crea il tuo paio.",
       buildBody: "Disegna nello studio, scegli il Paese, ordina.",
@@ -2032,6 +2225,9 @@ export const DICT: Record<Locale, Dictionary> = {
       outOfStock: "Esaurito",
     },
     product: {
+      customOrder: "Personalizza",
+      specialOrder: "Ordine speciale",
+      specialSoon: "Il simulatore è in preparazione.",
       addToCart: "Aggiungi al carrello",
       added: "Aggiunto",
       buyNow: "Ordina ora",
@@ -2068,11 +2264,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "Cassa",
       contact: "Contatti",
       email: "Email",
-      phone: "Telefono (opz.)",
+      phone: "Telefono",
       shipping: "Indirizzo di spedizione",
       firstName: "Nome",
       lastName: "Cognome",
       address: "Indirizzo",
+      address2: "Appartamento, interno, piano (facoltativo)",
       city: "Città",
       region: "Regione",
       postal: "CAP",
@@ -2095,6 +2292,7 @@ export const DICT: Record<Locale, Dictionary> = {
     },
     about: { title: "JIDOKAAN — boxe custom fatta a mano", mission: "La nostra promessa", studio: "Laboratorio" },
     shippingPage: {
+      body: productionCopy("it").notice,
       title: "Spedizione, dazi e produzione",
       zones: "Zone di spedizione",
       asia: "Corea e Asia",
@@ -2129,13 +2327,14 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "Conta",
       signIn: "Entrar",
       custom: "Pedido custom",
+      orders: "Consultar pedido",
     },
     hero: {
       title: "Seus tênis de boxe.\nPara qualquer lugar do mundo.",
       body: "A JIDOKAAN produz em Seul as primeiras botas de boxe custom da Coreia. Escolha as cores, conforto de pro e envio mundial.",
       cta: "Ver custom",
       secondary: "Envio",
-      ships: "Feito à mão em Seongsu · ~10 dias · mundial",
+      ships: `Feito à mão em Seongsu · ${productionCopy("pt").average} · mundial`,
     },
     home: {
       originTitle: "Os primeiros da Coreia\ncustom à mão.",
@@ -2144,8 +2343,8 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["Feito à mão em Seongsu", "Sob encomenda", "100% Made in Korea"],
       craftTitle: "Sem abrir mão do caimento.",
       craftBody:
-        "Forma larga, travamento firme, grip de ringue. Primeiro o feeling pro, depois o seu design. ~10 dias.",
-      craftItems: ["Forma larga", "Sola high-grip", "~10 dias"],
+        `Forma larga, travamento firme, grip de ringue. Primeiro o feeling pro, depois o seu design. Produção: ${productionCopy("pt").average}.`,
+      craftItems: ["Forma larga", "Sola high-grip", productionCopy("pt").average],
       clickStudio: "Clique · Estúdio custom",
       buildTitle: "Monte o seu par.",
       buildBody: "Desenhe no estúdio, escolha o país e peça.",
@@ -2185,6 +2384,9 @@ export const DICT: Record<Locale, Dictionary> = {
       outOfStock: "Esgotado",
     },
     product: {
+      customOrder: "Personalizar",
+      specialOrder: "Pedido especial",
+      specialSoon: "O simulador está em preparação.",
       addToCart: "Adicionar ao carrinho",
       added: "Adicionado",
       buyNow: "Pedir agora",
@@ -2221,11 +2423,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "Pagamento",
       contact: "Contato",
       email: "E-mail",
-      phone: "Telefone (opcional)",
+      phone: "Telefone",
       shipping: "Endereço de envio",
       firstName: "Nome",
       lastName: "Sobrenome",
       address: "Endereço",
+      address2: "Apartamento, bloco, complemento (opcional)",
       city: "Cidade",
       region: "Estado / região",
       postal: "CEP",
@@ -2248,6 +2451,7 @@ export const DICT: Record<Locale, Dictionary> = {
     },
     about: { title: "JIDOKAAN — boxe custom feito à mão", mission: "Nossa promessa", studio: "Oficina" },
     shippingPage: {
+      body: productionCopy("pt").notice,
       title: "Envio, taxas e produção",
       zones: "Zonas de envio",
       asia: "Coreia e Ásia",
@@ -2282,13 +2486,14 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "Hesap",
       signIn: "Giriş",
       custom: "Özel sipariş",
+      orders: "Sipariş sorgulama",
     },
     hero: {
       title: "Boks ayakkabınız.\nDünyanın her yerine.",
       body: "JIDOKAAN, Seul’de Kore’nin ilk özel boks botlarını elde üretir. Renginizi seçin, pro konfor, dünya çapında kargo.",
       cta: "Özeli gör",
       secondary: "Kargo",
-      ships: "Seongsu’da el yapımı · ~10 gün · dünya",
+      ships: `Seongsu’da el yapımı · ${productionCopy("tr").average} · dünya`,
     },
     home: {
       originTitle: "Kore’nin ilk\nel yapımı özeli.",
@@ -2297,8 +2502,8 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["Seongsu’da el yapımı", "Siparişe özel", "100% Made in Korea"],
       craftTitle: "Kalıpta taviz yok.",
       craftBody:
-        "Geniş kalıp, sıkı tutuş, ring grip’i. Önce pro his, sonra sizin tasarım. ~10 gün.",
-      craftItems: ["Geniş kalıp", "Yüksek tutuşlu taban", "~10 gün"],
+        `Geniş kalıp, sıkı tutuş, ring grip’i. Önce pro his, sonra sizin tasarım. Üretim süresi: ${productionCopy("tr").average}.`,
+      craftItems: ["Geniş kalıp", "Yüksek tutuşlu taban", productionCopy("tr").average],
       clickStudio: "Tıkla · Özel stüdyo",
       buildTitle: "Çiftinizi oluşturun.",
       buildBody: "Stüdyoda tasarlayın, ülkeyi seçin, sipariş verin.",
@@ -2325,7 +2530,7 @@ export const DICT: Record<Locale, Dictionary> = {
       women: "Kadın",
       sizeGuideTitle: "Beden rehberi",
       sizeGuideBody:
-        "Kadın bedenleri çoğu günlük ayakkabıya yakındır; birçok kişi alıştığı bedeni sipariş eder. Erkek bedenleri Nike ve benzeri spor ayakkabılara göre biraz büyük gelebilir, bu yüzden bir beden küçük almanızı öneririz. Ayak bileği veya tabanı geniş olanlarda ise normal beden daha iyi oturabilir.",
+        "Kadın bedenleri çoğu günlük ayakkabıya yakındır; birçok kişi alıştığı bedeni sipariş eder. Erkek bedenleri Nike ve benzeri spor ayakkabılara göre biraz büyük gelebilir, bu yüzden bir beden küçük almanızı öneririz. Ayakları geniş olanlarda ise normal numara daha iyi oturabilir.",
     },
     shop: {
       title: "Tüm ürünler",
@@ -2338,6 +2543,9 @@ export const DICT: Record<Locale, Dictionary> = {
       outOfStock: "Tükendi",
     },
     product: {
+      customOrder: "Özelleştir",
+      specialOrder: "Özel sipariş",
+      specialSoon: "Simülatör hazırlanıyor.",
       addToCart: "Sepete ekle",
       added: "Eklendi",
       buyNow: "Şimdi sipariş",
@@ -2374,11 +2582,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "Ödeme",
       contact: "İletişim",
       email: "E-posta",
-      phone: "Telefon (isteğe bağlı)",
+      phone: "Telefon",
       shipping: "Teslimat adresi",
       firstName: "Ad",
       lastName: "Soyad",
       address: "Adres",
+      address2: "Daire, kat, bina (isteğe bağlı)",
       city: "Şehir",
       region: "Bölge",
       postal: "Posta kodu",
@@ -2401,6 +2610,7 @@ export const DICT: Record<Locale, Dictionary> = {
     },
     about: { title: "JIDOKAAN — el yapımı özel boks", mission: "Sözümüz", studio: "Atölye" },
     shippingPage: {
+      body: productionCopy("tr").notice,
       title: "Kargo, gümrük ve üretim",
       zones: "Kargo bölgeleri",
       asia: "Kore ve Asya",
@@ -2435,13 +2645,14 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "Hisob",
       signIn: "Kirish",
       custom: "Maxsus buyurtma",
+      orders: "Buyurtmani tekshirish",
     },
     hero: {
       title: "Boks poyabzalingiz.\nDunyo bo‘ylab.",
       body: "JIDOKAAN Seulda Koreyaning birinchi maxsus boks botinkalarini qo‘lda tikadi. Rangni tanlang, pro qulaylik, dunyo bo‘ylab yetkazish.",
       cta: "Maxsusni ko‘rish",
       secondary: "Yetkazib berish",
-      ships: "Seongsu’da qo‘lda · ~10 kun · dunyo",
+      ships: `Seongsu’da qo‘lda · ${productionCopy("uz").average} · dunyo`,
     },
     home: {
       originTitle: "Koreyada birinchi\nqo‘lda maxsus.",
@@ -2450,8 +2661,8 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["Seongsu’da qo‘lda", "Buyurtmaga", "100% Made in Korea"],
       craftTitle: "O‘tirishida kelishmovchilik yo‘q.",
       craftBody:
-        "Keng qolip, mahkam ushlash, ring gripi. Avval pro his, keyin dizayningiz. ~10 kun.",
-      craftItems: ["Keng qolip", "Yuqori grip taglik", "~10 kun"],
+        `Keng qolip, mahkam ushlash, ring gripi. Avval pro his, keyin dizayningiz. Tayyorlash muddati: ${productionCopy("uz").average}.`,
+      craftItems: ["Keng qolip", "Yuqori grip taglik", productionCopy("uz").average],
       clickStudio: "Bosing · Maxsus studiya",
       buildTitle: "Juftingizni yarating.",
       buildBody: "Studiyada dizayn, mamlakatni tanlang, buyurtma bering.",
@@ -2491,6 +2702,9 @@ export const DICT: Record<Locale, Dictionary> = {
       outOfStock: "Tugagan",
     },
     product: {
+      customOrder: "Shaxsiy dizayn",
+      specialOrder: "Maxsus buyurtma",
+      specialSoon: "Simulyator tayyorlanmoqda.",
       addToCart: "Savatga",
       added: "Qo‘shildi",
       buyNow: "Hozir buyurtma",
@@ -2514,7 +2728,7 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "Savatingiz",
       empty: "Savat bo‘sh.",
       emptyCta: "Do‘konga",
-      subtotal: "Oraliq",
+      subtotal: "Mahsulotlar jami",
       shipping: "Yetkazib berish",
       shippingCalc: "To‘lovda hisoblanadi",
       total: "Jami",
@@ -2527,11 +2741,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "To‘lov",
       contact: "Aloqa",
       email: "Email",
-      phone: "Telefon (ixtiyoriy)",
+      phone: "Telefon",
       shipping: "Yetkazish manzili",
       firstName: "Ism",
       lastName: "Familiya",
       address: "Manzil",
+      address2: "Xonadon, qavat, bino (ixtiyoriy)",
       city: "Shahar",
       region: "Viloyat",
       postal: "Pochta indeksi",
@@ -2554,6 +2769,7 @@ export const DICT: Record<Locale, Dictionary> = {
     },
     about: { title: "JIDOKAAN — qo‘lda maxsus boks", mission: "Va’damiz", studio: "Ustaxona" },
     shippingPage: {
+      body: productionCopy("uz").notice,
       title: "Yetkazish, boj va ishlab chiqarish",
       zones: "Yetkazish zonalari",
       asia: "Koreya va Osiyo",
@@ -2588,21 +2804,23 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "账户",
       signIn: "登录",
       custom: "定制下单",
+      orders: "查询订单",
     },
     hero: {
       title: "你的拳击鞋。\n送往世界各地。",
       body: "JIDOKAAN 在首尔手工打造韩国首款定制拳击靴。自选配色，职业级脚感，全球配送。",
       cta: "查看定制",
       secondary: "配送",
-      ships: "圣水手工 · 约10天 · 全球配送",
+      ships: `圣水手工 · ${productionCopy("zh").average} · 全球配送`,
     },
     home: {
       originTitle: "韩国首创\n手工定制。",
       originBody: "每一双都在首尔圣水手缝——按你的颜色和尺码，不是流水线。",
-      originItems: ["圣水手作", "按单制作", "100% Made in Korea"],
+      originItems: ["圣水手作", "按单制作", "100% 韩国制造"],
       craftTitle: "合脚绝不妥协。",
-      craftBody: "宽楦、稳固包裹、擂台抓地。先保证职业脚感，再上你的设计。约10天。",
-      craftItems: ["宽楦", "高抓地大底", "约10天"],
+      craftBody:
+        `宽楦、稳固包裹、擂台抓地。先保证职业脚感，再上你的设计。制作时间${productionCopy("zh").average}。`,
+      craftItems: ["宽楦", "高抓地大底", productionCopy("zh").average],
       clickStudio: "点击 · 定制工作室",
       buildTitle: "打造你的那一双。",
       buildBody: "在工作室设计，选择国家，下单即可。",
@@ -2611,7 +2829,7 @@ export const DICT: Record<Locale, Dictionary> = {
       back: "返回",
       reset: "重置",
       resetToast: "已恢复默认配色",
-      guide2d: "GUIDE ON/OFF 查看部位（精确 2D）",
+      guide2d: "开启或关闭部位标记（精确 2D）",
       guide3d: "3D 为预览。最终颜色以 2D 为准。",
       allParts: "全部部位",
       shipTo: "配送至",
@@ -2642,6 +2860,9 @@ export const DICT: Record<Locale, Dictionary> = {
       outOfStock: "售罄",
     },
     product: {
+      customOrder: "自选配色定制",
+      specialOrder: "特殊材质定制",
+      specialSoon: "模拟器正在筹备中。",
       addToCart: "加入购物车",
       added: "已加入",
       buyNow: "立即下单",
@@ -2678,11 +2899,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "结算",
       contact: "联系方式",
       email: "邮箱",
-      phone: "电话（选填）",
+      phone: "电话号码",
       shipping: "收货地址",
       firstName: "名",
       lastName: "姓",
       address: "地址",
+      address2: "楼栋、楼层、房间号（选填）",
       city: "城市",
       region: "省 / 州",
       postal: "邮编",
@@ -2695,7 +2917,13 @@ export const DICT: Record<Locale, Dictionary> = {
       placing: "处理中…",
       note: "演示商店 — 不会真实扣款。正式下单：jidokaan.com",
       summary: "订单摘要",
-      duty: "预估关税与税费",
+      duty: "关税及进口税另付",
+      cvc: "安全码", freeShipNote: "符合韩国境内免运费条件", freeShipAdd: "即可享韩国境内免运费",
+      payCard: "银行卡", payKakao: "Kakao Pay", payNaver: "Naver Pay", payTransfer: "银行转账", payPaypal: "PayPal",
+      signInFirst: "登录后可将此订单保存到您的账户",
+      payNote: "请选择付款方式。付款前请核对商品、运费及结算币种。",
+      shipAuto: "运费根据收货地自动计算。韩国境内使用当地快递，国际订单使用可追踪的 EMS。",
+      phoneHint: "请填写可供快递及海关联系的有效电话号码。", noPobox: "不支持邮政信箱或转运仓地址。",
     },
     success: {
       title: "已收到订单",
@@ -2703,13 +2931,20 @@ export const DICT: Record<Locale, Dictionary> = {
       order: "订单号",
       continue: "返回商店",
     },
-    about: { title: "JIDOKAAN — 手工定制拳击鞋", mission: "我们的承诺", studio: "工坊" },
+    about: { title: "JIDOKAAN — 手工定制拳击鞋", mission: "我们的承诺", studio: "工坊",
+      body: "从为自己制作的一双拳击鞋开始，JIDOKAAN 在首尔圣水逐双手工制作，让颜色、材质与贴合感体现每位顾客的选择。",
+      missionBody: "我们重视独特的设计与舒适的贴合感，认真制作属于您的那一双。",
+      address: "韩国首尔特别市城东区圣水二路18街36号", hours: "10:00–18:00（午休 12:00–13:00）" },
     shippingPage: {
+      body: productionCopy("zh").notice,
       title: "配送、关税与制作",
       zones: "配送区域",
       asia: "韩国与亚洲",
       americas: "美洲",
       europe: "欧洲及其他",
+      asiaBody: "制作完成后：韩国约 2–5 个工作日；亚洲约 3–8 个工作日",
+      americasBody: "制作完成后约 5–12 个工作日", europeBody: "制作完成后约 5–14 个工作日",
+      returns: "退换货与取消订单", returnsBody: "定制商品按订单制作。请在下单前确认尺码、设计及退换货与取消政策。",
     },
     footer: {
       shop: "商店",
@@ -2717,7 +2952,7 @@ export const DICT: Record<Locale, Dictionary> = {
       company: "品牌",
       contact: "联系",
       privacy: "隐私",
-      terms: "条款",
+      terms: "条款", faq: "常见问题", rights: "保留所有权利。", instagram: "Instagram",
       address: "首尔圣水 — JIDOKAAN 工坊",
     },
     login: {
@@ -2726,8 +2961,186 @@ export const DICT: Record<Locale, Dictionary> = {
       continueWith: "继续使用",
       disabled: "登录已关闭。",
       back: "首页",
+      google: "使用 Google 继续", kakao: "Kakao", naver: "Naver", email: "邮箱", password: "密码", name: "姓名", phone: "手机号码",
+      phoneNeed: "请留下可联系的手机号码，以便我们与您沟通订单。", phoneSave: "保存号码", phoneInvalid: "请输入有效的手机号码。",
+      signIn: "登录", signUp: "创建账户", haveAccount: "已有账户？登录", noAccount: "首次访问？创建账户",
+      orEmail: "或使用邮箱", guestCheckout: "无需注册，继续下单", failed: "登录失败，请重试。",
     },
     common: { currency: "货币", language: "语言", close: "关闭", loading: "加载中…" },
+  }),
+  "zh-Hant": overlay(EN, {
+    tagline: "韓國首個手工訂製拳擊鞋",
+    nav: {
+      shop: "商店",
+      about: "品牌",
+      shipping: "配送",
+      cart: "購物車",
+      account: "帳戶",
+      signIn: "登入",
+      custom: "訂製下單",
+      orders: "查詢訂單",
+    },
+    hero: {
+      title: "你的拳擊鞋。\n送往世界各地。",
+      body: "JIDOKAAN 在首爾手工打造韓國首款訂製拳擊靴。自選配色，職業級腳感，全球配送。",
+      cta: "查看訂製",
+      secondary: "配送",
+      ships: `聖水手工 · ${productionCopy("zh-Hant").average} · 全球配送`,
+    },
+    home: {
+      originTitle: "韓國首創\n手工訂製。",
+      originBody: "每一雙都在首爾聖水手縫——按你的顏色和尺碼，不是流水線。",
+      originItems: ["聖水手作", "按單製作", "100% 韓國製造"],
+      craftTitle: "合腳絕不妥協。",
+      craftBody:
+        `寬楦、穩固包裹、擂台抓地。先保證職業腳感，再上你的設計。製作時間${productionCopy("zh-Hant").average}。`,
+      craftItems: ["寬楦", "高抓地大底", productionCopy("zh-Hant").average],
+      clickStudio: "點擊 · 訂製工作室",
+      buildTitle: "打造你的那一雙。",
+      buildBody: "在工作室設計，選擇國家，下單即可。",
+    },
+    custom: {
+      back: "返回",
+      reset: "重置",
+      resetToast: "已恢復預設配色",
+      guide2d: "開啓或關閉部位標記（精確 2D）",
+      guide3d: "3D 為預覽。最終顏色以 2D 為準。",
+      allParts: "全部部位",
+      shipTo: "配送至",
+      lockOrder: "鎖定設計 · 下單",
+      krOrderHint:
+        "如從韓國下單，請在 Naver 商店購買，並截圖保存此設計。國際客戶可在本網站付款。",
+      naverOrder: "在 Naver 商店下單",
+      overseasPay: "國際客戶：在本網站付款",
+      rotateHint: "拖動旋轉",
+      added: "設計已加入購物車",
+      colorNote: "模擬器顏色可能與實物存在差異",
+      expandPreview: "點擊照片放大",
+      closePreview: "關閉",
+      men: "男款",
+      women: "女款",
+      sizeGuideTitle: "尺碼選擇指南",
+      sizeGuideBody:
+        "女款尺碼與多數日常鞋接近，很多人會按平時的尺碼下單。男款普遍比耐克等常見運動鞋略大，建議小一碼。但如果腳偏寬，平時的尺碼可能會更合適。",
+    },
+    shop: {
+      title: "全部商品",
+      all: "全部",
+      filter: "分類",
+      sort: "排序",
+      results: "件商品",
+      empty: "沒有符合條件的商品。",
+      inStock: "可訂",
+      outOfStock: "售罄",
+    },
+    product: {
+      customOrder: "自選配色訂製",
+      specialOrder: "特殊材質訂製",
+      specialSoon: "模擬器正在籌備中。",
+      addToCart: "加入購物車",
+      added: "已加入",
+      buyNow: "立即下單",
+      shipsWorldwide: "全球配送",
+      materials: "材質",
+      weight: "重量",
+      shipsFrom: "發貨地",
+      reviews: "評價",
+      description: "詳情",
+      qty: "數量",
+      related: "你可能還喜歡",
+      size: "尺碼 (mm)",
+      color: "顏色",
+      leadTime: "製作週期",
+      leadDays: "天（手工）",
+      upper: "鞋面",
+      stripe: "條紋",
+      sole: "大底",
+    },
+    cart: {
+      title: "購物車",
+      empty: "購物車尚未有商品。",
+      emptyCta: "去商店",
+      subtotal: "小計",
+      shipping: "運費",
+      shippingCalc: "結算時計算",
+      total: "合計",
+      checkout: "去結算",
+      continue: "繼續購物",
+      remove: "刪除",
+      qty: "數量",
+    },
+    checkout: {
+      title: "結算",
+      contact: "聯絡方式",
+      email: "電郵地址",
+      phone: "電話號碼",
+      shipping: "收貨地址",
+      firstName: "名",
+      lastName: "姓",
+      address: "地址",
+      address2: "樓棟、樓層、房間號（選填）",
+      city: "城市",
+      region: "省 / 州",
+      postal: "郵政編碼",
+      country: "國家",
+      payment: "支付",
+      card: "卡號",
+      nameOnCard: "持卡人",
+      expiry: "有效期",
+      placeOrder: "確認訂單",
+      placing: "處理中…",
+      note: "演示商店 — 不會真實扣款。正式下單：jidokaan.com",
+      summary: "訂單總覽",
+      duty: "關稅及進口稅另付",
+      cvc: "安全碼", freeShipNote: "符合韓國境內免運費條件", freeShipAdd: "即可享韓國境內免運費",
+      payCard: "銀行卡", payKakao: "Kakao Pay", payNaver: "Naver Pay", payTransfer: "銀行轉賬", payPaypal: "PayPal",
+      signInFirst: "登入後可將此訂單保存到您的帳戶",
+      payNote: "請選擇付款方式。付款前請核對商品、運費及結算幣種。",
+      shipAuto: "運費根據收貨地自動計算。韓國境內使用當地快遞，國際訂單使用可追蹤的 EMS。",
+      phoneHint: "請填寫可供快遞及海關聯絡的有效電話號碼。", noPobox: "不支持郵政信箱或轉運倉地址。",
+    },
+    success: {
+      title: "已收到訂單",
+      body: "我們會郵件告知製作週期與物流。網站：jidokaan.com",
+      order: "訂單號",
+      continue: "返回商店",
+    },
+    about: { title: "JIDOKAAN — 手工訂製拳擊鞋", mission: "我們的承諾", studio: "工坊",
+      body: "從為自己製作的一雙拳擊鞋開始，JIDOKAAN 在首爾聖水逐雙手工製作，讓顏色、材質與貼合感體現每位顧客的選擇。",
+      missionBody: "我們重視獨特的設計與舒適的貼合感，認真製作屬於您的那一雙。",
+      address: "韓國首爾特別市城東區聖水二路18街36號", hours: "10:00–18:00（午休 12:00–13:00）" },
+    shippingPage: {
+      body: productionCopy("zh-Hant").notice,
+      title: "配送、關稅與製作",
+      zones: "配送區域",
+      asia: "韓國與亞洲",
+      americas: "美洲",
+      europe: "歐洲及其他",
+      asiaBody: "製作完成後：韓國約 2–5 個工作日；亞洲約 3–8 個工作日",
+      americasBody: "製作完成後約 5–12 個工作日", europeBody: "製作完成後約 5–14 個工作日",
+      returns: "退換貨與取消訂單", returnsBody: "訂製商品按訂單製作。請在下單前確認尺碼、設計及退換貨與取消政策。",
+    },
+    footer: {
+      shop: "商店",
+      help: "幫助",
+      company: "品牌",
+      contact: "聯絡",
+      privacy: "隱私",
+      terms: "條款", faq: "常見問題", rights: "保留所有權利。", instagram: "Instagram",
+      address: "首爾聖水 — JIDOKAAN 工坊",
+    },
+    login: {
+      title: "登入",
+      body: "跟蹤訂單與製作進度。",
+      continueWith: "繼續使用",
+      disabled: "登入已關閉。",
+      back: "首頁",
+      google: "使用 Google 繼續", kakao: "Kakao", naver: "Naver", email: "電郵地址", password: "密碼", name: "姓名", phone: "手機號碼",
+      phoneNeed: "請留下可聯絡的手機號碼，以便我們與您溝通訂單。", phoneSave: "保存號碼", phoneInvalid: "請輸入有效的手機號碼。",
+      signIn: "登入", signUp: "建立帳戶", haveAccount: "已有帳戶？登入", noAccount: "首次訪問？建立帳戶",
+      orEmail: "或使用電郵地址", guestCheckout: "無需註冊，繼續下單", failed: "登入失敗，請重試。",
+    },
+    common: { currency: "貨幣", language: "語言", close: "關閉", loading: "載入中…" },
   }),
   hi: overlay(EN, {
     tagline: "कोरिया की पहली कस्टम हस्तनिर्मित बॉक्सिंग शूज़",
@@ -2739,13 +3152,14 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "खाता",
       signIn: "साइन इन",
       custom: "कस्टम ऑर्डर",
+      orders: "ऑर्डर देखें",
     },
     hero: {
       title: "आपके बॉक्सिंग शूज़।\nदुनिया कहीं भी।",
       body: "JIDOKAAN सियोल में कोरिया के पहले कस्टम बॉक्सिंग बूट हाथ से बनाता है। रंग चुनें, प्रो आराम, दुनिया भर शिपिंग।",
       cta: "कस्टम देखें",
       secondary: "शिपिंग",
-      ships: "सोंग्सू में हाथ से · ~10 दिन · वैश्विक",
+      ships: `सोंग्सू में हाथ से · ${productionCopy("hi").average} · वैश्विक`,
     },
     home: {
       originTitle: "कोरिया के पहले\nकस्टम हाथ से बने।",
@@ -2754,8 +3168,8 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["सोंग्सू में हस्तनिर्मित", "ऑर्डर पर", "100% Made in Korea"],
       craftTitle: "फ़िट पर कोई समझौता नहीं।",
       craftBody:
-        "चौड़ा लास्ट, मज़बूत पकड़, रिंग ग्रिप। पहले प्रो फील, फिर आपका डिज़ाइन। ~10 दिन।",
-      craftItems: ["चौड़ा लास्ट", "हाई-ग्रिप सोल", "~10 दिन"],
+        `चौड़ा लास्ट, मज़बूत पकड़, रिंग ग्रिप। पहले प्रो फील, फिर आपका डिज़ाइन। हाथ से बनाने का समय: ${productionCopy("hi").average}।`,
+      craftItems: ["चौड़ा लास्ट", "हाई-ग्रिप सोल", productionCopy("hi").average],
       clickStudio: "क्लिक · कस्टम स्टूडियो",
       buildTitle: "अपनी जोड़ी बनाएँ।",
       buildBody: "स्टूडियो में डिज़ाइन करें, देश चुनें, ऑर्डर करें।",
@@ -2795,6 +3209,9 @@ export const DICT: Record<Locale, Dictionary> = {
       outOfStock: "समाप्त",
     },
     product: {
+      customOrder: "अपना डिज़ाइन बनाएँ",
+      specialOrder: "विशेष ऑर्डर",
+      specialSoon: "सिम्युलेटर तैयार किया जा रहा है।",
       addToCart: "कार्ट में डालें",
       added: "जोड़ दिया",
       buyNow: "अभी ऑर्डर",
@@ -2831,11 +3248,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "चेकआउट",
       contact: "संपर्क",
       email: "ईमेल",
-      phone: "फ़ोन (वैकल्पिक)",
+      phone: "फ़ोन नंबर",
       shipping: "शिपिंग पता",
       firstName: "नाम",
       lastName: "उपनाम",
       address: "पता",
+      address2: "फ़्लैट, मंज़िल, इमारत (वैकल्पिक)",
       city: "शहर",
       region: "राज्य / क्षेत्र",
       postal: "पिन कोड",
@@ -2858,6 +3276,7 @@ export const DICT: Record<Locale, Dictionary> = {
     },
     about: { title: "JIDOKAAN — कस्टम हस्तनिर्मित बॉक्सिंग", mission: "हमारा वादा", studio: "वर्कशॉप" },
     shippingPage: {
+      body: productionCopy("hi").notice,
       title: "शिपिंग, शुल्क और उत्पादन",
       zones: "शिपिंग ज़ोन",
       asia: "कोरिया और एशिया",
@@ -2892,13 +3311,14 @@ export const DICT: Record<Locale, Dictionary> = {
       account: "Account",
       signIn: "Mag-sign in",
       custom: "Custom order",
+      orders: "Tingnan ang order",
     },
     hero: {
       title: "Boxing shoes mo.\nKahit saan sa mundo.",
       body: "Gumagawa ang JIDOKAAN sa Seoul ng unang custom boxing boot ng Korea. Pumili ng kulay, pro-level na suot, padala sa buong mundo.",
       cta: "Tingnan ang custom",
       secondary: "Padala",
-      ships: "Handmade sa Seongsu · ~10 araw · pandaigdig",
+      ships: `Handmade sa Seongsu · ${productionCopy("tl").average} · pandaigdig`,
     },
     home: {
       originTitle: "Una sa Korea\ncustom na handmade.",
@@ -2907,8 +3327,8 @@ export const DICT: Record<Locale, Dictionary> = {
       originItems: ["Handmade sa Seongsu", "Made to order", "100% Made in Korea"],
       craftTitle: "Walang kompromiso sa fit.",
       craftBody:
-        "Malapad na last, mahigpit na hawakan, grip sa ring. Pro feel muna, tapos design mo. ~10 araw.",
-      craftItems: ["Malapad na last", "High-grip na sol", "~10 araw"],
+        `Malapad na last, mahigpit na hawakan, grip sa ring. Pro feel muna, tapos design mo. Oras ng paggawa: ${productionCopy("tl").average}.`,
+      craftItems: ["Malapad na last", "High-grip na sol", productionCopy("tl").average],
       clickStudio: "I-click · Custom studio",
       buildTitle: "Gawin ang pares mo.",
       buildBody: "Mag-design sa studio, piliin ang bansa, umorder.",
@@ -2948,6 +3368,9 @@ export const DICT: Record<Locale, Dictionary> = {
       outOfStock: "Sold out",
     },
     product: {
+      customOrder: "I-customize",
+      specialOrder: "Espesyal na order",
+      specialSoon: "Inihahanda pa ang simulator.",
       addToCart: "Idagdag sa cart",
       added: "Naidagdag",
       buyNow: "Umorder ngayon",
@@ -2984,11 +3407,12 @@ export const DICT: Record<Locale, Dictionary> = {
       title: "Checkout",
       contact: "Contact",
       email: "Email",
-      phone: "Telepono (opsyonal)",
+      phone: "Numero ng telepono",
       shipping: "Address ng padala",
       firstName: "Pangalan",
       lastName: "Apelyido",
       address: "Address",
+      address2: "Apartment, unit, gusali (opsyonal)",
       city: "Lungsod",
       region: "Rehiyon",
       postal: "Postal code",
@@ -3011,6 +3435,7 @@ export const DICT: Record<Locale, Dictionary> = {
     },
     about: { title: "JIDOKAAN — custom handmade boxing", mission: "Pangako namin", studio: "Workshop" },
     shippingPage: {
+      body: productionCopy("tl").notice,
       title: "Padala, duty at produksyon",
       zones: "Mga zone ng padala",
       asia: "Korea at Asya",
@@ -3036,6 +3461,426 @@ export const DICT: Record<Locale, Dictionary> = {
     common: { currency: "Pera", language: "Wika", close: "Isara", loading: "Naglo-load…" },
   }),
 };
+
+// Complete Chinese shopping copy; brand names and payment-provider names remain unchanged.
+DICT.zh = overlay(DICT.zh, {
+  "hero": {
+    "eyebrow": "100% 韩国制造 · 国际配送"
+  },
+  "home": {
+    "originKicker": "品牌起源",
+    "storyTitle": "韩国首个\n手工定制拳击鞋品牌。",
+    "storyBody": "JIDOKAAN 是韩国制造的定制运动鞋品牌。选择您喜欢的颜色，由我们为您手工制作。",
+    "craftKicker": "制作工艺",
+    "viewAll": "查看全部商品",
+    "studioLabel": "定制工作室"
+  },
+  "trust": {
+    "freeShip": "韩国境内免运费",
+    "freeShipBody": "韩国境内订单满 50,000 韩元免运费；国际订单另计运费。",
+    "duties": "关税及进口税另付",
+    "dutiesBody": "商品及运费不含目的地的关税、税款及清关费用。",
+    "returns": "定制订单政策",
+    "returnsBody": "下单前请查看退换货与取消政策。",
+    "secure": "安全付款",
+    "secureBody": "付款前核对订单及结算币种。"
+  },
+  "sections": {
+    "featured": "产品系列",
+    "featuredBody": "DRONE 系列——重视舒适，配色由您决定",
+    "categories": "按类别选购",
+    "categoriesBody": "从定制鞋款到配件",
+    "why": "为什么选择 JIDOKAAN",
+    "whyBody": "在韩国逐双手工制作，兼顾宽楦贴合、稳固包裹与擂台抓地力。",
+    "countries": "配送目的地"
+  },
+  "shop": {
+    "sortFeatured": "推荐商品",
+    "sortPriceAsc": "价格：从低到高",
+    "sortPriceDesc": "价格：从高到低",
+    "sortRating": "好评优先"
+  },
+  "product": {
+    "freeOver": "从韩国首尔圣水发货",
+    "customHint": "在下一步的定制模拟器中选择颜色与尺码。",
+    "naverReviews": "在 Naver 智能商店查看完整评价",
+    "naverReviewsHint": "打开 Naver 商品页面查看评价；韩国境内订单也可在那里购买。"
+  }
+});
+DICT["zh-Hant"] = overlay(DICT["zh-Hant"], {
+  "hero": {
+    "eyebrow": "100% 韓國製造 · 國際配送"
+  },
+  "home": {
+    "originKicker": "品牌起源",
+    "storyTitle": "韓國首個\n手工訂製拳擊鞋品牌。",
+    "storyBody": "JIDOKAAN 是韓國製造的訂製運動鞋品牌。選擇您喜歡的顏色，由我們為您手工製作。",
+    "craftKicker": "製作工藝",
+    "viewAll": "查看全部商品",
+    "studioLabel": "訂製工作室"
+  },
+  "trust": {
+    "freeShip": "韓國境內免運費",
+    "freeShipBody": "韓國境內訂單滿 50,000 韓元免運費；國際訂單另計運費。",
+    "duties": "關稅及進口稅另付",
+    "dutiesBody": "商品及運費不含目的地的關稅、稅款及清關費用。",
+    "returns": "訂製訂單政策",
+    "returnsBody": "下單前請查看退換貨與取消政策。",
+    "secure": "安全付款",
+    "secureBody": "付款前核對訂單及結算幣種。"
+  },
+  "sections": {
+    "featured": "產品系列",
+    "featuredBody": "DRONE 系列——重視舒適，配色由您決定",
+    "categories": "按類別選購",
+    "categoriesBody": "從訂製鞋款到配件",
+    "why": "為甚麼選擇 JIDOKAAN",
+    "whyBody": "在韓國逐雙手工製作，兼顧寬楦貼合、穩固包裹與擂台抓地力。",
+    "countries": "配送目的地"
+  },
+  "shop": {
+    "sortFeatured": "推薦商品",
+    "sortPriceAsc": "價格：從低到高",
+    "sortPriceDesc": "價格：從高到低",
+    "sortRating": "好評優先"
+  },
+  "product": {
+    "freeOver": "從韓國首爾聖水發貨",
+    "customHint": "在下一步的訂製模擬器中選擇顏色與尺碼。",
+    "naverReviews": "在 Naver 智能商店查看完整評價",
+    "naverReviewsHint": "打開 Naver 商品頁面查看評價；韓國境內訂單也可在那裡購買。"
+  }
+});
+
+// Use the same domestic handoff in the simulator, cart and checkout.
+for (const locale of Object.keys(DICT) as Locale[]) {
+  DICT[locale].custom.krOrderHint = domesticOrderCopy(locale).message;
+  const ui = simulatorUiCopy(locale);
+  const orderUi = orderUiCopy(locale);
+  DICT[locale].home.studioLabel = orderUi.studio;
+  DICT[locale].checkout.payCard = orderUi.payCard;
+  DICT[locale].checkout.payTransfer = orderUi.payTransfer;
+  DICT[locale].custom.guide2d = ui.guide;
+  DICT[locale].custom.lockOrder = ui.confirm;
+  Object.assign(DICT[locale].shop, {
+    sortFeatured: ui.sortFeatured, sortPriceAsc: ui.sortPriceAsc,
+    sortPriceDesc: ui.sortPriceDesc, sortRating: ui.sortRating,
+  });
+}
+
+DICT.fr.checkout.contact = "Coordonnées";
+DICT.tl.checkout.contact = "Impormasyon sa pakikipag-ugnayan";
+DICT.tl.checkout.title = "Pagkumpleto ng order";
+DICT.tl.shop.inStock = "May stock";
+DICT.tl.shop.outOfStock = "Ubos na";
+DICT.it.custom.reset = "Ripristina";
+
+// Complete account controls without changing authentication or provider behavior.
+const LOGIN_TRANSLATIONS: Partial<Record<Locale, Partial<Dictionary["login"]>>> = {
+  "es": {
+    "google": "Continuar con Google",
+    "kakao": "Continuar con Kakao",
+    "naver": "Continuar con Naver",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "name": "Nombre",
+    "phone": "Número de móvil",
+    "phoneNeed": "Indica un número de móvil para que podamos contactarte sobre tus pedidos.",
+    "phoneSave": "Guardar número",
+    "phoneInvalid": "Introduce un número de móvil válido.",
+    "signIn": "Iniciar sesión",
+    "signUp": "Crear cuenta",
+    "haveAccount": "¿Ya tienes una cuenta? Inicia sesión",
+    "noAccount": "¿Es tu primera visita? Crea una cuenta",
+    "orEmail": "o usa tu correo electrónico",
+    "guestCheckout": "Continuar sin registrarse",
+    "failed": "No se pudo iniciar sesión. Inténtalo de nuevo."
+  },
+  "fr": {
+    "google": "Continuer avec Google",
+    "kakao": "Continuer avec Kakao",
+    "naver": "Continuer avec Naver",
+    "email": "Adresse e-mail",
+    "password": "Mot de passe",
+    "name": "Nom",
+    "phone": "Numéro de téléphone mobile",
+    "phoneNeed": "Indiquez un numéro de téléphone mobile pour que nous puissions vous contacter au sujet de vos commandes.",
+    "phoneSave": "Enregistrer le numéro",
+    "phoneInvalid": "Saisissez un numéro de téléphone mobile valide.",
+    "signIn": "Se connecter",
+    "signUp": "Créer un compte",
+    "haveAccount": "Vous avez déjà un compte ? Connectez-vous",
+    "noAccount": "Première visite ? Créez un compte",
+    "orEmail": "ou utilisez votre adresse e-mail",
+    "guestCheckout": "Continuer sans compte",
+    "failed": "Connexion impossible. Veuillez réessayer."
+  },
+  "de": {
+    "google": "Mit Google fortfahren",
+    "kakao": "Mit Kakao fortfahren",
+    "naver": "Mit Naver fortfahren",
+    "email": "E-Mail-Adresse",
+    "password": "Passwort",
+    "name": "Name",
+    "phone": "Mobilnummer",
+    "phoneNeed": "Geben Sie eine Mobilnummer an, damit wir Sie zu Ihren Bestellungen kontaktieren können.",
+    "phoneSave": "Nummer speichern",
+    "phoneInvalid": "Geben Sie eine gültige Mobilnummer ein.",
+    "signIn": "Anmelden",
+    "signUp": "Konto erstellen",
+    "haveAccount": "Sie haben bereits ein Konto? Anmelden",
+    "noAccount": "Neu hier? Konto erstellen",
+    "orEmail": "oder per E-Mail",
+    "guestCheckout": "Als Gast fortfahren",
+    "failed": "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut."
+  },
+  "it": {
+    "google": "Continua con Google",
+    "kakao": "Continua con Kakao",
+    "naver": "Continua con Naver",
+    "email": "Indirizzo e-mail",
+    "password": "Password",
+    "name": "Nome",
+    "phone": "Numero di cellulare",
+    "phoneNeed": "Lascia un numero di cellulare per consentirci di contattarti riguardo ai tuoi ordini.",
+    "phoneSave": "Salva il numero",
+    "phoneInvalid": "Inserisci un numero di cellulare valido.",
+    "signIn": "Accedi",
+    "signUp": "Crea un account",
+    "haveAccount": "Hai già un account? Accedi",
+    "noAccount": "È la tua prima visita? Crea un account",
+    "orEmail": "oppure usa l’e-mail",
+    "guestCheckout": "Continua senza account",
+    "failed": "Impossibile accedere. Riprova."
+  },
+  "pt": {
+    "google": "Continuar com o Google",
+    "kakao": "Continuar com o Kakao",
+    "naver": "Continuar com o Naver",
+    "email": "E-mail",
+    "password": "Senha",
+    "name": "Nome",
+    "phone": "Número de celular",
+    "phoneNeed": "Informe um número de celular para entrarmos em contato sobre seus pedidos.",
+    "phoneSave": "Salvar número",
+    "phoneInvalid": "Digite um número de celular válido.",
+    "signIn": "Entrar",
+    "signUp": "Criar conta",
+    "haveAccount": "Já tem uma conta? Entre",
+    "noAccount": "É sua primeira visita? Crie uma conta",
+    "orEmail": "ou use seu e-mail",
+    "guestCheckout": "Continuar sem criar conta",
+    "failed": "Não foi possível entrar. Tente novamente."
+  },
+  "tr": {
+    "google": "Google ile devam et",
+    "kakao": "Kakao ile devam et",
+    "naver": "Naver ile devam et",
+    "email": "E-posta",
+    "password": "Şifre",
+    "name": "Ad",
+    "phone": "Cep telefonu numarası",
+    "phoneNeed": "Siparişlerinizle ilgili size ulaşabilmemiz için bir cep telefonu numarası bırakın.",
+    "phoneSave": "Numarayı kaydet",
+    "phoneInvalid": "Geçerli bir cep telefonu numarası girin.",
+    "signIn": "Giriş yap",
+    "signUp": "Hesap oluştur",
+    "haveAccount": "Zaten hesabınız var mı? Giriş yapın",
+    "noAccount": "İlk kez mi geliyorsunuz? Hesap oluşturun",
+    "orEmail": "veya e-posta kullanın",
+    "guestCheckout": "Üye olmadan devam et",
+    "failed": "Giriş yapılamadı. Lütfen tekrar deneyin."
+  },
+  "ru": {
+    "google": "Продолжить с Google",
+    "kakao": "Продолжить с Kakao",
+    "naver": "Продолжить с Naver",
+    "email": "Электронная почта",
+    "password": "Пароль",
+    "name": "Имя",
+    "phone": "Номер мобильного телефона",
+    "phoneNeed": "Укажите номер мобильного телефона, чтобы мы могли связаться с вами по поводу заказов.",
+    "phoneSave": "Сохранить номер",
+    "phoneInvalid": "Введите действительный номер мобильного телефона.",
+    "signIn": "Войти",
+    "signUp": "Создать аккаунт",
+    "haveAccount": "Уже есть аккаунт? Войти",
+    "noAccount": "Впервые здесь? Создать аккаунт",
+    "orEmail": "или используйте электронную почту",
+    "guestCheckout": "Продолжить как гость",
+    "failed": "Не удалось войти. Попробуйте ещё раз."
+  },
+  "th": {
+    "google": "ดำเนินการต่อด้วย Google",
+    "kakao": "ดำเนินการต่อด้วย Kakao",
+    "naver": "ดำเนินการต่อด้วย Naver",
+    "email": "อีเมล",
+    "password": "รหัสผ่าน",
+    "name": "ชื่อ",
+    "phone": "หมายเลขโทรศัพท์มือถือ",
+    "phoneNeed": "โปรดระบุหมายเลขโทรศัพท์มือถือเพื่อให้เราติดต่อคุณเกี่ยวกับคำสั่งซื้อได้",
+    "phoneSave": "บันทึกหมายเลข",
+    "phoneInvalid": "โปรดระบุหมายเลขโทรศัพท์มือถือที่ถูกต้อง",
+    "signIn": "เข้าสู่ระบบ",
+    "signUp": "สร้างบัญชี",
+    "haveAccount": "มีบัญชีอยู่แล้วใช่ไหม เข้าสู่ระบบ",
+    "noAccount": "เพิ่งมาเป็นครั้งแรกใช่ไหม สร้างบัญชี",
+    "orEmail": "หรือใช้อีเมล",
+    "guestCheckout": "ดำเนินการต่อโดยไม่สมัครสมาชิก",
+    "failed": "ไม่สามารถเข้าสู่ระบบได้ โปรดลองอีกครั้ง"
+  },
+  "uz": {
+    "google": "Google orqali davom etish",
+    "kakao": "Kakao orqali davom etish",
+    "naver": "Naver orqali davom etish",
+    "email": "Elektron pochta",
+    "password": "Parol",
+    "name": "Ism",
+    "phone": "Mobil telefon raqami",
+    "phoneNeed": "Buyurtmalaringiz bo‘yicha siz bilan bog‘lanishimiz uchun mobil telefon raqamingizni qoldiring.",
+    "phoneSave": "Raqamni saqlash",
+    "phoneInvalid": "Yaroqli mobil telefon raqamini kiriting.",
+    "signIn": "Kirish",
+    "signUp": "Hisob yaratish",
+    "haveAccount": "Hisobingiz bormi? Kirish",
+    "noAccount": "Birinchi marta tashrif buyurdingizmi? Hisob yarating",
+    "orEmail": "yoki elektron pochtadan foydalaning",
+    "guestCheckout": "Mehmon sifatida davom etish",
+    "failed": "Hisobga kirib bo‘lmadi. Qayta urinib ko‘ring."
+  },
+  "hi": {
+    "google": "Google से जारी रखें",
+    "kakao": "Kakao से जारी रखें",
+    "naver": "Naver से जारी रखें",
+    "email": "ईमेल",
+    "password": "पासवर्ड",
+    "name": "नाम",
+    "phone": "मोबाइल नंबर",
+    "phoneNeed": "अपना मोबाइल नंबर दें ताकि हम ऑर्डर के बारे में आपसे संपर्क कर सकें।",
+    "phoneSave": "नंबर सहेजें",
+    "phoneInvalid": "कृपया सही मोबाइल नंबर डालें।",
+    "signIn": "साइन इन करें",
+    "signUp": "खाता बनाएँ",
+    "haveAccount": "पहले से खाता है? साइन इन करें",
+    "noAccount": "पहली बार आए हैं? खाता बनाएँ",
+    "orEmail": "या ईमेल इस्तेमाल करें",
+    "guestCheckout": "अतिथि के तौर पर जारी रखें",
+    "failed": "साइन इन नहीं हो सका। कृपया फिर कोशिश करें।"
+  },
+  "tl": {
+    "google": "Magpatuloy gamit ang Google",
+    "kakao": "Magpatuloy gamit ang Kakao",
+    "naver": "Magpatuloy gamit ang Naver",
+    "email": "Email",
+    "password": "Password",
+    "name": "Pangalan",
+    "phone": "Numero ng cellphone",
+    "phoneNeed": "Ibigay ang iyong numero ng cellphone para makontak ka namin tungkol sa mga order.",
+    "phoneSave": "I-save ang numero",
+    "phoneInvalid": "Maglagay ng wastong numero ng cellphone.",
+    "signIn": "Mag-sign in",
+    "signUp": "Gumawa ng account",
+    "haveAccount": "May account ka na? Mag-sign in",
+    "noAccount": "Bago ka rito? Gumawa ng account",
+    "orEmail": "o gumamit ng email",
+    "guestCheckout": "Magpatuloy bilang bisita",
+    "failed": "Hindi makapag-sign in. Pakisubukan muli."
+  }
+};
+const ACCOUNT_UI: Record<Exclude<Locale, "ar">, { logOut: string; menu: string; internationalBody: string }> = {
+  "ko": {
+    "logOut": "로그아웃",
+    "menu": "메뉴",
+    "internationalBody": "해외 주문에는 Google 로그인을 권장합니다. 이메일로도 로그인할 수 있습니다."
+  },
+  "en": {
+    "logOut": "Log out",
+    "menu": "Menu",
+    "internationalBody": "Google is recommended for international orders. You can also use email."
+  },
+  "ja": {
+    "logOut": "ログアウト",
+    "menu": "メニュー",
+    "internationalBody": "海外からのご注文にはGoogleでのログインをおすすめします。メールアドレスでもログインできます。"
+  },
+  "zh": {
+    "logOut": "退出登录",
+    "menu": "菜单",
+    "internationalBody": "海外订单建议使用Google登录，也可以使用电子邮箱。"
+  },
+  "zh-Hant": {
+    "logOut": "登出",
+    "menu": "選單",
+    "internationalBody": "海外訂單建議使用Google登入，也可以使用電郵地址。"
+  },
+  "es": {
+    "logOut": "Cerrar sesión",
+    "menu": "Menú",
+    "internationalBody": "Recomendamos iniciar sesión con Google para pedidos internacionales. También puedes usar tu correo electrónico."
+  },
+  "fr": {
+    "logOut": "Se déconnecter",
+    "menu": "Menu",
+    "internationalBody": "Pour les commandes internationales, nous recommandons de vous connecter avec Google. Vous pouvez aussi utiliser votre adresse e-mail."
+  },
+  "de": {
+    "logOut": "Abmelden",
+    "menu": "Menü",
+    "internationalBody": "Für internationale Bestellungen empfehlen wir die Anmeldung mit Google. Sie können auch Ihre E-Mail-Adresse verwenden."
+  },
+  "it": {
+    "logOut": "Esci",
+    "menu": "Menu",
+    "internationalBody": "Per gli ordini internazionali consigliamo di accedere con Google. Puoi anche usare l’e-mail."
+  },
+  "pt": {
+    "logOut": "Sair",
+    "menu": "Menu",
+    "internationalBody": "Para pedidos internacionais, recomendamos entrar com o Google. Você também pode usar seu e-mail."
+  },
+  "tr": {
+    "logOut": "Çıkış yap",
+    "menu": "Menü",
+    "internationalBody": "Uluslararası siparişler için Google ile giriş yapmanızı öneririz. E-posta da kullanabilirsiniz."
+  },
+  "ru": {
+    "logOut": "Выйти",
+    "menu": "Меню",
+    "internationalBody": "Для международных заказов рекомендуем вход через Google. Также можно использовать электронную почту."
+  },
+  "uz": {
+    "logOut": "Chiqish",
+    "menu": "Menyu",
+    "internationalBody": "Xalqaro buyurtmalar uchun Google orqali kirishni tavsiya qilamiz. Elektron pochtadan ham foydalanishingiz mumkin."
+  },
+  "th": {
+    "logOut": "ออกจากระบบ",
+    "menu": "เมนู",
+    "internationalBody": "สำหรับคำสั่งซื้อระหว่างประเทศ เราแนะนำให้เข้าสู่ระบบด้วย Google คุณสามารถใช้อีเมลได้เช่นกัน"
+  },
+  "hi": {
+    "logOut": "लॉग आउट करें",
+    "menu": "मेन्यू",
+    "internationalBody": "अंतरराष्ट्रीय ऑर्डर के लिए हम Google से लॉग इन करने की सलाह देते हैं। आप ईमेल भी इस्तेमाल कर सकते हैं।"
+  },
+  "tl": {
+    "logOut": "Mag-log out",
+    "menu": "Menu",
+    "internationalBody": "Inirerekomenda ang pag-sign in gamit ang Google para sa mga order sa ibang bansa. Maaari ka ring gumamit ng email."
+  }
+};
+for (const { id } of LOCALES) {
+  Object.assign(DICT[id].login, LOGIN_TRANSLATIONS[id], {
+    internationalBody: ACCOUNT_UI[id as Exclude<Locale, "ar">].internationalBody,
+  });
+  const account = ACCOUNT_UI[id as Exclude<Locale, "ar">];
+  DICT[id].nav.logOut = account.logOut;
+  DICT[id].nav.menu = account.menu;
+  const detail = storefrontDetailCopy(id);
+  DICT[id].cart.decrease = detail.decrease;
+  DICT[id].cart.increase = detail.increase;
+  DICT[id].cart.close = DICT[id].common.close;
+}
 
 export function t(locale: Locale): Dictionary {
   return DICT[locale] ?? DICT.en;
@@ -3073,7 +3918,8 @@ export const COUNTRIES = [
   { code: "AR", ko: "아르헨티나", en: "Argentina", ja: "アルゼンチン", es: "Argentina", th: "อาร์เจนตินา", fr: "Argentine", de: "Argentinien", ar: "الأرجنتين" },
   { code: "CH", ko: "스위스", en: "Switzerland", ja: "スイス", es: "Suiza", th: "สวิตเซอร์แลนด์", fr: "Suisse", de: "Schweiz", ar: "سويسرا" },
   { code: "CN", ko: "중국", en: "China", ja: "中国", es: "China", th: "จีน", fr: "Chine", de: "China", ar: "الصين" },
-  { code: "HK", ko: "홍콩", en: "Hong Kong", ja: "香港", zh: "香港", es: "Hong Kong", th: "ฮ่องกง", fr: "Hong Kong", de: "Hongkong", ar: "هونغ كونغ" },
+  { code: "HK", ko: "홍콩", en: "Hong Kong", ja: "香港", zh: "香港",
+  "zh-Hant": "香港", es: "Hong Kong", th: "ฮ่องกง", fr: "Hong Kong", de: "Hongkong", ar: "هونغ كونغ" },
   { code: "IN", ko: "인도", en: "India", ja: "インド", es: "India", th: "อินเดีย", fr: "Inde", de: "Indien", ar: "الهند" },
   { code: "ZA", ko: "남아프리카공화국", en: "South Africa", ja: "南アフリカ", es: "Sudáfrica", th: "แอฟริกาใต้", fr: "Afrique du Sud", de: "Südafrika", ar: "جنوب أفريقيا" },
   { code: "EG", ko: "이집트", en: "Egypt", ja: "エジプト", es: "Egipto", th: "อียิปต์", fr: "Égypte", de: "Ägypten", ar: "مصر" },
@@ -3088,7 +3934,13 @@ export function countryName(
   locale: Locale,
 ): string {
   const rec = country as Record<string, string>;
-  return rec[locale] || rec.en || rec.ko || country.code;
+  if (rec[locale] && locale !== "zh" && locale !== "zh-Hant") return rec[locale];
+  try {
+    const language = locale === "zh" ? "zh-CN" : locale === "zh-Hant" ? "zh-HK" : locale === "tl" ? "fil" : locale;
+    return new Intl.DisplayNames([language], { type: "region" }).of(country.code) || rec.en || country.code;
+  } catch {
+    return rec[locale] || rec.en || rec.ko || country.code;
+  }
 }
 
 export const FLAG_MARKETS: {
@@ -3109,7 +3961,6 @@ export const FLAG_MARKETS: {
   { code: "uz", locale: "uz", currency: "USD", name: "Uzbekistan" },
   { code: "de", locale: "de", currency: "USD", name: "Germany" },
   { code: "fr", locale: "fr", currency: "USD", name: "France" },
-  { code: "it", locale: "it", currency: "USD", name: "Italy" },
   { code: "es", locale: "es", currency: "USD", name: "Spain" },
   { code: "tr", locale: "tr", currency: "USD", name: "Turkey" },
   { code: "ae", locale: "en", currency: "USD", name: "United Arab Emirates" },
@@ -3118,111 +3969,65 @@ export const FLAG_MARKETS: {
   { code: "ar", locale: "es", currency: "USD", name: "Argentina" },
   { code: "ch", locale: "de", currency: "USD", name: "Switzerland" },
   { code: "cn", locale: "zh", currency: "USD", name: "China" },
+  { code: "hk", locale: "zh-Hant", currency: "USD", name: "Hong Kong" },
+  { code: "sg", locale: "en", currency: "USD", name: "Singapore" },
+  { code: "nl", locale: "en", currency: "USD", name: "Netherlands" },
+  { code: "se", locale: "en", currency: "USD", name: "Sweden" },
   { code: "jp", locale: "ja", currency: "USD", name: "Japan" },
   { code: "in", locale: "hi", currency: "USD", name: "India" },
-  { code: "za", locale: "en", currency: "USD", name: "South Africa" },
   { code: "eg", locale: "en", currency: "USD", name: "Egypt" },
 ];
 
 
-/** Strong match only. Unknown / generic English → null (stay Korean). */
+/** Browser language and delivery destination are independent suggestions.
+ * Only the primary browser language is used for copy. Region/timezone can
+ * suggest a supported destination; checkout still asks the customer to check it.
+ */
+export function detectVisitorMarketFrom(
+  language: string,
+  timeZone = "",
+): (typeof FLAG_MARKETS)[number] {
+  const tag = (language || "").replace(/_/g, "-").toLowerCase();
+  const primary = tag.split("-")[0];
+  const languageId = primary === "zh" && (tag.includes("-hant") || /-(hk|tw|mo)(-|$)/.test(tag))
+    ? "zh-Hant" : primary === "fil" ? "tl" : primary;
+  const locale = LOCALES.find((entry) => entry.id === languageId)?.id ?? "en";
+  const parts = tag.split("-");
+  const region = parts.slice(1).find((part) => /^[a-z]{2}$/.test(part))?.toUpperCase();
+  const timeZoneCountries: Record<string, string> = {
+    "Asia/Seoul": "KR", "Asia/Hong_Kong": "HK", "Asia/Shanghai": "CN",
+    "Asia/Tokyo": "JP", "Asia/Singapore": "SG", "Asia/Bangkok": "TH",
+    "Asia/Manila": "PH", "Asia/Kolkata": "IN", "Asia/Calcutta": "IN",
+    "Asia/Tashkent": "UZ", "Asia/Dubai": "AE", "Asia/Abu_Dhabi": "AE",
+    "Asia/Riyadh": "SA", "Europe/London": "GB", "Europe/Paris": "FR",
+    "Europe/Berlin": "DE", "Europe/Madrid": "ES", "Europe/Moscow": "RU",
+    "Europe/Istanbul": "TR", "Europe/Zurich": "CH", "Europe/Amsterdam": "NL",
+    "Europe/Stockholm": "SE", "Africa/Cairo": "EG", "America/Toronto": "CA",
+    "America/Vancouver": "CA", "America/Winnipeg": "CA", "America/Edmonton": "CA",
+    "America/Halifax": "CA", "America/St_Johns": "CA", "America/New_York": "US",
+    "America/Chicago": "US", "America/Denver": "US", "America/Los_Angeles": "US",
+    "America/Phoenix": "US", "America/Anchorage": "US", "Pacific/Honolulu": "US",
+    "America/Mexico_City": "MX", "America/Cancun": "MX", "America/Monterrey": "MX",
+    "America/Argentina/Buenos_Aires": "AR", "America/Sao_Paulo": "BR",
+  };
+  const zoneCountry = timeZoneCountries[timeZone] || (timeZone.startsWith("Australia/") ? "AU" : "");
+  const suggested = zoneCountry || region || "";
+  const code = isSupportedShippingCountry(suggested) ? suggested.toLowerCase() : "";
+  const market = FLAG_MARKETS.find((entry) => entry.code === code);
+  return {
+    code,
+    locale,
+    currency: currencyForDestination(code),
+    name: market?.name ?? "Select delivery country",
+  };
+}
+
 export function detectVisitorMarket(): (typeof FLAG_MARKETS)[number] | null {
-  if (typeof navigator === "undefined") return FLAG_MARKETS[0];
-  const langs = (
-    navigator.languages?.length ? [...navigator.languages] : [navigator.language]
-  ).map((l) => (l || "").toLowerCase());
-  let tz = "";
-  try {
-    tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-  } catch {
-    tz = "";
-  }
-
-  if (langs.some((l) => l.startsWith("ko")) || tz === "Asia/Seoul") {
-    return FLAG_MARKETS.find((m) => m.code === "kr")!;
-  }
-  if (langs.some((l) => l.startsWith("th")) || tz === "Asia/Bangkok") {
-    return FLAG_MARKETS.find((m) => m.code === "th")!;
-  }
-  if (langs.some((l) => l.startsWith("ar-sa")) || tz === "Asia/Riyadh") {
-    return FLAG_MARKETS.find((m) => m.code === "sa")!;
-  }
-  if (
-    langs.some((l) => l.startsWith("ar")) ||
-    tz === "Asia/Dubai" ||
-    tz === "Asia/Abu_Dhabi"
-  ) {
-    return FLAG_MARKETS.find((m) => m.code === "ae")!;
-  }
-  if (langs.some((l) => l.startsWith("de")) || tz.startsWith("Europe/Berlin")) {
-    return FLAG_MARKETS.find((m) => m.code === "de")!;
-  }
-  if (langs.some((l) => l.startsWith("it")) || tz === "Europe/Rome") {
-    return FLAG_MARKETS.find((m) => m.code === "it")!;
-  }
-  if (langs.some((l) => l.startsWith("fr")) && !langs.some((l) => l.startsWith("fr-ca"))) {
-    return FLAG_MARKETS.find((m) => m.code === "fr")!;
-  }
-  if (langs.some((l) => l.startsWith("es-mx")) || tz.startsWith("America/Mexico")) {
-    return FLAG_MARKETS.find((m) => m.code === "mx")!;
-  }
-  if (langs.some((l) => l.startsWith("es-ar")) || tz === "America/Argentina/Buenos_Aires") {
-    return FLAG_MARKETS.find((m) => m.code === "ar")!;
-  }
-  if (langs.some((l) => l.startsWith("pt")) || tz === "America/Sao_Paulo") {
-    return FLAG_MARKETS.find((m) => m.code === "br")!;
-  }
-  if (langs.some((l) => l.startsWith("ru")) || tz === "Europe/Moscow") {
-    return FLAG_MARKETS.find((m) => m.code === "ru")!;
-  }
-  if (langs.some((l) => l.startsWith("uz")) || tz === "Asia/Tashkent") {
-    return FLAG_MARKETS.find((m) => m.code === "uz")!;
-  }
-  if (langs.some((l) => l.startsWith("tr")) || tz === "Europe/Istanbul") {
-    return FLAG_MARKETS.find((m) => m.code === "tr")!;
-  }
-  if (langs.some((l) => l.startsWith("fil") || l.startsWith("tl")) || tz === "Asia/Manila") {
-    return FLAG_MARKETS.find((m) => m.code === "ph")!;
-  }
-  if (langs.some((l) => l.startsWith("es"))) {
-    return FLAG_MARKETS.find((m) => m.code === "es")!;
-  }
-  if (langs.some((l) => l.startsWith("zh")) || tz.startsWith("Asia/Shanghai") || tz === "Asia/Hong_Kong") {
-    return FLAG_MARKETS.find((m) => m.code === "cn")!;
-  }
-  if (langs.some((l) => l.startsWith("ja")) || tz === "Asia/Tokyo") {
-    return FLAG_MARKETS.find((m) => m.code === "jp")!;
-  }
-  if (langs.some((l) => l.startsWith("hi")) || tz === "Asia/Kolkata" || tz === "Asia/Calcutta") {
-    return FLAG_MARKETS.find((m) => m.code === "in")!;
-  }
-  if (tz === "Africa/Johannesburg" || langs.some((l) => l.startsWith("af") || l.startsWith("zu"))) {
-    return FLAG_MARKETS.find((m) => m.code === "za")!;
-  }
-  if (tz === "Africa/Cairo" || langs.some((l) => l.startsWith("ar-eg"))) {
-    return FLAG_MARKETS.find((m) => m.code === "eg")!;
-  }
-  if (tz === "Europe/Zurich" || langs.some((l) => l.startsWith("de-ch") || l.startsWith("gsw"))) {
-    return FLAG_MARKETS.find((m) => m.code === "ch")!;
-  }
-  if (langs.some((l) => l.startsWith("en-gb")) || tz === "Europe/London") {
-    return FLAG_MARKETS.find((m) => m.code === "gb")!;
-  }
-  if (langs.some((l) => l.startsWith("en-au")) || tz.startsWith("Australia/")) {
-    return FLAG_MARKETS.find((m) => m.code === "au")!;
-  }
-  if (langs.some((l) => l.startsWith("en-ca")) || tz.startsWith("America/Toronto") || tz.startsWith("America/Vancouver")) {
-    return FLAG_MARKETS.find((m) => m.code === "ca")!;
-  }
-  if (
-    langs.some((l) => l.startsWith("en-us")) &&
-    (tz.startsWith("America/") || tz.startsWith("US/"))
-  ) {
-    return FLAG_MARKETS.find((m) => m.code === "us")!;
-  }
-
-  // Exception / unknown preview env → Korean so the site builder stays in 한글
-  return FLAG_MARKETS.find((m) => m.code === "kr")!;
+  // No location inference during SSR: the client initializes its preferences.
+  if (typeof navigator === "undefined") return null;
+  let timeZone = "";
+  try { timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { /* unavailable */ }
+  return detectVisitorMarketFrom(navigator.languages?.[0] || navigator.language || "en", timeZone);
 }
 
 export const HTML_LANG: Record<Locale, string> = {
@@ -3240,6 +4045,7 @@ export const HTML_LANG: Record<Locale, string> = {
   tr: "tr",
   uz: "uz",
   zh: "zh",
+  "zh-Hant": "zh-Hant",
   hi: "hi",
   tl: "tl",
 };

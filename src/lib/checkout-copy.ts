@@ -1,3 +1,6 @@
+import { productionCopy } from "./production-copy";
+import { checkoutEnhancementsCopy } from "./checkout-enhancements-copy";
+import { customerOrderCopy } from "./customer-order-copy";
 import type { Locale } from "./i18n";
 export const ko = {
   title: "주문 전 확인 사항",
@@ -14,9 +17,8 @@ export const ko = {
     "국제 배송은 우체국 EMS를 이용합니다. 국가별 배송비가 이번 결제에 포함됩니다. 한 켤레당 410×310×150mm 상자 기준이며, 여러 켤레는 각각 별도 상자로 계산합니다.",
   duty: "관세·세금·통관 수수료는 이번 결제에 포함되지 않습니다. 도착국 규정에 따라 별도로 발생하며, 수취인 납부 또는 발송 전 선납 여부를 안내합니다.",
   usDuty:
-    "미국행 관세·통관 수수료는 이번 결제에 포함되지 않습니다. 발송인이 선납해야 하는 비용은 제작 시작 전 예상액을 안내하고, 출고 전 확정 금액을 별도로 결제받습니다. 해당 비용 납부 확인 후 발송합니다.",
-  production:
-    "주문 후 제작합니다. 제작 기간은 영업일 기준 약 30일을 예상해 주세요. 국제 배송과 통관에 걸리는 시간은 별도입니다.",
+    checkoutEnhancementsCopy("ko").usDuty,
+  production: productionCopy("ko").notice,
   agree:
     "확정 디자인·사이즈·수량과 위 안내를 확인했습니다. 배송비는 이번 결제에 포함되며, 관세·세금·통관 비용은 별도로 발생할 수 있음을 이해합니다.",
   missing: "확정 디자인 정보가 없습니다. 시뮬레이터에서 디자인을 확정한 후 다시 주문해 주세요.",
@@ -45,7 +47,7 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
     contact: "Contact method for production and delivery updates",
     instagram: "Instagram username · required",
     emailOption: "I do not use Instagram · contact me by email",
-    email: "Reachable email address · required",
+    email: "Email address · required",
     contactHelp:
       "Enter an Instagram account that accepts message requests. If you do not have one, select email and enter an address you actively check.",
     designTitle: "Final design and production specifications",
@@ -55,9 +57,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "International orders ship by Korea Post EMS. The destination-based shipping charge is included in this payment. Each pair is rated as one 410×310×150 mm box; multiple pairs are calculated as separate boxes.",
     duty: "Duties, taxes and customs clearance fees are not included in this payment. Additional charges may apply under destination rules. We will explain whether you pay on arrival or before dispatch.",
     usDuty:
-      "US import duties and clearance fees are not included in this payment. For charges the sender must prepay, we will provide an estimate before production starts and collect the confirmed amount separately before dispatch. We ship after these charges are paid.",
-    production:
-      "Made to order. Allow approximately 30 business days for production. International transit and customs clearance take additional time.",
+      checkoutEnhancementsCopy("en").usDuty,
+    production: productionCopy("en").notice,
     agree:
       "I have checked the final design, size, quantity and information above. I understand that shipping is included in this payment, while duties, taxes and clearance fees may be charged separately.",
     missing: "The final design is missing. Confirm your design in the simulator before ordering.",
@@ -95,9 +96,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "海外配送には韓国郵便のEMSを利用します。配送先の国に応じた送料は今回のお支払いに含まれます。1足につき410×310×150mmの箱1個で計算し、複数足はそれぞれ別の箱として計算します。",
     duty: "関税・税金・通関手数料は今回のお支払いに含まれません。配送先の規定により別途発生する場合があります。受取時のお支払いか発送前の前払いかをご案内します。",
     usDuty:
-      "米国向けの関税・通関手数料は今回のお支払いに含まれません。差出人による前払いが必要な費用は、製作開始前に概算をご案内し、発送前に確定額を別途お支払いいただきます。入金確認後に発送します。",
-    production:
-      "受注製作です。製作期間は約30営業日を見込んでください。海外配送と通関にかかる日数は別途必要です。",
+      checkoutEnhancementsCopy("ja").usDuty,
+    production: productionCopy("ja").notice,
     agree:
       "確定デザイン、サイズ、数量および上記案内を確認しました。今回の支払いには送料が含まれ、関税・税金・通関費用は別途発生する場合があることを理解しました。",
     missing:
@@ -135,8 +135,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "国际订单通过韩国邮政EMS寄送。本次付款包含按目的国家计算的运费。每双按一个410×310×150毫米纸箱计费，多双按分别装箱计算。",
     duty: "本次付款不包含关税、税款及清关手续费。目的地规定可能产生额外费用。我们会告知您应在收货时支付还是发货前预付。",
     usDuty:
-      "寄往美国的关税及清关手续费不包含在本次付款中。如费用须由寄件人预付，我们会在开始制作前告知预估金额，并在发货前另行收取确定金额。确认费用支付后才会发货。",
-    production: "本产品为接单制作，制作时间请预留约30个工作日。国际运输及清关时间另计。",
+      checkoutEnhancementsCopy("zh").usDuty,
+    production: productionCopy("zh").notice,
     agree:
       "我已核对最终设计、尺码、数量及上述说明。我理解本次付款包含运费，但关税、税款及清关费用可能另行收取。",
     missing: "缺少最终设计信息。请先在模拟器中确认设计，再下单。",
@@ -156,6 +156,42 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
     refresh: "订单信息或运费已变更。请刷新页面并核对。尚未扣款。",
     contactLink: "配送及制作咨询",
   },
+  "zh-Hant": {
+    title: "下單前須知",
+    contact: "製作及配送聯絡渠道",
+    instagram: "Instagram用戶名稱 · 必填",
+    emailOption: "我沒有Instagram · 請透過電郵聯絡",
+    email: "可聯絡的電郵地址 · 必填",
+    contactHelp:
+      "請填寫可接收私訊請求的Instagram帳號。如沒有帳號，請選擇電郵，並填寫您經常查收的電郵地址。",
+    designTitle: "最終設計與製作規格",
+    design:
+      "請核對下方設計、各部位顏色、尺碼和數量。確認後的設計圖片及規格將隨訂單保存，並提供給製作人員。",
+    shipping:
+      "國際訂單透過韓國郵政EMS寄送。本次付款包含按目的國家計算的運費。每雙按一個410×310×150毫米紙箱計費，多雙按分別裝箱計算。",
+    duty: "本次付款不包含關稅、稅款及清關手續費。目的地規定可能產生額外費用。我們會告知您應在收貨時支付還是發貨前預付。",
+    usDuty:
+      checkoutEnhancementsCopy("zh-Hant").usDuty,
+    production: productionCopy("zh-Hant").notice,
+    agree:
+      "我已核對最終設計、尺碼、數量及上述說明。我理解本次付款包含運費，但關稅、稅款及清關費用可能另行收取。",
+    missing: "缺少最終設計資訊。請先在模擬器中確認設計，再下單。",
+    simulator: "在模擬器中確認設計",
+    loading: "正在準備隨訂單保存的設計圖片。",
+    imageError: "無法載入設計圖片。請重試並核對設計。",
+    retry: "重試",
+    unavailable: "尚未確定寄往該國的普通EMS運費。請在付款前諮詢配送事宜。",
+    notIncluded: "關稅、稅款及清關手續費另計",
+    confirmError: "請核對聯絡資訊及最終設計，並確認下單前須知。",
+    price: "商品及運費以美元結算。",
+    paymentError:
+      "無法確認付款或訂單保存結果。請勿重複付款。請先查看PayPal交易記錄，再重試保存訂單。",
+    saveError: "訂單保存失敗。請檢查輸入資訊及網絡連接後重試。",
+    paymentLoading: "正在載入PayPal。",
+    paymentUnavailable: "PayPal暫時不可用。請稍後重試。",
+    refresh: "訂單資訊或運費已變更。請刷新頁面並核對。尚未扣款。",
+    contactLink: "配送及製作諮詢",
+  },
   es: {
     title: "Antes de realizar el pedido",
     contact: "Medio de contacto para producción y entrega",
@@ -171,9 +207,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "Los pedidos internacionales se envían por EMS de Korea Post. Este pago incluye el envío calculado según el país de destino. Cada par se calcula como una caja de 410×310×150 mm; varios pares se calculan en cajas separadas.",
     duty: "Este pago no incluye aranceles, impuestos ni gastos de despacho aduanero. Pueden aplicarse cargos adicionales según el destino. Te indicaremos si se pagan al recibir o antes del envío.",
     usDuty:
-      "Este pago no incluye aranceles ni gastos de despacho de EE. UU. Si el remitente debe pagarlos por adelantado, te daremos una estimación antes de fabricar y cobraremos el importe confirmado por separado antes del envío. Enviaremos después de recibir ese pago.",
-    production:
-      "Fabricado por encargo. Prevé unos 30 días laborables de producción. El transporte internacional y la aduana requieren tiempo adicional.",
+      checkoutEnhancementsCopy("es").usDuty,
+    production: productionCopy("es").notice,
     agree:
       "He revisado el diseño definitivo, la talla, la cantidad y la información anterior. Entiendo que este pago incluye el envío, pero que los aranceles, impuestos y gastos aduaneros pueden cobrarse por separado.",
     missing: "Falta el diseño definitivo. Confírmalo en el simulador antes de hacer el pedido.",
@@ -201,7 +236,7 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
     contact: "Moyen de contact pour la fabrication et la livraison",
     instagram: "Identifiant Instagram · obligatoire",
     emailOption: "Je n’utilise pas Instagram · contactez-moi par e-mail",
-    email: "Adresse e-mail joignable · obligatoire",
+    email: "Adresse e-mail · obligatoire",
     contactHelp:
       "Indiquez un compte Instagram acceptant les invitations par message. Sans compte, choisissez l’e-mail et indiquez une adresse que vous consultez régulièrement.",
     designTitle: "Design définitif et caractéristiques de fabrication",
@@ -211,9 +246,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "Les commandes internationales sont expédiées par EMS de Korea Post. Ce paiement comprend les frais de port selon le pays de destination. Chaque paire est facturée comme un colis de 410×310×150 mm ; plusieurs paires sont calculées en colis séparés.",
     duty: "Les droits de douane, taxes et frais de dédouanement ne sont pas compris dans ce paiement. Des frais supplémentaires peuvent s’appliquer selon le pays. Nous préciserons s’ils sont à régler à réception ou avant expédition.",
     usDuty:
-      "Les droits et frais de dédouanement américains ne sont pas compris. Si l’expéditeur doit les prépayer, une estimation sera fournie avant fabrication et le montant définitif sera facturé séparément avant expédition. L’envoi aura lieu après leur paiement.",
-    production:
-      "Fabrication sur commande. Prévoyez environ 30 jours ouvrés de fabrication. Le transport international et le dédouanement prennent un délai supplémentaire.",
+      checkoutEnhancementsCopy("fr").usDuty,
+    production: productionCopy("fr").notice,
     agree:
       "J’ai vérifié le design définitif, la pointure, la quantité et les informations ci-dessus. Je comprends que le port est compris dans ce paiement, mais que des droits, taxes et frais de dédouanement peuvent être facturés séparément.",
     missing:
@@ -243,7 +277,7 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
     contact: "Kontaktweg für Fertigung und Versand",
     instagram: "Instagram-Benutzername · erforderlich",
     emailOption: "Ich nutze kein Instagram · Kontakt per E-Mail",
-    email: "Erreichbare E-Mail-Adresse · erforderlich",
+    email: "E-Mail-Adresse · erforderlich",
     contactHelp:
       "Geben Sie ein Instagram-Konto an, das Nachrichtenanfragen empfangen kann. Ohne Konto wählen Sie E-Mail und geben eine regelmäßig gelesene Adresse an.",
     designTitle: "Endgültiges Design und Fertigungsangaben",
@@ -253,9 +287,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "Internationaler Versand erfolgt per Korea Post EMS. Die landesspezifischen Versandkosten sind in dieser Zahlung enthalten. Pro Paar wird ein Karton von 410×310×150 mm berechnet; mehrere Paare werden als getrennte Pakete berechnet.",
     duty: "Zoll, Steuern und Abfertigungsgebühren sind nicht in dieser Zahlung enthalten. Je nach Zielland können zusätzliche Kosten entstehen. Wir informieren Sie, ob diese bei Empfang oder vor Versand zu zahlen sind.",
     usDuty:
-      "US-Zoll und Abfertigungsgebühren sind nicht enthalten. Muss der Absender diese vorauszahlen, nennen wir vor Fertigungsbeginn eine Schätzung und berechnen den bestätigten Betrag vor Versand separat. Der Versand erfolgt nach Zahlung dieser Kosten.",
-    production:
-      "Fertigung auf Bestellung. Planen Sie etwa 30 Werktage für die Herstellung ein. Internationaler Transport und Zollabfertigung benötigen zusätzliche Zeit.",
+      checkoutEnhancementsCopy("de").usDuty,
+    production: productionCopy("de").notice,
     agree:
       "Ich habe das endgültige Design, Größe, Menge und die obigen Hinweise geprüft. Ich verstehe, dass der Versand in dieser Zahlung enthalten ist, Zoll, Steuern und Abfertigungsgebühren jedoch separat anfallen können.",
     missing: "Das endgültige Design fehlt. Bestätigen Sie es vor der Bestellung im Simulator.",
@@ -284,7 +317,7 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
     contact: "Contatto per produzione e consegna",
     instagram: "Nome utente Instagram · obbligatorio",
     emailOption: "Non uso Instagram · contattatemi via e-mail",
-    email: "Indirizzo e-mail raggiungibile · obbligatorio",
+    email: "Indirizzo e-mail · obbligatorio",
     contactHelp:
       "Inserisci un account Instagram che accetti richieste di messaggi. Se non ne hai uno, scegli e-mail e indica un indirizzo che controlli regolarmente.",
     designTitle: "Design definitivo e specifiche di produzione",
@@ -294,9 +327,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "Gli ordini internazionali viaggiano con Korea Post EMS. Questo pagamento include la spedizione calcolata per paese. Ogni paio è calcolato come una scatola da 410×310×150 mm; più paia sono calcolate in scatole separate.",
     duty: "Dazi, imposte e spese di sdoganamento non sono inclusi in questo pagamento. Possono essere dovuti secondo le regole del paese di destinazione. Indicheremo se pagarli alla ricezione o prima della spedizione.",
     usDuty:
-      "Dazi e spese di sdoganamento statunitensi non sono inclusi. Se il mittente deve anticiparli, forniremo una stima prima della produzione e richiederemo separatamente l’importo definitivo prima della spedizione. Spediremo dopo il pagamento di tali spese.",
-    production:
-      "Produzione su ordinazione: prevedi circa 30 giorni lavorativi. Trasporto internazionale e sdoganamento richiedono tempo aggiuntivo.",
+      checkoutEnhancementsCopy("it").usDuty,
+    production: productionCopy("it").notice,
     agree:
       "Ho verificato design definitivo, taglia, quantità e informazioni sopra riportate. Comprendo che questo pagamento include la spedizione, mentre dazi, imposte e sdoganamento possono essere addebitati separatamente.",
     missing: "Manca il design definitivo. Confermalo nel simulatore prima di ordinare.",
@@ -334,9 +366,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "Os pedidos internacionais são enviados pelo EMS dos Correios da Coreia. Este pagamento inclui o frete conforme o país de destino. Cada par é calculado como uma caixa de 410×310×150 mm; vários pares são calculados em caixas separadas.",
     duty: "Impostos de importação, tributos e taxas de desembaraço não estão incluídos neste pagamento. Poderão ser cobrados conforme as regras do destino. Informaremos se o pagamento será no recebimento ou antes do envio.",
     usDuty:
-      "Impostos e taxas de desembaraço dos EUA não estão incluídos. Quando o remetente precisar antecipá-los, informaremos uma estimativa antes da produção e cobraremos separadamente o valor confirmado antes do envio. Enviaremos após o pagamento dessas despesas.",
-    production:
-      "Feito sob encomenda. Considere aproximadamente 30 dias úteis de produção. O transporte internacional e o desembaraço exigem tempo adicional.",
+      checkoutEnhancementsCopy("pt").usDuty,
+    production: productionCopy("pt").notice,
     agree:
       "Conferi o design final, o tamanho, a quantidade e as informações acima. Entendo que o frete está incluído neste pagamento, mas impostos, tributos e taxas de desembaraço poderão ser cobrados separadamente.",
     missing: "O design final está ausente. Confirme-o no simulador antes de fazer o pedido.",
@@ -373,9 +404,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "Международные заказы отправляются EMS Почты Кореи. Доставка по тарифу страны назначения включена в этот платёж. Каждая пара рассчитывается как отдельная коробка 410×310×150 мм; несколько пар — как отдельные коробки.",
     duty: "Пошлины, налоги и сборы за таможенное оформление не включены в этот платёж. По правилам страны назначения возможны дополнительные расходы. Мы сообщим, оплачиваются ли они при получении или до отправки.",
     usDuty:
-      "Пошлины и сборы за оформление в США не включены. Если отправитель обязан внести их заранее, до начала изготовления мы сообщим ориентировочную сумму, а до отправки отдельно получим оплату окончательной суммы. Отправка — после её оплаты.",
-    production:
-      "Изготовление на заказ занимает ориентировочно 30 рабочих дней. Международная перевозка и таможенное оформление требуют дополнительного времени.",
+      checkoutEnhancementsCopy("ru").usDuty,
+    production: productionCopy("ru").notice,
     agree:
       "Я проверил окончательный дизайн, размер, количество и информацию выше. Я понимаю, что доставка включена в этот платёж, а пошлины, налоги и таможенные сборы могут оплачиваться отдельно.",
     missing: "Окончательный дизайн отсутствует. Подтвердите его в симуляторе перед заказом.",
@@ -413,9 +443,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "Uluslararası siparişler Korea Post EMS ile gönderilir. Ülkeye göre hesaplanan kargo bu ödemeye dahildir. Her çift 410×310×150 mm boyutunda bir kutu olarak; birden fazla çift ayrı kutular olarak hesaplanır.",
     duty: "Gümrük vergileri, diğer vergiler ve gümrükleme ücretleri bu ödemeye dahil değildir. Varış ülkesinin kurallarına göre ek ücretler doğabilir. Ödemenin teslimatta mı yoksa gönderimden önce mi yapılacağını bildiririz.",
     usDuty:
-      "ABD gümrük vergileri ve gümrükleme ücretleri dahil değildir. Göndericinin önceden ödemesi gereken tutarlar için üretimden önce tahmin verir, kesin tutarı gönderimden önce ayrıca tahsil ederiz. Bu ücretler ödendikten sonra göndeririz.",
-    production:
-      "Sipariş üzerine üretilir. Üretim için yaklaşık 30 iş günü öngörün. Uluslararası taşıma ve gümrük işlemleri ayrıca zaman alır.",
+      checkoutEnhancementsCopy("tr").usDuty,
+    production: productionCopy("tr").notice,
     agree:
       "Kesin tasarımı, numarayı, adedi ve yukarıdaki bilgileri kontrol ettim. Kargonun bu ödemeye dahil olduğunu, vergi ve gümrükleme ücretlerinin ayrıca alınabileceğini anlıyorum.",
     missing: "Kesin tasarım eksik. Siparişten önce simülatörde tasarımınızı onaylayın.",
@@ -453,9 +482,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "Xalqaro buyurtmalar Korea Post EMS orqali yuboriladi. Ushbu to‘lovga boradigan mamlakat bo‘yicha yetkazish haqi kiritilgan. Har bir juft 410×310×150 mm o‘lchamli bitta quti sifatida, bir nechta juft esa alohida qutilar sifatida hisoblanadi.",
     duty: "Boj, soliqlar va bojxona rasmiylashtiruvi haqi ushbu to‘lovga kiritilmagan. Manzil mamlakati qoidalariga ko‘ra qo‘shimcha xarajatlar bo‘lishi mumkin. Ular qabul qilishda yoki jo‘natishdan oldin to‘lanishini ma’lum qilamiz.",
     usDuty:
-      "AQSh boji va bojxona rasmiylashtiruvi haqi kiritilmagan. Jo‘natuvchi oldindan to‘lashi kerak bo‘lgan xarajatlarning taxminiy miqdorini ishlab chiqarishdan oldin bildiramiz va aniq summani jo‘natishdan oldin alohida undiramiz. Ushbu to‘lovdan keyin jo‘natamiz.",
-    production:
-      "Buyurtma asosida tayyorlanadi. Ishlab chiqarish uchun taxminan 30 ish kuni hisoblang. Xalqaro tashish va bojxona ishlari uchun qo‘shimcha vaqt kerak.",
+      checkoutEnhancementsCopy("uz").usDuty,
+    production: productionCopy("uz").notice,
     agree:
       "Yakuniy dizayn, o‘lcham, miqdor va yuqoridagi ma’lumotlarni tekshirdim. Yetkazish ushbu to‘lovga kiritilganini, boj, soliqlar va bojxona haqi esa alohida undirilishi mumkinligini tushunaman.",
     missing: "Yakuniy dizayn yo‘q. Buyurtmadan oldin uni simulyatorda tasdiqlang.",
@@ -493,9 +521,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "คำสั่งซื้อระหว่างประเทศจัดส่งด้วย Korea Post EMS ค่าจัดส่งตามประเทศปลายทางรวมอยู่ในการชำระเงินครั้งนี้แล้ว คำนวณหนึ่งคู่ต่อกล่องขนาด 410×310×150 มม. หากมีหลายคู่ จะคำนวณเป็นกล่องแยกกัน",
     duty: "การชำระเงินครั้งนี้ไม่รวมอากร ภาษี และค่าดำเนินพิธีการศุลกากร อาจมีค่าใช้จ่ายเพิ่มเติมตามกฎของประเทศปลายทาง เราจะแจ้งว่าต้องชำระเมื่อรับสินค้าหรือก่อนจัดส่ง",
     usDuty:
-      "การชำระเงินครั้งนี้ไม่รวมอากรและค่าดำเนินพิธีการศุลกากรของสหรัฐฯ หากผู้ส่งต้องชำระล่วงหน้า เราจะแจ้งประมาณการก่อนเริ่มผลิตและเรียกเก็บยอดที่ยืนยันแยกต่างหากก่อนจัดส่ง โดยจะจัดส่งหลังได้รับชำระค่าใช้จ่ายดังกล่าว",
-    production:
-      "ผลิตตามคำสั่งซื้อ โปรดเผื่อเวลาผลิตประมาณ 30 วันทำการ ระยะเวลาขนส่งระหว่างประเทศและผ่านศุลกากรเป็นเวลาเพิ่มเติม",
+      checkoutEnhancementsCopy("th").usDuty,
+    production: productionCopy("th").notice,
     agree:
       "ฉันได้ตรวจสอบแบบที่ยืนยัน ขนาด จำนวน และข้อมูลข้างต้นแล้ว ฉันเข้าใจว่าการชำระเงินครั้งนี้รวมค่าจัดส่ง แต่ยังอาจมีอากร ภาษี และค่าดำเนินพิธีการศุลกากรแยกต่างหาก",
     missing: "ไม่มีข้อมูลแบบที่ยืนยัน โปรดยืนยันแบบในโปรแกรมจำลองก่อนสั่งซื้อ",
@@ -532,9 +559,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "अंतरराष्ट्रीय ऑर्डर Korea Post EMS से भेजे जाते हैं। देश के अनुसार शिपिंग शुल्क इस भुगतान में शामिल है। हर जोड़ी के लिए 410×310×150 मिमी का एक बॉक्स गिना जाता है; कई जोड़ियों को अलग-अलग बॉक्स के रूप में गिना जाता है।",
     duty: "सीमा शुल्क, कर और कस्टम क्लियरेंस शुल्क इस भुगतान में शामिल नहीं हैं। गंतव्य देश के नियमों के अनुसार अतिरिक्त राशि लग सकती है। हम बताएँगे कि भुगतान प्राप्ति पर करना है या भेजने से पहले।",
     usDuty:
-      "अमेरिका के आयात शुल्क और कस्टम क्लियरेंस शुल्क इस भुगतान में शामिल नहीं हैं। प्रेषक को पहले चुकाने वाले शुल्क का अनुमान निर्माण शुरू होने से पहले देंगे और अंतिम राशि भेजने से पहले अलग से लेंगे। इन शुल्कों का भुगतान मिलने के बाद ही भेजेंगे।",
-    production:
-      "ऑर्डर पर बनाया जाता है। निर्माण के लिए लगभग 30 कार्यदिवस रखें। अंतरराष्ट्रीय परिवहन और कस्टम क्लियरेंस में अतिरिक्त समय लगता है।",
+      checkoutEnhancementsCopy("hi").usDuty,
+    production: productionCopy("hi").notice,
     agree:
       "मैंने अंतिम डिज़ाइन, आकार, संख्या और ऊपर दी गई जानकारी जाँच ली है। मैं समझता/समझती हूँ कि शिपिंग इस भुगतान में शामिल है, लेकिन सीमा शुल्क, कर और कस्टम क्लियरेंस शुल्क अलग से लग सकते हैं।",
     missing:
@@ -562,7 +588,7 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
     contact: "Paraan ng pakikipag-ugnayan para sa paggawa at paghahatid",
     instagram: "Instagram username · kailangan",
     emailOption: "Wala akong Instagram · makipag-ugnayan sa email",
-    email: "Email address na maaari kang makontak · kailangan",
+    email: "Email address para makontak ka · kailangan",
     contactHelp:
       "Ilagay ang Instagram account na tumatanggap ng message requests. Kung wala, piliin ang email at ilagay ang address na regular mong tinitingnan.",
     designTitle: "Pinal na disenyo at detalye ng paggawa",
@@ -572,9 +598,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "Ang mga international order ay ipinapadala sa Korea Post EMS. Kasama sa bayad na ito ang shipping ayon sa destinasyong bansa. Bawat pares ay kinakalkula bilang isang kahong 410×310×150 mm; magkakahiwalay na kahon ang kalkulasyon para sa maraming pares.",
     duty: "Hindi kasama sa bayad na ito ang customs duties, buwis at customs clearance fees. Maaaring may dagdag na bayarin ayon sa tuntunin ng destinasyon. Ipapaliwanag namin kung babayaran sa pagtanggap o bago ipadala.",
     usDuty:
-      "Hindi kasama ang US import duties at clearance fees. Kung kailangang paunang bayaran ng nagpapadala, magbibigay kami ng tantiya bago simulan ang paggawa at sisingilin nang hiwalay ang pinal na halaga bago ipadala. Ipapadala lamang matapos mabayaran ang mga ito.",
-    production:
-      "Ginagawa ayon sa order. Maglaan ng humigit-kumulang 30 araw ng trabaho para sa paggawa. May dagdag na oras para sa international transit at customs clearance.",
+      checkoutEnhancementsCopy("tl").usDuty,
+    production: productionCopy("tl").notice,
     agree:
       "Nasuri ko ang pinal na disenyo, sukat, dami at impormasyon sa itaas. Nauunawaan kong kasama ang shipping sa bayad na ito, ngunit maaaring hiwalay na singilin ang customs duties, buwis at clearance fees.",
     missing: "Walang pinal na disenyo. Kumpirmahin ito sa simulator bago umorder.",
@@ -612,9 +637,8 @@ export const CHECKOUT_COPY: Record<Locale, Copy> = {
       "تُشحن الطلبات الدولية عبر EMS للبريد الكوري. تشمل هذه الدفعة تكلفة الشحن حسب بلد الوجهة. يُحسب كل زوج كصندوق واحد بأبعاد 410×310×150 مم؛ وتُحسب الأزواج المتعددة كصناديق منفصلة.",
     duty: "لا تشمل هذه الدفعة الرسوم الجمركية والضرائب ورسوم التخليص. قد تُفرض تكاليف إضافية وفق أنظمة الوجهة. سنوضح إن كان السداد عند الاستلام أو قبل الشحن.",
     usDuty:
-      "لا تشمل هذه الدفعة الرسوم الجمركية الأمريكية ورسوم التخليص. إذا كان على المرسل دفعها مقدماً، نقدم تقديراً قبل بدء التصنيع ونحصّل المبلغ النهائي بشكل منفصل قبل الشحن. يتم الشحن بعد سداد هذه التكاليف.",
-    production:
-      "يُصنع حسب الطلب. يُرجى توقع نحو 30 يوم عمل للتصنيع. يستغرق النقل الدولي والتخليص الجمركي وقتاً إضافياً.",
+      "للتوصيل إلى الولايات المتحدة، يشمل هذا الدفع المنتج والشحن فقط. يجب سداد رسوم الاستيراد والتخليص الجمركي بشكل منفصل قبل الإرسال. قبل مغادرة الطرد كوريا، سيرسل فريقنا المبلغ المؤكد وتعليمات الدفع عبر رسالة مباشرة على Instagram، أو عبر البريد الإلكتروني إذا اخترته. نرسل الطرد بعد استلام هذا المبلغ.",
+    production: productionCopy("ar").notice,
     agree:
       "راجعت التصميم النهائي والمقاس والكمية والمعلومات أعلاه. أفهم أن الشحن مشمول في هذه الدفعة، وأن الرسوم الجمركية والضرائب ورسوم التخليص قد تُحصّل بشكل منفصل.",
     missing: "التصميم النهائي غير موجود. أكده في المحاكي قبل الطلب.",
@@ -644,6 +668,7 @@ export const SHIPPING_RATE_NOTE: Record<Locale, string> = {
   de: "Die angezeigten Versandkosten sind ein Festpreis für internationalen Versand und Versandabwicklung.",
   ja: "表示の送料は、国際配送・発送手数料を含む定額料金です。",
   zh: "显示的运费为固定费用，包含国际运输及发货处理费用。",
+  "zh-Hant": "顯示的運費為固定費用，包含國際運輸及發貨處理費用。",
   ru: "Указанная стоимость доставки — фиксированная сумма, включающая международную перевозку и обработку отправления.",
   it: "Il costo di spedizione indicato è una tariffa fissa che comprende il trasporto internazionale e la gestione della spedizione.",
   pt: "O valor de envio apresentado é uma tarifa fixa que inclui o transporte internacional e o manuseio da encomenda.",
@@ -662,6 +687,7 @@ export const CHECKOUT_COUNTRY_PROMPT: Record<Locale, string> = {
   de: "Wähle zuerst das Lieferland. Sobald die Versandkosten bestätigt sind, kannst du bezahlen.",
   ja: "先に配送先の国を選択してください。送料の確認後にお支払いいただけます。",
   zh: "请先选择收货国家。确认运费后即可付款。",
+  "zh-Hant": "請先選擇收貨國家。確認運費後即可付款。",
   ru: "Сначала выберите страну доставки. Оплата станет доступна после подтверждения стоимости доставки.",
   it: "Seleziona prima il paese di consegna. Potrai pagare dopo la conferma delle spese di spedizione.",
   pt: "Selecione primeiro o país de entrega. O pagamento ficará disponível após a confirmação do frete.",
@@ -676,6 +702,8 @@ export function checkoutCopy(locale: string): Copy & { selectCountry: string } {
   const copy = CHECKOUT_COPY[key];
   return {
     ...copy,
+    instagram: customerOrderCopy(key).instagramRecommended,
+    contactHelp: key === "ar" ? copy.contactHelp : checkoutEnhancementsCopy(key).contactManual,
     shipping: `${copy.shipping} ${SHIPPING_RATE_NOTE[key]}`,
     selectCountry: CHECKOUT_COUNTRY_PROMPT[key],
   };

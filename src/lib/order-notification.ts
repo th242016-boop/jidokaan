@@ -1,3 +1,4 @@
+import { orderPaymentMoney } from "./order-money";
 import { ORDER_STATUS_LABEL, type StoreOrder } from "./order-types";
 
 export const ORDER_BOT_USERNAME = "jidokaan_bot";
@@ -28,10 +29,9 @@ export function orderNotificationText(order: StoreOrder) {
   } catch {
     /* country code remains readable */
   }
-  const usd = order.currency === "USD";
-  const amount = usd ? order.totalUsd : order.totalKrw;
+  const {currency, total: amount} = orderPaymentMoney(order);
   const total = Number.isFinite(amount)
-    ? new Intl.NumberFormat("ko-KR", { style: "currency", currency: usd ? "USD" : "KRW" }).format(
+    ? new Intl.NumberFormat("ko-KR", { style: "currency", currency, currencyDisplay: "code" }).format(
         amount,
       )
     : "관리자에서 확인";

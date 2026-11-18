@@ -1,3 +1,4 @@
+import { AdminCountryNotice } from "./country-notice";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownToLine, ArrowUpRight, Check, ChevronDown, Package, Plus, X } from "lucide-react";
@@ -355,7 +356,7 @@ export function EmsPreparation({
           hsCode: existing?.hsCode || "",
           originCountry: existing?.originCountry || "",
           quantity: 1,
-          declaredValue: Math.round(paid * 100) / 100,
+          declaredValue: order.currency === "JPY" ? Math.floor(paid) : Math.round(paid * 100) / 100,
           currency: order.currency,
           netWeightGrams: null,
         },
@@ -402,6 +403,7 @@ export function EmsPreparation({
             </button>
           </header>
           <div className="overflow-y-auto px-4 py-5 sm:px-7">
+            <AdminCountryNotice notice={order.adminShippingGuidance} />
             <section className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
               <h3 className="text-sm font-bold">어떤 작업을 하시나요?</h3>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">

@@ -1,0 +1,449 @@
+{
+  "source": "Public catalog read in connected browser on 2026-11-15; no customer data",
+  "products": [
+    {
+      "description": {
+        "en": "JIDOKAAN DRONE is a fight-ready custom boxing boot, handmade one pair at a time in Seongsu, Seoul.\n\nPick colors and size in the simulator — tap the large Custom order button.\n\n• Panel-by-panel color custom\n• Gum outsole grip\n• Handmade build, repairable in Korea (outsole recraft ₩50,000)\n• Women’s 225–245, men’s 240–300. Men often size down one.\n• About 20–30 days to make. KR ₩288,000 / worldwide USD 250.",
+        "ja": "JIDOKAAN DRONEはソウル聖水で一足ずつ手作りする試合用カスタムボクシングシューズです。\n\nカラーとサイズはシミュレーターで選びます。大きな「カスタム注文」ボタンへ。\n\n・パネルごとにカラー指定\n・生ゴムアウトソール\n・韓国で修理可能（アウトソール交換₩50,000）\n・女性225–245 / 男性240–300。男性はワンサイズ下げ推奨。\n・製作約20–30日。韓国₩288,000 / 海外USD 230。",
+        "ko": "지도칸 DRONE은 대한민국 성수에서 한 켤레씩 손으로 만드는 시합용 커스텀 복싱화입니다.\n\n제품 시뮬레이션 후 캡쳐하여 저장해 두신 후\n네이버 스마트스토어에서 주문해주세요 (국내고객)\n\n■ 이런 분께\n· 부위별 컬러를 직접 조합하고 싶은 선수\n· 기성 복싱화 착화감이 아쉬웠던 분\n\n\n■ 특징\n· 부위별 컬러 커스텀 가능\n· 뛰어난 착화감\n· 생고무창 아웃솔의 좋은 접지력\n\n\n■ 사이즈 가이드\n여성 225–245 / 남성 240–300\n여성은 보통 정사이즈, 남성은 일반 운동화보다 약간 크다는 평가가 많아 한 치수 작게 권장합니다. \n발볼이 두꺼우면 정사이즈가 더 잘 맞을 수 있습니다.\n\n■ 제작 · 배송\n수제 제작 평균 20~30일 + 배송\n한국 288,000원 / 해외 USD 250"
+      },
+      "id": "drone-custom",
+      "leadDays": 25,
+      "materials": {
+        "en": "Handmade upper, high-grip outsole",
+        "ja": "手製アッパー、高グリップアウトソール",
+        "ko": "수제 갑피, 고그립 아웃솔"
+      },
+      "name": {
+        "en": "JIDOKAAN DRONE Custom Boxing Shoes",
+        "ja": "JIDOKAAN DRONE カスタムボクシングシューズ",
+        "ko": "국내 수제제작 커스텀 시합용 복싱화 지도칸 드론"
+      },
+      "priceKrw": 288000,
+      "priceUsd": 25000,
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "tagline": {
+        "en": "Handmade fight boots from Seongsu, color by color",
+        "ja": "聖水工房で一足ずつ手作りする試合用カスタムシューズ",
+        "ko": "지도칸 복싱화"
+      },
+      "weight": "약 380 g / side"
+    },
+    {
+      "description": {
+        "en": "DRONE mid-cut. Same handmade fight boot with a taller collar for extra ankle support.\n\nColors and size are chosen in the simulator via Custom order.\n\nWomen 225–245 / men 240–300. Men often size down one.\nAbout 20–30 days. KR ₩288,000 / worldwide USD 250.",
+        "ja": "DRONEミッドカット。同じ手製で、足首サポートのためカラーが高めです。\n\nカラーとサイズはシミュレーターで選択。\n製作約20–30日。韓国₩288,000 / 海外USD 230。",
+        "ko": "지도칸 DRONE은 대한민국 성수에서 한 켤레씩 손으로 만드는 시합용 커스텀 복싱화입니다.\n\n제품 시뮬레이션 후 캡쳐하여 저장해 두신 후\n네이버 스마트스토어에서 주문해주세요 (국내고객)\n\n■ 이런 분께\n· 부위별 컬러를 직접 조합하고 싶은 선수\n· 기성 복싱화 착화감이 아쉬웠던 분\n\n\n■ 특징\n· 부위별 컬러 커스텀 가능\n· 뛰어난 착화감\n· 생고무창 아웃솔의 좋은 접지력\n\n\n■ 사이즈 가이드\n여성 225–245 / 남성 240–300\n여성은 보통 정사이즈, 남성은 일반 운동화보다 약간 크다는 평가가 많아 한 치수 작게 권장합니다. \n발볼이 두꺼우면 정사이즈가 더 잘 맞을 수 있습니다.\n\n■ 제작 · 배송\n수제 제작 평균 20~30일 + 배송\n한국 288,000원 / 해외 USD 250"
+      },
+      "id": "drone-mid",
+      "leadDays": 25,
+      "materials": {
+        "en": "Handmade upper, high-grip outsole",
+        "ja": "手製アッパー、高グリップアウトソール",
+        "ko": "수제 갑피, 고그립 아웃솔"
+      },
+      "name": {
+        "en": "JIDOKAAN DRONE Mid-Cut Custom Boxing Shoes",
+        "ja": "JIDOKAAN DRONE ミッドカット カスタム",
+        "ko": "국내 수제 커스텀 제작 선수용 복싱화 지도칸 드론 중목 미드컷"
+      },
+      "priceKrw": 288000,
+      "priceUsd": 25000,
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "tagline": {
+        "en": "Mid-cut height for extra ankle support",
+        "ja": "ミッドカット。足首サポート重視",
+        "ko": "지도칸 드론 복싱화 미드컷 버젼"
+      },
+      "weight": "약 400 g / side"
+    },
+    {
+      "description": {
+        "en": "Full-grain leather converter straps turn velcro gloves into a lace-up closure.\n\nNine colors. One set. Ships from Seoul in about 2–3 days.",
+        "ja": "本革コンバーター。マジックテープグローブをレースアップ仕様に。9色。ソウルから2–3日。",
+        "ko": "상품 주문시 국내 고객은 네이버스마트 스토어에서 주문해주세요"
+      },
+      "id": "glove-strap",
+      "leadDays": 1,
+      "materials": {
+        "en": "Full-grain cowhide",
+        "ja": "本革",
+        "ko": "천연 소가죽"
+      },
+      "name": {
+        "en": "Leather lace-up glove converter strap",
+        "ja": "本革コンバーター レースアップグローブストラップ",
+        "ko": "리얼 천연 소가죽 컨버터 레이스업 끈글러브 스트랩 9가지컬러"
+      },
+      "priceKrw": 28900,
+      "priceUsd": 2300,
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "tagline": {
+        "en": "Convert velcro gloves to lace-up — 9 colors",
+        "ja": "マジックテープをレースアップに。9色",
+        "ko": "글러브 컨버터 리얼 소가죽으로 제작된 수제 컨버터"
+      },
+      "weight": "80 g"
+    },
+    {
+      "description": {
+        "en": "Best-selling towel-type Viper wrap. Absorbs sweat, worn as a headband for boxing, gym, and running. Registered design.\n\nColors: black, navy, white, red, blue.",
+        "ja": "ベストセラーのタオルタイプ頭巾。ボクシング・ジム・ラン用。ブラック/ネイビー/ホワイト/レッド/ブルー。",
+        "ko": "지도칸 베스트셀러, 타올 타입 바이퍼두건입니다.\n\n땀을 잘 흡수하고, 헤어밴드처럼 둘러 복싱·헬스·러닝에 씁니다. 디자인 등록이 완료된 제품입니다.\n\n■ 컬러\n블랙 / 네이비 / 화이트 / 레드 / 블루\n\n■ 소재\n타올 면 혼방. 세탁 후 그늘에서 건조하세요."
+      },
+      "id": "viper-band",
+      "leadDays": 3,
+      "materials": {
+        "en": "Towel cotton blend",
+        "ja": "タオル生地",
+        "ko": "타올 면 혼방"
+      },
+      "name": {
+        "en": "Viper towel headband",
+        "ja": "バイパー頭巾 タオルタイプ",
+        "ko": "복싱 두건 헤어밴드 겸용 스포츠 헬스 러닝 땀흡수 타올타입 바이퍼두건"
+      },
+      "priceKrw": 16900,
+      "priceUsd": 1300,
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "tagline": {
+        "en": "Sweat-absorbing towel wrap for boxing and training",
+        "ja": "汗を吸うタオル頭巾。ボクシング・ジム・ラン",
+        "ko": "땀 흡수 타올 두건 — 복싱·헬스·러닝"
+      },
+      "weight": "60 g"
+    },
+    {
+      "description": {
+        "en": "Non-slip Viper wrap worn under headgear so it does not spin.\n\nCooling nylon (fast-dry) or towel cotton (absorbent).",
+        "ja": "ヘッドギアの回転を防ぐノンスリップ頭巾。クーリング（ナイロン）とタオル（綿）。",
+        "ko": "헤드기어가 돌아가는 것을 감소 시켜주는 논슬립 바이퍼두건입니다.\n\n헤드기어 안쪽에 착용합니다. 실리콘 논슬립 처리가 되어 있습니다.\n\n■ 종류\n· 쿨링타입 (나일론) — 가볍고 빨리 마름\n· 타올타입 (면) — 땀 흡수\n\n스파링 시 헤드기어 안에 착용하세요."
+      },
+      "id": "viper-band-ns",
+      "leadDays": 3,
+      "materials": {
+        "en": "Cooling nylon / towel cotton",
+        "ja": "クーリングナイロン / タオル",
+        "ko": "나일론 쿨링 / 면 타올"
+      },
+      "name": {
+        "en": "Viper non-slip headband (cooling / towel)",
+        "ja": "バイパー頭巾 ノンスリップ（クーリング/タオル）",
+        "ko": "헤드기어 돌아감 방지 바이퍼두건 논슬립 버젼 (쿨링/타올) 2가지"
+      },
+      "priceKrw": 18900,
+      "priceUsd": 1500,
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "tagline": {
+        "en": "Stops headgear from spinning — non-slip",
+        "ja": "ヘッドギアの回転を防ぐノンスリップ",
+        "ko": "헤드기어가 돌아가지 않게 — 논슬립버젼의 바이퍼두건"
+      },
+      "weight": "55 g"
+    },
+    {
+      "description": {
+        "en": "Long flat laces for boxing boots and high-tops. 220cm × 8mm. Model JDKL B1.",
+        "ja": "ボクシングシューズ・ハイカット用フラットレース。220cm×8mm。JDKL B1。",
+        "ko": "복싱화·하이탑에 맞는 긴 플랫 신발끈입니다.\n\n길이 220cm, 넓이 8mm. 일반 운동화 끈보다 길어 복싱화 목까지 충분히 감습니다.\n\n■ 스펙\nJDKL B1 / 220cm × 8mm / 폴리에스터 플랫"
+      },
+      "id": "lace-b1",
+      "leadDays": 2,
+      "materials": {
+        "en": "Polyester flat lace",
+        "ja": "ポリエステルフラットレース",
+        "ko": "폴리에스터 플랫 레이스"
+      },
+      "name": {
+        "en": "Boxing shoe laces 220cm 8mm JDKL B1",
+        "ja": "ボクシングシューレース 220cm 8mm JDKL B1",
+        "ko": "복싱화끈 긴 운동화 신발 끈 길이 220cm 넓이 8mm JDKL B1"
+      },
+      "priceKrw": 8500,
+      "priceUsd": 700,
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "tagline": {
+        "en": "Long flat laces for boxing boots — 220cm",
+        "ja": "ボクシングシューズ用フラットレース 220cm",
+        "ko": "복싱화·운동화용 플랫 끈 220cm"
+      },
+      "weight": "30 g"
+    },
+    {
+      "description": {
+        "en": "Round 5mm × 200cm laces for boots and hiking shoes. Model JDKL A1.",
+        "ja": "ブーツ・登山靴用ラウンドレース。5mm×200cm。JDKL A1。",
+        "ko": "부츠·등산화·하이탑용 둥근 신발끈입니다.\n\n두께 5mm, 길이 200cm. 잘 풀리지 않는 라운드 타입입니다.\n\n■ 스펙\nJDKL A1 / 200cm × 5mm / 폴리에스터 라운드"
+      },
+      "id": "lace-a1",
+      "leadDays": 2,
+      "materials": {
+        "en": "Polyester round lace",
+        "ja": "ポリエステルラウンドレース",
+        "ko": "폴리에스터 라운드 레이스"
+      },
+      "name": {
+        "en": "Long round laces 5mm 200cm JDKL A1",
+        "ja": "ロングラウンドレース 5mm 200cm JDKL A1",
+        "ko": "길이가 긴 신발 끈 부츠 등산화용 5mm 200cm JDKL A1"
+      },
+      "priceKrw": 8500,
+      "priceUsd": 700,
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "tagline": {
+        "en": "Round 5mm laces for boots — 200cm",
+        "ja": "ブーツ・登山靴用ラウンドレース 200cm",
+        "ko": "부츠·등산화용 둥근 끈 200cm"
+      },
+      "weight": "28 g"
+    },
+    {
+      "description": {
+        "en": "6mm × 200cm rope for headgear replacement or gloves. Model JDKL A2.",
+        "ja": "ヘッドギア交換・グローブ用ロープ。6mm×200cm。JDKL A2。",
+        "ko": "헤드기어 교체용, 글러브에도 쓰는 둥근 로프 끈입니다.\n\n두께 6mm, 길이 200cm. 일반 신발끈보다 굵어 헤드기어 버클에 맞습니다.\n\n■ 스펙\nJDKL A2 / 200cm × 6mm / 폴리에스터 로프"
+      },
+      "id": "lace-a2",
+      "leadDays": 2,
+      "materials": {
+        "en": "Polyester rope",
+        "ja": "ポリエステルロープ",
+        "ko": "폴리에스터 로프"
+      },
+      "name": {
+        "en": "Headgear / glove rope 6mm 200cm JDKL A2",
+        "ja": "ヘッドギア・グローブ用ロープ 6mm 200cm JDKL A2",
+        "ko": "헤드기어 교체용 끈 글러브 다용도 둥근 로프타입 6mm 200cm JDKL A2"
+      },
+      "priceKrw": 8500,
+      "priceUsd": 700,
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "tagline": {
+        "en": "6mm rope for headgear and gloves",
+        "ja": "ヘッドギア・グローブ交換用 6mmロープ",
+        "ko": "헤드기어·글러브 교체용 6mm 로프"
+      },
+      "weight": "32 g"
+    }
+  ],
+  "shipping": {
+    "countryRates": {
+      "AE": {
+        "krw": 69500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 69,500원 · 2026-07-01 시행",
+        "usd": 61
+      },
+      "AR": {
+        "krw": 87500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 87,500원 · 2026-07-01 시행",
+        "usd": 77
+      },
+      "AU": {
+        "krw": 67000,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 67,000원 · 2026-07-01 시행",
+        "usd": 59
+      },
+      "BR": {
+        "krw": 95500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 95,500원 · 2026-07-01 시행",
+        "usd": 84
+      },
+      "CA": {
+        "krw": 68500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 68,500원 · 2026-07-01 시행",
+        "usd": 60
+      },
+      "CH": {
+        "krw": 69500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 69,500원 · 2026-07-01 시행",
+        "usd": 61
+      },
+      "CN": {
+        "krw": 32000,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 32,000원 · 2026-07-01 시행",
+        "usd": 28
+      },
+      "DE": {
+        "krw": 74000,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 74,000원 · 2026-07-01 시행",
+        "usd": 65
+      },
+      "EG": {
+        "krw": 87500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 87,500원 · 2026-07-01 시행",
+        "usd": 77
+      },
+      "ES": {
+        "krw": 62500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 62,500원 · 2026-07-01 시행",
+        "usd": 55
+      },
+      "FR": {
+        "krw": 59000,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 59,000원 · 2026-07-01 시행",
+        "usd": 52
+      },
+      "GB": {
+        "krw": 72000,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 72,000원 · 2026-07-01 시행",
+        "usd": 63
+      },
+      "HK": {
+        "krw": 35000,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 35,000원 · 2026-07-01 시행",
+        "usd": 31
+      },
+      "IN": {
+        "krw": 44000,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 44,000원 · 2026-07-01 시행",
+        "usd": 39
+      },
+      "JP": {
+        "krw": 39000,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 39,000원 · 2026-07-01 시행",
+        "usd": 35
+      },
+      "MX": {
+        "krw": 87500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 87,500원 · 2026-07-01 시행",
+        "usd": 77
+      },
+      "NL": {
+        "krw": 69500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 69,500원 · 2026-07-01 시행",
+        "usd": 61
+      },
+      "PH": {
+        "krw": 37000,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 37,000원 · 2026-07-01 시행",
+        "usd": 33
+      },
+      "RU": {
+        "krw": 83000,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 83,000원 · 2026-07-01 시행",
+        "usd": 73
+      },
+      "SA": {
+        "krw": 69500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 69,500원 · 2026-07-01 시행",
+        "usd": 61
+      },
+      "SE": {
+        "krw": 69500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 69,500원 · 2026-07-01 시행",
+        "usd": 61
+      },
+      "SG": {
+        "krw": 30000,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 30,000원 · 2026-07-01 시행",
+        "usd": 27
+      },
+      "TH": {
+        "krw": 30000,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 30,000원 · 2026-07-01 시행",
+        "usd": 27
+      },
+      "TR": {
+        "krw": 69500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 69,500원 · 2026-07-01 시행",
+        "usd": 61
+      },
+      "US": {
+        "krw": 96500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 96,500원 · 2026-07-01 시행",
+        "usd": 85
+      },
+      "UZ": {
+        "krw": 69500,
+        "note": "우체국 EMS · 410×310×150mm · 3.5kg 구간 · 69,500원 · 2026-07-01 시행",
+        "usd": 61
+      }
+    },
+    "exchangeKrwPerUsd": 1350,
+    "extraPct": 100,
+    "freeKrw": 288000,
+    "freeUsd": 230,
+    "policyVersion": "EMS-2026-07-01-410x310x150",
+    "pricing": {
+      "costBufferPct": 3,
+      "fxBufferPct": 5,
+      "roundUsd": 1,
+      "settlementReservePct": 8,
+      "version": "shipping-buffer-2026-10-01"
+    },
+    "zones": {
+      "asia": {
+        "daysExpress": "2–4",
+        "daysStandard": "4–8",
+        "expressKrw": 44000,
+        "expressUsd": 32,
+        "standardKrw": 25000,
+        "standardUsd": 18
+      },
+      "europe": {
+        "daysExpress": "3–5",
+        "daysStandard": "6–12",
+        "expressKrw": 72000,
+        "expressUsd": 52,
+        "standardKrw": 44000,
+        "standardUsd": 32
+      },
+      "kr": {
+        "daysExpress": "하루",
+        "daysStandard": "1–2",
+        "expressKrw": 5000,
+        "expressUsd": 5,
+        "standardKrw": 3000,
+        "standardUsd": 3
+      },
+      "pacific": {
+        "daysExpress": "3–5",
+        "daysStandard": "6–12",
+        "expressKrw": 66000,
+        "expressUsd": 48,
+        "standardKrw": 38000,
+        "standardUsd": 28
+      },
+      "world": {
+        "daysExpress": "4–7",
+        "daysStandard": "8–16",
+        "expressKrw": 80000,
+        "expressUsd": 58,
+        "standardKrw": 52000,
+        "standardUsd": 38
+      }
+    }
+  }
+}

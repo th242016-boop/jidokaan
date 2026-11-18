@@ -1,3 +1,4 @@
+import { IS_REVIEW_PREVIEW } from "@/lib/review-preview";
 import { useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { ACQUISITION_COOKIE, ACQUISITION_STORAGE, acquisitionFromCookie, observeAcquisition, parseAcquisition, type Acquisition } from "@/lib/acquisition";
@@ -6,7 +7,7 @@ let inMemory: Acquisition | null = null;
 let lastPageHit = { path: "", at: 0 };
 
 export function captureAcquisition(): Acquisition | null {
-  if (typeof window === "undefined") return null;
+  if (IS_REVIEW_PREVIEW || typeof window === "undefined") return null;
   let existing = parseAcquisition(inMemory);
   try { existing = parseAcquisition(JSON.parse(sessionStorage.getItem(ACQUISITION_STORAGE) || "null")) || existing; }
   catch { /* Browsers may disable storage; analytics must not break shopping. */ }
@@ -25,6 +26,7 @@ export function captureAcquisition(): Acquisition | null {
 }
 
 function sendHit(type: "page" | "cart" | "order") {
+  if (IS_REVIEW_PREVIEW) return;
   const acquisition = captureAcquisition();
   if (!acquisition) return;
   if (type === "page") {

@@ -1,6 +1,8 @@
 /** Merchant pricing reserves, not a quotation of actual processor fees or live FX. */
 export const SHIPPING_PRICING_VERSION = "shipping-buffer-2026-10-01";
 export const SHIPPING_REFERENCE_FX = 1350;
+/** Owner-set customer charge per pair; separate from recorded EMS costs and reserves. */
+export const MEXICO_SHIPPING_USD_PER_PAIR = 60;
 export type ShippingPricing = {
   version: string;
   fxBufferPct: number;

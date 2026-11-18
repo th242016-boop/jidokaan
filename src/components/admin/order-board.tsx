@@ -1,3 +1,5 @@
+import { orderPaymentMoney } from "@/lib/order-money";
+import { orderMoney } from "@/lib/customer-order-view";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Package, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,7 +37,7 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<
-    { paypalOrderId: string; createdAt: string; name: string; country: string; totalUsd: number }[]
+    { paypalOrderId: string; createdAt: string; name: string; country: string; totalUsd: number; currency?: string; total?: number }[]
   >([]);
   const [pendingError, setPendingError] = useState("");
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
@@ -445,8 +447,7 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
               className="flex flex-wrap items-center justify-between gap-2 border-t border-amber-200 py-3 text-sm"
             >
               <span>
-                {orderTime(p.createdAt)} · {p.name} · {countryLabel(p.country)} · $
-                {p.totalUsd.toFixed(2)}
+                {orderTime(p.createdAt)} · {p.name} · {countryLabel(p.country)} · {new Intl.NumberFormat("ko-KR", {style: "currency", currency: p.currency || "USD", currencyDisplay: "code"}).format(p.total ?? p.totalUsd)}
                 <small className="block">PayPal {p.paypalOrderId}</small>
               </span>
               <Button
@@ -541,9 +542,7 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
                   ))}
                 </td>
                 <td className="px-3 py-4 tabular-nums">
-                  {o.currency === "KRW"
-                    ? `₩${o.totalKrw.toLocaleString()}`
-                    : `$${o.totalUsd.toFixed(2)}`}
+                  {orderMoney(o, orderPaymentMoney(o).total, "ko")}
                   <p className="mt-1 text-xs text-slate-500">{o.pay}</p>
                 </td>
                 <td className="max-w-48 px-3 py-4">

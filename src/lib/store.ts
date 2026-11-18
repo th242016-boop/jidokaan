@@ -1,9 +1,12 @@
+import { SPECIAL_ORDER_EXTRA_USD_CENTS, SPECIAL_ORDER_EXTRA_KRW, isSpecialOrderEligible } from "./special-order";
 import { completeDesign, designColors, designKey } from "./design-order";
+import { customerOrderDetailCopy } from "./customer-order-detail-copy";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Currency, Locale } from "@/lib/i18n";
 import { FREE_SHIP_KRW, FREE_SHIP_USD_CENTS } from "@/lib/i18n";
 import { getProduct } from "@/lib/products";
+import { currencyForDestination, normalizeShippingCountry, writeShippingCountrySession } from "./shipping-destination";
 import {
   defaultPartColors,
   defaultPartNames,
@@ -22,6 +25,7 @@ export type CartItem = {
   qty: number;
   size?: string;
   sizeFit?: SizeFit;
+  specialOrder?: boolean;
   optionKey?: string;
   optionLabel?: string;
   extraKrw?: number;
@@ -40,33 +44,36 @@ export function naverCartProductId(item: Pick<CartItem, "productId" | "partNames
 
 export function formatCartSize(item: CartItem, locale: string) {
   if (!item.size) return "";
-  const g =
-    item.sizeFit === "women"
-      ? locale === "ko"
-        ? "여성"
-        : "Women"
-      : item.sizeFit === "men"
-        ? locale === "ko"
-          ? "남성"
-          : "Men"
-        : "";
-  return g ? `${item.size} (${g})` : `${item.size}mm`;
+  const copy = customerOrderDetailCopy(locale);
+  const parsed = item.size.trim().match(/^(\d+(?:\.\d+)?)\s*(?:mm)?\s*(?:\((남성|여성|men|women)\))?$/i);
+  const fit = item.sizeFit ?? (/^(남성|men)$/i.test(parsed?.[2] ?? "") ? "men"
+    : /^(여성|women)$/i.test(parsed?.[2] ?? "") ? "women" : undefined);
+  const size = parsed ? `${parsed[1]} mm` : item.size;
+  return fit ? `${size} (${copy[fit]})` : size;
 }
 
 type StoreState = {
   locale: Locale;
   currency: Currency;
   localePicked: boolean;
+  shippingCountry: string;
+  shippingCountryInitialized: boolean;
+  shippingCountrySource: "manual" | "geo" | "legacy" | null;
+  setShippingCountry: (country: string) => void;
   cart: CartItem[];
   cartOpen: boolean;
   draftParts: PartColors;
   modelDrafts: Partial<Record<BootModel, { parts: PartColors; names: PartColorNames }>>;
   setDraftModel: (model: BootModel) => void;
   draftPartNames: PartColorNames;
+  draftSpecialOrder: boolean;
+  setDraftSpecialOrder: (selected: boolean) => void;
   draftSize: string;
   draftFit: SizeFit;
   setLocale: (locale: Locale) => void;
+  /** Compatibility only: actual currency always follows shippingCountry. */
   setCurrency: (currency: Currency) => void;
+  /** Legacy callers can select language; currency is derived from destination. */
   applyMarket: (locale: Locale, currency: Currency, picked?: boolean) => void;
   setCartOpen: (open: boolean) => void;
   setPartColor: (part: PartId, color: string, name: string) => void;
@@ -81,6 +88,7 @@ type StoreState = {
     opts?: {
       size?: string;
       sizeFit?: SizeFit;
+      specialOrder?: boolean;
       optionKey?: string;
       optionLabel?: string;
       extraKrw?: number;
@@ -92,6 +100,8 @@ type StoreState = {
     },
   ) => void;
   addCustomBoot: (qty?: number, openCart?: boolean) => void;
+  /** Confirming a draft reuses its existing cart line without adding quantity. */
+  ensureCustomBoot: () => void;
   setQty: (
     productId: string,
     qty: number,
@@ -99,6 +109,7 @@ type StoreState = {
     optionKey?: string,
     sizeFit?: SizeFit,
     partNames?: PartColorNames,
+    specialOrder?: boolean,
   ) => void;
   removeFromCart: (
     productId: string,
@@ -106,6 +117,7 @@ type StoreState = {
     optionKey?: string,
     sizeFit?: SizeFit,
     partNames?: PartColorNames,
+    specialOrder?: boolean,
   ) => void;
   clearCart: () => void;
   cartCount: () => number;
@@ -120,29 +132,62 @@ function itemKey(
   optionKey?: string,
   sizeFit?: string,
   partNames?: PartColorNames,
+  specialOrder = false,
 ) {
-  return `${productId}::${size ?? ""}::${optionKey ?? ""}::${sizeFit ?? ""}::${designKey(partNames)}`;
+  return `${productId}::${size ?? ""}::${optionKey ?? ""}::${sizeFit ?? ""}::${designKey(partNames)}::${specialOrder ? "special" : "standard"}`;
+}
+
+function customBootItem({ draftParts, draftPartNames, draftSize, draftFit, draftSpecialOrder }: Pick<
+  StoreState, "draftParts" | "draftPartNames" | "draftSize" | "draftFit" | "draftSpecialOrder"
+>): Omit<CartItem, "qty"> {
+  const linked = linkedLColor(
+    draftPartNames.d,
+    draftParts.d,
+    draftPartNames.i,
+    draftParts.i,
+    draftPartNames.a,
+    draftParts.a,
+  );
+  return {
+    productId: modelOf(draftPartNames) === "mid" ? "drone-mid" : "drone-custom",
+    size: draftSize,
+    specialOrder: draftSpecialOrder,
+    sizeFit: draftFit,
+    partColors: { ...draftParts, l: linked.color },
+    partNames: { ...draftPartNames, l: linked.name },
+    color: draftParts.a,
+  };
 }
 
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
-      locale: "ko",
-      currency: "KRW",
+      locale: "en",
+      currency: "USD",
       localePicked: false,
+      shippingCountry: "",
+      shippingCountryInitialized: false,
+      shippingCountrySource: null,
+      setShippingCountry: (country) => {
+        const shippingCountry = normalizeShippingCountry(country);
+        writeShippingCountrySession(shippingCountry);
+        set({ shippingCountry, shippingCountrySource: "manual", shippingCountryInitialized: true, currency: currencyForDestination(shippingCountry) });
+      },
       cart: [],
       cartOpen: false,
       modelDrafts: {},
       draftParts: defaultPartColors(),
       draftPartNames: defaultPartNames(),
+      draftSpecialOrder: false,
+      setDraftSpecialOrder: (draftSpecialOrder) => set({ draftSpecialOrder }),
       draftSize: "265",
       draftFit: "men" as SizeFit,
       setLocale: (locale) => set({ locale, localePicked: true }),
-      setCurrency: (currency) => set({ currency: currency === "KRW" ? "KRW" : "USD" }),
-      applyMarket: (locale, currency, picked = true) =>
+      setCurrency: (_currency) => set({ currency: currencyForDestination(get().shippingCountry) }),
+      applyMarket: (locale, _currency, picked = true) =>
         set({
           locale,
-          currency: currency === "KRW" ? "KRW" : "USD",
+          currency: currencyForDestination(get().shippingCountry),
           localePicked: picked,
         }),
       setCartOpen: (cartOpen) => set({ cartOpen }),
@@ -222,6 +267,7 @@ export const useStore = create<StoreState>()(
         }),
       resetDraft: () =>
         set({
+          draftSpecialOrder: false,
           draftParts: defaultPartColors(),
           draftPartNames: defaultPartNames(),
           draftSize: "265",
@@ -230,6 +276,11 @@ export const useStore = create<StoreState>()(
       addToCart: (productId, qty = 1, opts) => {
         const openCart = opts?.openCart !== false;
         const { openCart: _omit, ...itemOpts } = opts ?? {};
+        if (itemOpts.specialOrder) {
+          if (!isSpecialOrderEligible(getProduct(productId))) throw new Error("SPECIAL_ORDER_UNAVAILABLE");
+          itemOpts.extraUsd = SPECIAL_ORDER_EXTRA_USD_CENTS;
+          itemOpts.extraKrw = SPECIAL_ORDER_EXTRA_KRW;
+        }
         set((state) => {
           const key = itemKey(
             productId,
@@ -237,14 +288,15 @@ export const useStore = create<StoreState>()(
             itemOpts.optionKey,
             itemOpts.sizeFit,
             itemOpts.partNames,
+            itemOpts.specialOrder,
           );
           const existing = state.cart.find(
-            (i) => itemKey(i.productId, i.size, i.optionKey, i.sizeFit, i.partNames) === key,
+            (i) => itemKey(i.productId, i.size, i.optionKey, i.sizeFit, i.partNames, i.specialOrder) === key,
           );
           if (existing) {
             return {
               cart: state.cart.map((i) =>
-                itemKey(i.productId, i.size, i.optionKey, i.sizeFit, i.partNames) === key
+                itemKey(i.productId, i.size, i.optionKey, i.sizeFit, i.partNames, i.specialOrder) === key
                   ? {
                       ...i,
                       qty: i.qty + qty,
@@ -269,44 +321,41 @@ export const useStore = create<StoreState>()(
         });
       },
       addCustomBoot: (qty = 1, openCart = true) => {
-        const { draftParts, draftPartNames, draftSize, draftFit, addToCart } = get();
-        const linked = linkedLColor(
-          draftPartNames.d,
-          draftParts.d,
-          draftPartNames.i,
-          draftParts.i,
-          draftPartNames.a,
-          draftParts.a,
-        );
-        addToCart(modelOf(draftPartNames) === "mid" ? "drone-mid" : "drone-custom", qty, {
-          size: draftSize,
-          sizeFit: draftFit,
-          partColors: { ...draftParts, l: linked.color },
-          partNames: { ...draftPartNames, l: linked.name },
-          color: draftParts.a,
-          openCart,
-        });
+        const { productId, ...opts } = customBootItem(get());
+        get().addToCart(productId, qty, { ...opts, openCart });
       },
-      setQty: (productId, qty, size, optionKey, sizeFit, partNames) => {
+      ensureCustomBoot: () => {
+        const state = get();
+        const item = customBootItem(state);
+        const key = itemKey(item.productId, item.size, item.optionKey, item.sizeFit, item.partNames, item.specialOrder);
+        if (state.cart.some((line) => itemKey(line.productId, line.size, line.optionKey, line.sizeFit, line.partNames, line.specialOrder) === key)) {
+          // Preserve the customer's chosen quantity and the saved design. A
+          // different draft gets its own line; confirmation never replaces one.
+          set({ cartOpen: false });
+          return;
+        }
+        state.addCustomBoot(1, false);
+      },
+      setQty: (productId, qty, size, optionKey, sizeFit, partNames, specialOrder) => {
         if (qty <= 0) {
-          get().removeFromCart(productId, size, optionKey, sizeFit, partNames);
+          get().removeFromCart(productId, size, optionKey, sizeFit, partNames, specialOrder);
           return;
         }
         set((state) => ({
           cart: state.cart.map((i) =>
-            itemKey(i.productId, i.size, i.optionKey, i.sizeFit, i.partNames) ===
-            itemKey(productId, size, optionKey, sizeFit, partNames)
+            itemKey(i.productId, i.size, i.optionKey, i.sizeFit, i.partNames, i.specialOrder) ===
+            itemKey(productId, size, optionKey, sizeFit, partNames, specialOrder)
               ? { ...i, qty }
               : i,
           ),
         }));
       },
-      removeFromCart: (productId, size, optionKey, sizeFit, partNames) =>
+      removeFromCart: (productId, size, optionKey, sizeFit, partNames, specialOrder) =>
         set((state) => ({
           cart: state.cart.filter(
             (i) =>
-              itemKey(i.productId, i.size, i.optionKey, i.sizeFit, i.partNames) !==
-              itemKey(productId, size, optionKey, sizeFit, partNames),
+              itemKey(i.productId, i.size, i.optionKey, i.sizeFit, i.partNames, i.specialOrder) !==
+              itemKey(productId, size, optionKey, sizeFit, partNames, specialOrder),
           ),
         })),
       clearCart: () => set({ cart: [] }),
@@ -335,10 +384,14 @@ export const useStore = create<StoreState>()(
         locale: state.locale,
         currency: state.currency === "KRW" ? "KRW" : "USD",
         localePicked: state.localePicked,
+        shippingCountry: state.shippingCountry,
+        shippingCountryInitialized: state.shippingCountryInitialized,
+        shippingCountrySource: state.shippingCountrySource,
         cart: state.cart,
         modelDrafts: state.modelDrafts,
         draftParts: state.draftParts,
         draftPartNames: state.draftPartNames,
+        draftSpecialOrder: state.draftSpecialOrder,
         draftSize: state.draftSize,
         draftFit: state.draftFit,
       }),
@@ -347,19 +400,20 @@ export const useStore = create<StoreState>()(
         const parts = p.draftParts && typeof p.draftParts === "object" ? p.draftParts : {};
         const names =
           p.draftPartNames && typeof p.draftPartNames === "object" ? p.draftPartNames : {};
+        const shippingCountry = p.shippingCountrySource === "geo" ? "" : normalizeShippingCountry(p.shippingCountry);
+        if (p.shippingCountrySource === "geo" || p.shippingCountryInitialized === true) writeShippingCountrySession(shippingCountry);
         return {
           ...current,
           ...p,
           locale: p.locale === "ar" ? "en" : (p.locale ?? current.locale),
-          currency:
-            p.locale === "ar"
-              ? "USD"
-              : p.currency === "KRW"
-                ? "KRW"
-                : (p.currency ?? current.currency),
+          shippingCountry,
+          shippingCountryInitialized: p.shippingCountrySource !== "geo" && p.shippingCountryInitialized === true,
+          shippingCountrySource: p.shippingCountrySource === "geo" ? null : p.shippingCountrySource === "manual" ? "manual" : p.shippingCountryInitialized === true ? "legacy" : null,
+          currency: currencyForDestination(shippingCountry),
           draftParts: { ...defaultPartColors(), ...parts },
           draftPartNames: { ...defaultPartNames(), ...names },
           draftFit: p.draftFit === "women" ? "women" : "men",
+          draftSpecialOrder: p.draftSpecialOrder === true,
           draftSize: typeof p.draftSize === "string" ? p.draftSize : "265",
         };
       },

@@ -7,6 +7,8 @@ import {
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
 import { CreatedWithGrokBanner } from "@/components/created-with-grok-banner";
+import { ReviewPreviewBoundary } from "@/components/review-preview-banner";
+import { IS_REVIEW_PREVIEW } from "@/lib/review-preview";
 import appCss from "../styles.css?url";
 
 const NAV_JSON_LD = {
@@ -41,6 +43,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      ...(IS_REVIEW_PREVIEW ? [{name:"robots",content:"noindex, nofollow, noarchive"}] : []),
       {
         name: "description",
         content: APP_DESCRIPTION,
@@ -83,7 +86,7 @@ function RootDocument() {
       <body className="min-h-dvh bg-bg text-fg antialiased">
         <AuthProvider>
           <CreatedWithGrokBanner />
-          <Outlet />
+          <ReviewPreviewBoundary><Outlet /></ReviewPreviewBoundary>
           <Toaster theme="dark" position="top-center" richColors closeButton />
         </AuthProvider>
         <Scripts />

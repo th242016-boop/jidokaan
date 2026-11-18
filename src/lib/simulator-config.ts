@@ -1,3 +1,4 @@
+import { storefrontDetailCopy, simulatorColorLabel } from "./storefront-detail-copy";
 /** JIDOKAAN custom studio */
 
 export type ColorOpt = {
@@ -378,17 +379,8 @@ export function modelOf(names?: { model?: string }): BootModel {
 }
 
 export function modelLabel(names?: { model?: string }, locale = "ko") {
-  return locale === "ko"
-    ? modelOf(names) === "mid"
-      ? "중목"
-      : "장목"
-    : locale === "ja"
-      ? modelOf(names) === "mid"
-        ? "ミドルカット"
-        : "ハイカット"
-      : modelOf(names) === "mid"
-        ? "Mid-cut"
-        : "High-cut";
+  const copy = storefrontDetailCopy(locale);
+  return modelOf(names) === "mid" ? copy.modelMid : copy.modelHigh;
 }
 
 export function partsForModel(names?: { model?: string }) {
@@ -414,6 +406,6 @@ export function designSpecLine(names?: Record<string, string>, locale = "ko") {
   if (!names) return "";
   return [
     modelLabel(names, locale),
-    ...partsForModel(names).map((p) => `${p.label} ${names[p.id] ?? ""}`),
+    ...partsForModel(names).map((p) => `${p.label} ${simulatorColorLabel(names[p.id] ?? "", locale)}`),
   ].join(" · ");
 }

@@ -1,3 +1,4 @@
+import { orderPaymentMoney, orderItemUnitAmount } from "./order-money";
 import { EMS_STATE_LABEL } from "./ems-types";
 import { requiresPostalCode } from "./address-requirements";
 import type { StoreOrder } from "./order-types";
@@ -50,19 +51,18 @@ function active(order: StoreOrder) {
     throw new Error("EMS_ORDER_INACTIVE");
 }
 export function itemPaidValues(order: StoreOrder): number[] {
-  const usd = order.currency === "USD";
-  if (!usd && order.currency !== "KRW") throw new Error("EMS_CURRENCY");
-  const goods = money(
-    usd ? order.totalUsd - order.shippingUsd : order.totalKrw - order.shippingKrw,
-  );
-  const values = order.items.map((i) => (usd ? i.priceUsd : i.priceKrw) * i.qty);
+  if (!["USD", "JPY", "KRW"].includes(order.currency)) throw new Error("EMS_CURRENCY");
+  const payment = orderPaymentMoney(order);
+  const round = order.currency === "JPY" ? Math.round : money;
+  const goods = round(payment.total - payment.shipping);
+  const values = order.items.map((i) => orderItemUnitAmount(order, i) * i.qty);
   const sum = values.reduce((a, b) => a + b, 0);
   if (!Number.isFinite(goods) || goods <= 0 || !Number.isFinite(sum) || sum <= 0)
     throw new Error("EMS_VALUE_MISSING");
   let used = 0;
   return values.map((v, i) => {
-    const value = i === values.length - 1 ? money(goods - used) : money((goods * v) / sum);
-    used = money(used + value);
+    const value = i === values.length - 1 ? round(goods - used) : round((goods * v) / sum);
+    used = round(used + value);
     return value;
   });
 }
@@ -250,6 +250,7 @@ export function emsIssues(order: StoreOrder): EmsIssue[] {
         !Number.isFinite(item.declaredValue) ||
         item.declaredValue <= 0 ||
         money(item.declaredValue) !== item.declaredValue ||
+        (order.currency === "JPY" && !Number.isSafeInteger(item.declaredValue)) ||
         item.currency !== order.currency
       )
         add(field, "실제 상품 금액과 결제 통화를 확인해 주세요.", p.id);
@@ -319,6 +320,7 @@ export function emsAllocationIssues(order: StoreOrder): EmsIssue[] {
         !Number.isFinite(item.declaredValue) ||
         item.declaredValue <= 0 ||
         money(item.declaredValue) !== item.declaredValue ||
+        (order.currency === "JPY" && !Number.isSafeInteger(item.declaredValue)) ||
         item.currency !== order.currency
       ) {
         add("allocation", "실제 상품 금액과 결제 통화를 확인해 주세요.", p.id);

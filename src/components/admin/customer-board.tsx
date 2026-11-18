@@ -745,7 +745,7 @@ function OrderCustomers({ token }: { token: string }) {
             />
             <p className="text-xs leading-relaxed text-[#75808e]">
               이 영역은 기존 주문 기록을 이메일 기준으로 모은 참고 목록입니다. 합계에는
-              입금대기·취소 등 모든 상태의 주문이 포함되어 있으며, 실제 결제 매출과 다릅니다.
+              입금대기·취소 등 모든 상태의 주문이 포함되어 있습니다. 원화 합계는 상품 기준 참고액으로, 외화 결제의 실제 환전·정산액과 다릅니다.
             </p>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { useStore } from "@/lib/store";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,7 @@ export function BrandLogo({
   asLink?: boolean;
   priority?: boolean;
 }) {
+  const locale = useStore((s) => s.locale);
   const t = tone === "auto" ? "dark" : tone;
   const src = SRC[variant][t];
 
@@ -56,7 +58,7 @@ export function BrandLogo({
       <Link
         to="/"
         className={cn(wrapClass, "focus-ring rounded-sm")}
-        aria-label="JIDOKAAN home"
+        aria-label={locale === "zh" ? "JIDOKAAN 首页" : locale === "zh-Hant" ? "JIDOKAAN 首頁" : "JIDOKAAN home"}
       >
         {img}
       </Link>

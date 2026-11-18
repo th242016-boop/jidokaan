@@ -1,4 +1,5 @@
-import { pickLocalized, type Locale } from "@/lib/i18n";
+import { type Currency, type Locale } from "@/lib/i18n";
+import { productDetailBody } from "@/lib/product-detail-copy";
 import { naverProductUrl, type Product } from "@/lib/products";
 
 function AutoVideo({ src, poster }: { src: string; poster?: string }) {
@@ -20,13 +21,17 @@ function AutoVideo({ src, poster }: { src: string; poster?: string }) {
 export function ProductDetailStory({
   product,
   locale,
+  currency,
+  country,
 }: {
   product: Product;
   locale: Locale;
+  currency: Currency;
+  country: string;
 }) {
   const videos = product.detailVideos ?? [];
   const images = product.detailImages ?? [];
-  const body = pickLocalized(product.description, locale);
+  const body = productDetailBody(product, locale, currency, country);
   const naver = naverProductUrl(product);
 
   return (

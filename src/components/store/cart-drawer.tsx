@@ -1,3 +1,7 @@
+import { specialOrderCopy } from "@/lib/special-order-copy";
+import { SpecialOrderNotice } from "@/components/store/special-order-notice";
+import { japanYenQuote } from "@/lib/order-money";
+import { formatYen, paymentCurrencyNotice } from "@/lib/storefront-money";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
@@ -14,9 +18,17 @@ import {
   t,
 } from "@/lib/i18n";
 import { getProduct, naverProductUrl, productDisplayName, SMARTSTORE_HOME } from "@/lib/products";
+import { checkoutCopy } from "@/lib/checkout-copy";
+import { customerOrderCopy } from "@/lib/customer-order-copy";
+import { customerOptionLabel } from "@/lib/customer-order-view";
+import { checkoutEnhancementsCopy } from "@/lib/checkout-enhancements-copy";
+import { countryImportPolicy, countryImportNotice } from "@/lib/country-import-policy";
+import { parcelPlan } from "@/lib/parcel-policy";
 import { quoteShipping, shipCopy } from "@/lib/shipping";
 import { formatCartSize, naverCartProductId, useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
+import { ShippingCountrySelect } from "@/components/store/shipping-country-select";
+import { IS_REVIEW_PREVIEW } from "@/lib/review-preview";
 
 export function CartDrawer() {
   const locale = useStore((s) => s.locale);
@@ -24,22 +36,18 @@ export function CartDrawer() {
   const cart = useStore((s) => s.cart);
   const cartOpen = useStore((s) => s.cartOpen);
   const setCartOpen = useStore((s) => s.setCartOpen);
-  const setCurrency = useStore((s) => s.setCurrency);
+  const country = useStore((s) => s.shippingCountry);
+  const setShippingCountry = useStore((s) => s.setShippingCountry);
   const setQty = useStore((s) => s.setQty);
   const removeFromCart = useStore((s) => s.removeFromCart);
   const subtotalUsd = useStore((s) => s.cartSubtotalUsdCents());
   const subtotalKrw = useStore((s) => s.cartSubtotalKrw());
   const dict = t(locale);
+  const improvement = checkoutEnhancementsCopy(locale);
+  const packing = parcelPlan(cart.map(item => ({...getProduct(item.productId),qty:item.qty})));
+  const importPolicy = countryImportPolicy(country, packing.hasShoes);
   const { catalog } = useCatalog();
   const [krOrder, setKrOrder] = useState(false);
-  let country = currency === "KRW" ? "KR" : "US";
-  if (typeof window !== "undefined") {
-    try {
-      country = sessionStorage.getItem("jidokaan-ship-country") || country;
-    } catch {
-      /* ignore */
-    }
-  }
   const qty = cart.reduce((n, i) => n + i.qty, 0);
   const quote = quoteShipping({
     country,
@@ -47,10 +55,13 @@ export function CartDrawer() {
     subtotalKrw,
     subtotalUsd: Math.round(subtotalUsd / 100),
     qty,
+    items: cart.map(item => ({...getProduct(item.productId),qty:item.qty})),
     settings: catalog.shipping,
   });
   const copy = shipCopy(locale);
+  const hasQuote = quote.available && !importPolicy.consultationRequired;
 
+  const yen = japanYenQuote(country, cart.map(item => ({...getProduct(item.productId), productId: item.productId, qty: item.qty, priceUsd: ((getProduct(item.productId)?.priceUsd ?? 0) + (item.extraUsd ?? 0)) / 100})));
   const subtotalLabel =
     currency === "KRW"
       ? new Intl.NumberFormat("ko-KR", {
@@ -58,11 +69,12 @@ export function CartDrawer() {
           currency: "KRW",
           maximumFractionDigits: 0,
         }).format(subtotalKrw)
-      : formatMoney(subtotalUsd, currency);
+      : yen ? formatYen(yen.subtotalJpy, locale) : formatMoney(subtotalUsd, currency);
 
   return (
     <Sheet open={cartOpen} onOpenChange={setCartOpen}>
-      <SheetContent>
+      <SheetContent closeLabel={dict.cart.close} aria-describedby={undefined}
+        style={IS_REVIEW_PREVIEW ? { height: "calc(100dvh - 88px)" } : undefined}>
         <SheetHeader>
           <SheetTitle>
             {dict.cart.title}
@@ -82,9 +94,9 @@ export function CartDrawer() {
             </Button>
           </div>
         ) : (
-          <>
-            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-              {cart.map((item) => {
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
+            <div className="space-y-4 px-5 py-4">
+              {cart.map((item, index) => {
                 const product = getProduct(item.productId);
                 if (!product) return null;
                 const swatches = item.partColors
@@ -92,7 +104,7 @@ export function CartDrawer() {
                   : [item.color].filter(Boolean);
                 return (
                   <div
-                    key={`${item.productId}-${item.size ?? ""}-${item.sizeFit ?? ""}-${item.optionKey ?? ""}-${JSON.stringify(item.partNames ?? {})}`}
+                    key={`${item.productId}-${item.specialOrder ? "special" : "standard"}-${item.size ?? ""}-${item.sizeFit ?? ""}-${item.optionKey ?? ""}-${JSON.stringify(item.partNames ?? {})}`}
                     className="flex gap-3 rounded-2xl border border-border bg-bg/60 p-3"
                   >
                     <div className="size-24 shrink-0 overflow-hidden rounded-xl bg-[#111]">
@@ -105,8 +117,10 @@ export function CartDrawer() {
                             {productDisplayName(product, locale)}
                           </p>
                           {item.optionLabel ? (
-                            <p className="text-xs text-subtle">{item.optionLabel}</p>
-                          ) : item.size ? (
+                            <p className="text-xs text-subtle">{customerOptionLabel(item.optionLabel, locale)}</p>
+                          ) : null}
+                          {item.specialOrder ? <p className="text-xs font-semibold text-red-300">{specialOrderCopy(locale).special}</p> : null}
+                          {item.size ? (
                             <p className="text-xs text-subtle">{formatCartSize(item, locale)}</p>
                           ) : null}
                           {swatches.length > 0 ? (
@@ -121,7 +135,7 @@ export function CartDrawer() {
                             </div>
                           ) : null}
                           <p className="price-num mt-1 text-sm text-muted">
-                            {formatProductPrice(product, currency)}
+                            {yen ? formatYen(yen.unitPricesJpy[index], locale) : formatProductPrice({...product, priceKrw: product.priceKrw + (item.extraKrw ?? 0), priceUsd: product.priceUsd + (item.extraUsd ?? 0)}, currency)}
                           </p>
                         </div>
                         <button
@@ -134,6 +148,7 @@ export function CartDrawer() {
                               item.optionKey,
                               item.sizeFit,
                               item.partNames,
+                              item.specialOrder,
                             )
                           }
                           aria-label={dict.cart.remove}
@@ -145,7 +160,7 @@ export function CartDrawer() {
                         <div className="inline-flex items-center rounded-full border border-border bg-surface">
                           <button
                             type="button"
-                            className="flex size-8 items-center justify-center rounded-full hover:bg-surface-muted"
+                            className="flex size-11 items-center justify-center rounded-full hover:bg-surface-muted focus-ring"
                             onClick={() =>
                               setQty(
                                 item.productId,
@@ -154,9 +169,10 @@ export function CartDrawer() {
                                 item.optionKey,
                                 item.sizeFit,
                                 item.partNames,
+                                item.specialOrder,
                               )
                             }
-                            aria-label="Decrease"
+                            aria-label={dict.cart.decrease}
                           >
                             <Minus className="size-3.5" />
                           </button>
@@ -165,7 +181,7 @@ export function CartDrawer() {
                           </span>
                           <button
                             type="button"
-                            className="flex size-8 items-center justify-center rounded-full hover:bg-surface-muted"
+                            className="flex size-11 items-center justify-center rounded-full hover:bg-surface-muted focus-ring"
                             onClick={() =>
                               setQty(
                                 item.productId,
@@ -174,15 +190,16 @@ export function CartDrawer() {
                                 item.optionKey,
                                 item.sizeFit,
                                 item.partNames,
+                                item.specialOrder,
                               )
                             }
-                            aria-label="Increase"
+                            aria-label={dict.cart.increase}
                           >
                             <Plus className="size-3.5" />
                           </button>
                         </div>
                         <span className="price-num ml-auto text-sm font-semibold">
-                          {lineTotal(product, item.qty, currency)}
+                          {yen ? formatYen(yen.unitPricesJpy[index] * item.qty, locale) : lineTotal({...product, priceKrw: product.priceKrw + (item.extraKrw ?? 0), priceUsd: product.priceUsd + (item.extraUsd ?? 0)}, item.qty, currency)}
                         </span>
                       </div>
                     </div>
@@ -192,6 +209,8 @@ export function CartDrawer() {
             </div>
 
             <div className="space-y-3 border-t border-border px-5 py-5">
+              {cart.some(item => item.specialOrder) ? <SpecialOrderNotice locale={locale} /> : null}
+              <ShippingCountrySelect />
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted">{dict.cart.subtotal}</span>
                 <span className="price-num font-semibold">{subtotalLabel}</span>
@@ -199,33 +218,36 @@ export function CartDrawer() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted">{dict.cart.shipping}</span>
                 <span className="price-num text-muted">
-                  {quote.free
-                    ? locale === "ko"
-                      ? "무료"
-                      : "Free"
+                  {!hasQuote
+                    ? "—"
+                    : quote.free
+                    ? customerOrderCopy(locale).freeShipping
                     : currency === "KRW"
                       ? `₩${quote.krw.toLocaleString()}`
-                      : `$${quote.usd}`}
+                      : yen ? formatYen(yen.shippingJpy, locale) : `$${quote.usd}`}
                 </span>
               </div>
+              {!quote.available && quote.reason !== "sales_unavailable" ? <p className="text-sm leading-relaxed text-muted">{quote.reason === "parcel_quote" ? improvement.parcelQuote : checkoutCopy(locale).selectCountry}</p> : null}
+              {country && country !== "KR" && importPolicy.consultationRequired ? <p className="text-sm leading-relaxed text-amber-200">{countryImportNotice(country, locale, packing.hasShoes)}</p> : null}
               {country === "KR" ? (
                 <p className="rounded-xl bg-surface-muted px-3 py-2 text-xs text-muted">
                   {copy.freeKr}
                 </p>
               ) : null}
               <div className="flex items-center justify-between border-t border-border pt-3">
-                <span className="font-medium">{dict.cart.total}</span>
+                <span className="font-medium">{hasQuote ? dict.cart.total : dict.cart.subtotal}</span>
                 <span className="price-num text-lg font-semibold">
                   {currency === "KRW"
                     ? new Intl.NumberFormat("ko-KR", {
                         style: "currency",
                         currency: "KRW",
                         maximumFractionDigits: 0,
-                      }).format(subtotalKrw + quote.krw)
-                    : formatMoney(subtotalUsd + quote.usd * 100, currency)}
+                      }).format(subtotalKrw + (hasQuote ? quote.krw : 0))
+                    : yen ? formatYen(yen.subtotalJpy + (hasQuote ? yen.shippingJpy : 0), locale) : formatMoney(subtotalUsd + (hasQuote ? quote.usd * 100 : 0), currency)}
                 </span>
               </div>
-              {krOrder ? (
+              {country === "JP" ? <p className="text-xs leading-relaxed text-muted">{paymentCurrencyNotice(locale, yen ? "JPY" : "USD")}</p> : null}
+              {krOrder && country === "KR" ? (
                 <KrOrderPanel
                   naverUrl={(() => {
                     const p = cart[0] ? getProduct(naverCartProductId(cart[0])) : undefined;
@@ -233,7 +255,7 @@ export function CartDrawer() {
                   })()}
                   onOverseas={() => {
                     startOverseasCheckout();
-                    setCurrency("USD");
+                    if (country === "KR") setShippingCountry("");
                     setCartOpen(false);
                     window.location.assign("/checkout");
                   }}
@@ -250,7 +272,7 @@ export function CartDrawer() {
                   {country === "KR" ? (
                     dict.cart.checkout
                   ) : (
-                    <Link to="/checkout">{dict.cart.checkout}</Link>
+                    <Link to="/checkout">{quote.reason === "sales_unavailable" ? checkoutCopy(locale).selectCountry : dict.cart.checkout}</Link>
                   )}
                 </Button>
               )}
@@ -258,7 +280,7 @@ export function CartDrawer() {
                 {dict.cart.continue}
               </Button>
             </div>
-          </>
+          </div>
         )}
       </SheetContent>
     </Sheet>

@@ -1,6 +1,8 @@
+import { IS_REVIEW_PREVIEW } from "./review-preview";
 import { useCallback, useEffect, useState } from "react";
 import { setCatalogCache } from "./catalog-cache";
 import { PRODUCTS } from "./products";
+import { reviewCatalogProducts } from "./review-catalog";
 import { DEFAULT_COMPANY, DEFAULT_NOTICE, DEFAULT_SUPPORT } from "./site-defaults";
 import type { InfoRow, StoreNotice } from "./site-defaults";
 import type { Product } from "./products";
@@ -32,7 +34,7 @@ export type CatalogPayload = {
 };
 
 const fallback: CatalogPayload = {
-  products: PRODUCTS.map(normalizeProduct),
+  products: (IS_REVIEW_PREVIEW ? reviewCatalogProducts() : PRODUCTS).map(normalizeProduct),
   company: DEFAULT_COMPANY,
   support: DEFAULT_SUPPORT,
   categories: DEFAULT_CATEGORIES,
@@ -56,6 +58,7 @@ function publish(next: CatalogPayload) {
 }
 
 export async function fetchCatalog(): Promise<CatalogPayload> {
+  if (IS_REVIEW_PREVIEW) return fallback;
   const res = await fetch("/api/catalog", { cache: "no-store" });
   if (!res.ok) throw new Error("catalog");
   const data = (await res.json()) as CatalogPayload;

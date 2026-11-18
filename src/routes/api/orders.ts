@@ -1,3 +1,4 @@
+import { adminOrderWithGuidance } from "@/lib/admin-shipping-guidance.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { AUTH_HEADERS, assertSession } from "@/lib/admin-auth.server";
 import {
@@ -17,10 +18,10 @@ import {
 import { proxyToLive, shouldProxyToLive } from "@/lib/live-proxy.server";
 import { readCatalog } from "@/lib/catalog.server";
 import { couponRejectReason, findCoupon } from "@/lib/coupon";
-import { verifyPaypalPayment } from "@/lib/paypal.server";
 import { customerOrder, type ClaimKind } from "@/lib/order-types";
 import { completePaypalCheckout } from "@/lib/paypal-checkout.server";
 import { quoteCheckout } from "@/lib/checkout-quote.server";
+import { recoverLegacyPaypalOrder } from "@/lib/legacy-paypal-recovery.server";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: AUTH_HEADERS });
@@ -44,9 +45,9 @@ export const Route = createFileRoute("/api/orders")({
           if (id) {
             await assertSession(token);
             const order = await findOrderById(id);
-            return order ? json({ order }) : json({ error: "NOT_FOUND" }, 404);
+            return order ? json({ order: adminOrderWithGuidance(order) }) : json({ error: "NOT_FOUND" }, 404);
           }
-          return json({ orders: await listOrders(token) });
+          return json({ orders: (await listOrders(token)).map(adminOrderWithGuidance) });
         } catch {
           return json({ error: "AUTH" }, 401);
         }
@@ -112,7 +113,7 @@ export const Route = createFileRoute("/api/orders")({
               body.decision ?? "reject",
               body.note,
             );
-            return json({ order });
+            return json({ order: adminOrderWithGuidance(order) });
           }
           if (body.action === "update" && body.token && body.id) {
             const order = await updateOrder(body.token, body.id, {
@@ -121,7 +122,7 @@ export const Route = createFileRoute("/api/orders")({
               courier: body.courier,
               note: body.note,
             });
-            return json({ order });
+            return json({ order: adminOrderWithGuidance(order) });
           }
           if (body.action === "delete" && body.token) {
             const ids = Array.isArray(body.ids) ? body.ids : body.id ? [body.id] : [];
@@ -132,18 +133,17 @@ export const Route = createFileRoute("/api/orders")({
           if (body.pay === "paypal" && body.paypalOrderId) {
             const completed = await completePaypalCheckout(body.paypalOrderId, false);
             if (completed) return json({ order: customerOrder(completed) });
+            const previous = await recoverLegacyPaypalOrder(body);
+            if (previous) return json({ order: customerOrder(previous) });
           }
           if (body.pay !== "paypal")
             return json({
               order: customerOrder(await placeOrder(await quoteCheckout(body), true)),
             });
-          const quoted = await quoteCheckout(body);
-          const payment = await verifyPaypalPayment(
-            String(body.paypalOrderId ?? ""),
-            quoted.totalUsd,
-          );
-          const order = await placeOrder({ ...quoted, ...payment }, true);
-          return json({ order: customerOrder(order) });
+          // A legacy retry without a saved draft or order has no authoritative
+          // production specification. Current prices/terms and client amounts
+          // cannot reconstruct what was paid; leave reconciliation to support.
+          throw new Error("PAYPAL_ORDER_REVIEW_REQUIRED");
         } catch (err) {
           const message = err instanceof Error ? err.message : "fail";
           return json({ error: message }, message === "AUTH" ? 401 : 400);

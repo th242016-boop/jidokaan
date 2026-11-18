@@ -1,15 +1,16 @@
+import { storefrontProductPrice, storefrontProductCompare } from "@/lib/storefront-money";
 import { Link } from "@tanstack/react-router";
 import { Star } from "lucide-react";
 import { ProductVisual } from "@/components/store/product-visual";
-import { formatProductCompare, formatProductPrice, pickLocalized } from "@/lib/i18n";
 import type { Product } from "@/lib/products";
-import { productDisplayName } from "@/lib/products";
+import { localizedProductText, productDisplayName } from "@/lib/products";
 import { useStore } from "@/lib/store";
 
 export function ProductCard({ product }: { product: Product }) {
   const locale = useStore((s) => s.locale);
   const currency = useStore((s) => s.currency);
-  const compare = formatProductCompare(product, currency);
+  const country = useStore((s) => s.shippingCountry);
+  const compare = storefrontProductCompare(product, currency, country);
 
   return (
     <Link
@@ -27,7 +28,7 @@ export function ProductCard({ product }: { product: Product }) {
           </h3>
           <div className="shrink-0 text-right">
             <p className="price-num text-sm font-semibold text-fg">
-              {formatProductPrice(product, currency)}
+              {storefrontProductPrice(product, currency, country, locale)}
             </p>
             {compare ? (
               <p className="price-num text-xs text-subtle line-through">{compare}</p>
@@ -35,7 +36,7 @@ export function ProductCard({ product }: { product: Product }) {
           </div>
         </div>
         <p className="line-clamp-2 text-sm text-muted">
-          {pickLocalized(product.tagline, locale)}
+          {localizedProductText(product, "tagline", locale)}
         </p>
         <div className="flex items-center gap-1 text-xs text-subtle">
           <Star className="size-3.5 fill-accent text-accent" />

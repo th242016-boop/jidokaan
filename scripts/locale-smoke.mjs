@@ -13,7 +13,9 @@ const server = await createServer({
 });
 const originals = {
   window: globalThis.window,
+  document: globalThis.document,
   sessionStorage: globalThis.sessionStorage,
+  localStorage: globalThis.localStorage,
   fetch: globalThis.fetch,
 };
 const persisted = new Map([
@@ -30,6 +32,8 @@ const storage = (map) => ({
 });
 globalThis.window = { localStorage: storage(persisted) };
 globalThis.sessionStorage = storage(session);
+globalThis.localStorage = storage(persisted);
+globalThis.document = { createElement: () => ({}) };
 globalThis.fetch = async () => {
   throw new Error("OUTBOUND_NETWORK_BLOCKED");
 };
@@ -54,7 +58,7 @@ try {
   await check(
     "persisted English survives the Korean hydration snapshot and Korean location",
     () => {
-      assert.equal(useStore.getInitialState().locale, "ko");
+      assert.equal(useStore.getInitialState().locale, "en");
       assert.equal(useStore.getInitialState().localePicked, false);
       assert.equal(useStore.getState().locale, "en");
       syncLocalePreference(undefined, detectKorea);
@@ -75,7 +79,7 @@ try {
   await check(
     "explicit simulator language works without saved preferences and preserves the design",
     () => {
-      useStore.setState({ locale: "ko", localePicked: false, currency: "KRW" });
+      useStore.setState({ locale: "ko", localePicked: false, shippingCountryInitialized: false, shippingCountry: "", currency: "USD" });
       session.set("jidokaan-ship-country", "KR");
       const before = useStore.getState();
       syncLocalePreference(requestedLocale("en"), detectKorea);
@@ -94,13 +98,15 @@ try {
       assert.equal(detections, 0);
     },
   );
-  await check("first-time visitors still receive automatic market selection", () => {
-    useStore.setState({ locale: "ko", localePicked: false });
+  await check("first-time language detection does not set a shipping country", () => {
+    useStore.setState({ locale: "ko", localePicked: false, shippingCountryInitialized: false, shippingCountry: "" });
+    session.delete("jidokaan-ship-country");
     syncLocalePreference(undefined, detectKorea);
     assert.equal(detections, 1);
     assert.equal(useStore.getState().locale, "ko");
     assert.equal(useStore.getState().localePicked, true);
-    assert.equal(session.get("jidokaan-ship-country"), "KR");
+    assert.equal(session.get("jidokaan-ship-country"), undefined);
+    assert.equal(useStore.getState().shippingCountry, "");
     syncLocalePreference(undefined, detectKorea);
     assert.equal(detections, 1);
   });
@@ -135,15 +141,17 @@ try {
           this.href = value;
         },
       }));
-      const select = { value: "ko", addEventListener() {}, removeEventListener() {} };
+      const select = { value: "ko", options: [], replaceChildren(...options) { this.options = options; }, addEventListener() {}, removeEventListener() {} };
       const toggle = { getAttribute: () => "false", setAttribute() {} };
       const fakeRoot = {
+        dataset: {},
         querySelector: (selector) => (selector === "#site-language" ? select : toggle),
         querySelectorAll: (selector) => (selector.startsWith("a[") ? anchors : []),
         dispatchEvent() {},
       };
       const runtime = createHomeLocale(fakeRoot, () => {});
-      for (const lang of ["en", "ja", "zh", "es", "ko"]) {
+      assert.deepEqual(select.options.map(option => option.value), LOCALES.map(l => l.id));
+      for (const lang of LOCALES.map(l => l.id)) {
         runtime.applyLanguage(lang);
         for (const anchor of anchors) {
           const url = new URL(anchor.href, "https://jidokaan.com");

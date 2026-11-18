@@ -1,3 +1,5 @@
+import { useStore } from "@/lib/store";
+import { simulatorUiCopy } from "@/lib/simulator-ui-copy";
 import { useState } from "react";
 import {
   photoBaseFor,
@@ -31,6 +33,8 @@ export function LayerSimulator({
   onPreviewClick?: () => void;
   layerOverrides?: Partial<Record<PartId, string>>;
 }) {
+  const locale = useStore((s) => s.locale);
+  const copy = simulatorUiCopy(locale);
   const [internalGuide, setInternalGuide] = useState(false);
   const showGuide = controlledGuide ?? internalGuide;
   const setGuide = onGuideChange ?? setInternalGuide;
@@ -50,9 +54,10 @@ export function LayerSimulator({
         <button
           type="button"
           onClick={() => setGuide(!showGuide)}
+          aria-pressed={showGuide}
           className="absolute top-3 right-3 z-20 rounded-[30px] border border-white/30 bg-black/60 px-3 py-1.5 text-[10px] font-bold tracking-[0.5px] text-white shadow-[0_4px_10px_rgba(0,0,0,0.15)] backdrop-blur-[4px] transition active:scale-95 md:top-5 md:right-5 md:px-4 md:py-2 md:text-[11px]"
         >
-          GUIDE ON/OFF
+          {showGuide ? copy.hideGuide : copy.showGuide}
         </button>
       )}
 
@@ -68,11 +73,11 @@ export function LayerSimulator({
         }
         role={onPreviewClick && !hideChrome ? "button" : undefined}
         tabIndex={onPreviewClick && !hideChrome ? 0 : undefined}
-        aria-label={onPreviewClick && !hideChrome ? "Enlarge preview" : undefined}
+        aria-label={onPreviewClick && !hideChrome ? copy.enlarge : undefined}
       >
         <img
           src={photoBaseFor(colorNames)}
-          alt="JIDOKAAN custom base"
+          alt={copy.previewAlt}
           className="pointer-events-none absolute inset-0 h-full w-full object-contain"
           draggable={false}
         />

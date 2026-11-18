@@ -1,15 +1,19 @@
+import { useStore } from "@/lib/store";
+import { storefrontProductPrice } from "@/lib/storefront-money";
 import { useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import { ProductVisual } from "@/components/store/product-visual";
-import { formatProductPrice, pickLocalized, type Locale, type Currency } from "@/lib/i18n";
-import { productDisplayName, type Product } from "@/lib/products";
+import { type Locale, type Currency } from "@/lib/i18n";
+import { localizedProductText, productDisplayName, type Product } from "@/lib/products";
 import copy from "./craft-copy.js";
+import { brandInternationalCopy } from "./brand-international-copy.js";
 
 export function HomeShop({ products, ready, locale, currency }: {
   products: Product[]; ready: boolean; locale: Locale; currency: Currency;
 }) {
+  const country = useStore((s) => s.shippingCountry);
   const rail = useRef<HTMLDivElement>(null);
-  const text = copy[locale] ?? copy.en;
+  const text = { ...(copy[locale] ?? copy.en), ...brandInternationalCopy[locale] };
   // Use the same live catalogue and visibility policy as /shop, not a sample list.
   const visible = products.filter((product) => product.visible !== false);
   function scroll(direction: number) {
@@ -27,9 +31,9 @@ export function HomeShop({ products, ready, locale, currency }: {
           <ProductVisual product={product} className="home-product-visual" />
           <div className="home-product-caption">
             <h3>{productDisplayName(product, locale)}</h3>
-            <span>{formatProductPrice(product, currency)}</span>
+            <span>{storefrontProductPrice(product, currency, country, locale)}</span>
           </div>
-          <p>{pickLocalized(product.tagline, locale)}</p>
+          <p>{localizedProductText(product, "tagline", locale)}</p>
         </Link>
       </article>)}
     </div>

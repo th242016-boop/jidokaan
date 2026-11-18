@@ -5,6 +5,8 @@ import { createPaypalOrder, capturePaypalOrder, verifyPaypalPayment } from "./pa
 import { placeOrder } from "./orders.server";
 import { assertSession } from "./admin-auth.server";
 import type { StoreOrder } from "./order-types";
+import { isActiveSalesCountry } from "./active-sales-policy";
+import { orderPaymentMoney, paypalAmountValue } from "./order-money";
 async function drafts() {
   const sql = await getSql();
   await sql.query(
@@ -14,7 +16,9 @@ async function drafts() {
 }
 export async function startPaypalCheckout(input: Partial<StoreOrder>, expectedValue: string) {
   const payload = await quoteCheckout({ ...input, pay: "paypal" });
-  if (Math.round(payload.totalUsd * 100) !== Math.round(Number(expectedValue) * 100))
+  const money = orderPaymentMoney(payload);
+  if (paypalAmountValue(money.total, money.currency) !== paypalAmountValue(Number(expectedValue), money.currency) ||
+      (input.currency != null && input.currency !== money.currency))
     throw new Error("QUOTE_CHANGED_REFRESH_CHECKOUT");
   const sql = await drafts();
   const id = randomUUID();
@@ -23,7 +27,7 @@ export async function startPaypalCheckout(input: Partial<StoreOrder>, expectedVa
     id,
     JSON.stringify(payload),
   ]);
-  const paypalId = await createPaypalOrder(payload.totalUsd.toFixed(2), {
+  const paypalId = await createPaypalOrder(paypalAmountValue(money.total, money.currency), {
     requestId: id,
     order: payload,
   });
@@ -38,14 +42,25 @@ export async function completePaypalCheckout(paypalId: string, capture: boolean)
   );
   if (!rows[0]) return null; // older checkout clients have no draft
   const payload = rows[0].payload;
-  if (capture) {
+  const money = orderPaymentMoney(payload);
+  let payment: Awaited<ReturnType<typeof verifyPaypalPayment>> | undefined;
+  if (capture && !isActiveSalesCountry(payload.country)) {
+    // A saved draft is not permission to start a new charge after a sales-policy change.
+    // But a previous capture may have succeeded before a timeout: verify read-only
+    // and finish recording that already-paid order without attempting another charge.
+    try {
+      payment = await verifyPaypalPayment(paypalId, money.total, money.currency);
+    } catch (cause) {
+      throw new Error("DESTINATION_SALES_UNAVAILABLE", { cause });
+    }
+  } else if (capture) {
     try {
       await capturePaypalOrder(paypalId);
     } catch {
       /* Capture may have succeeded before a network timeout. Verify below. */
     }
   }
-  const payment = await verifyPaypalPayment(paypalId, payload.totalUsd);
+  payment ??= await verifyPaypalPayment(paypalId, money.total, money.currency);
   const order = await placeOrder({ ...payload, ...payment }, true);
   await sql.query("update paypal_checkout_drafts set order_id=$2 where paypal_id=$1", [
     paypalId,
@@ -70,6 +85,7 @@ export async function pendingPaypalCheckouts(token: string) {
     email: row.payload.email,
     country: row.payload.country,
     totalUsd: row.payload.totalUsd,
+    ...orderPaymentMoney(row.payload),
   }));
 }
 export async function recoverPaypalCheckout(token: string, id: string) {

@@ -1,3 +1,5 @@
+import { orderPaymentMoney } from "@/lib/order-money";
+import { orderMoney } from "@/lib/customer-order-view";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -272,7 +274,7 @@ function ClaimTable({
               </td>
               <td className="px-3 py-2">{o.items.map((i) => i.name).join(", ")}</td>
               <td className="px-3 py-2">
-                {o.currency === "KRW" ? `₩${o.totalKrw.toLocaleString()}` : `$${o.totalUsd}`}
+                {orderMoney(o, orderPaymentMoney(o).total, "ko")}
               </td>
               <td className="px-3 py-2">{ORDER_STATUS_LABEL[o.status] ?? o.status}</td>
               <td className="px-3 py-2">
@@ -316,23 +318,31 @@ export function SettleBoard({ token }: { token: string }) {
   }, [token]);
   const done = orders.filter((o) => o.status === "done" || o.status === "confirmed");
   const pending = orders.filter((o) => ["paid", "ready", "shipped"].includes(o.status));
-  const sum = (list: StoreOrder[]) => list.reduce((s, o) => s + (o.totalKrw || 0), 0);
+  const sum = (list: StoreOrder[]) => {
+    const totals = new Map<string, number>();
+    for (const order of list) {
+      const value = orderPaymentMoney(order);
+      totals.set(value.currency, (totals.get(value.currency) || 0) + value.total);
+    }
+    return totals.size ? [...totals].map(([currency, total]) => new Intl.NumberFormat("ko-KR", {style:"currency",currency,currencyDisplay:"code"}).format(total)).join(" / ") : "—";
+  };
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-[#e3e6ea] bg-white p-4">
-          <p className="text-xs text-[#666]">정산예정</p>
-          <p className="mt-1 text-xl font-semibold">{sum(pending).toLocaleString()}원</p>
+          <p className="text-xs text-[#666]">배송 진행 주문 금액</p>
+          <p className="mt-1 text-xl font-semibold">{sum(pending)}</p>
         </div>
         <div className="rounded-lg border border-[#e3e6ea] bg-white p-4">
-          <p className="text-xs text-[#666]">정산가능</p>
-          <p className="mt-1 text-xl font-semibold">{sum(done).toLocaleString()}원</p>
+          <p className="text-xs text-[#666]">배송완료 주문 금액</p>
+          <p className="mt-1 text-xl font-semibold">{sum(done)}</p>
         </div>
         <div className="rounded-lg border border-[#e3e6ea] bg-white p-4">
           <p className="text-xs text-[#666]">전체 주문</p>
-          <p className="mt-1 text-xl font-semibold">{sum(orders).toLocaleString()}원</p>
+          <p className="mt-1 text-xl font-semibold">{sum(orders)}</p>
         </div>
       </div>
+      <p className="text-xs text-[#666]">저장된 결제 통화별 주문 총액입니다. PayPal 수수료·환전 차감 후 실수령액이나 출금 가능액이 아닙니다. 전체 주문에는 미결제·취소 기록도 포함됩니다.</p>
       <SimpleTable empty="정산할 주문이 없습니다." rows={[...done, ...pending]} />
     </div>
   );
@@ -490,7 +500,7 @@ function SimpleTable({ rows, empty }: { rows: StoreOrder[]; empty: string }) {
               </td>
               <td className="px-3 py-2">{o.items.map((i) => i.name).join(", ")}</td>
               <td className="px-3 py-2">
-                {o.currency === "KRW" ? `₩${o.totalKrw.toLocaleString()}` : `$${o.totalUsd}`}
+                {orderMoney(o, orderPaymentMoney(o).total, "ko")}
               </td>
               <td className="px-3 py-2">{ORDER_STATUS_LABEL[o.status] ?? o.status}</td>
             </tr>

@@ -3,6 +3,7 @@ import { assertSession } from "./admin-auth.server";
 import { couponDiscount, couponRejectReason, findCoupon } from "./coupon";
 import { randomUUID } from "node:crypto";
 import { normalizeInstagram } from "./order-contact";
+import { orderPaymentMoney } from "./order-money";
 import type {
   ClaimKind,
   ClaimStatus,
@@ -145,6 +146,19 @@ export async function lookupOrder(id: string, email: string) {
   const order = await findOrderById(id);
   if (!order || !emailMatch(order.email, email)) return null;
   return order;
+}
+
+/** Stored facts for a legacy payment retry; never rebuild an old order from today's catalog. */
+export async function lookupOrderByPaypalId(paypalId: string, email: string): Promise<StoreOrder | null> {
+  if (!paypalId.trim() || !email.trim()) return null;
+  await ensureOrderTables();
+  const sql = await db();
+  const rows = await sql.query<{ data: unknown; status: string }>(
+    "select data,status from store_orders where data->>'paypalOrderId' = $1 limit 1",
+    [paypalId.trim()],
+  );
+  const order = rows[0] ? readSnapshot(rows[0]) : null;
+  return order && emailMatch(order.email, email) ? order : null;
 }
 
 function canRequest(order: StoreOrder, kind: ClaimKind) {
@@ -309,7 +323,8 @@ export async function placeOrder(
     if (
       !existing ||
       !emailMatch(existing.email, order.email) ||
-      existing.totalUsd !== order.totalUsd
+      orderPaymentMoney(existing).currency !== orderPaymentMoney(order).currency ||
+      orderPaymentMoney(existing).total !== orderPaymentMoney(order).total
     ) {
       throw new Error("PAYPAL_ALREADY_USED");
     }

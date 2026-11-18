@@ -1,12 +1,16 @@
+import { isActiveSalesCountry } from "./active-sales-policy";
+import { productionCopy } from "./production-copy";
 import { EMS_POLICY, EMS_RATES_KRW, EMS_FX_KRW_PER_USD, emsUsd } from "./ems-rates";
 import {
   DEFAULT_SHIPPING_PRICING,
   SHIPPING_REFERENCE_FX,
   SHIPPING_PRICING_VERSION,
+  MEXICO_SHIPPING_USD_PER_PAIR,
   shippingPrice,
   type ShippingPricing,
 } from "./shipping-pricing";
 import { checkoutCopy } from "./checkout-copy";
+import { parcelPlan, type ShippingItem } from "./parcel-policy";
 export type ShipZone = "kr" | "asia" | "pacific" | "europe" | "world";
 export type ShipMethod = "standard" | "express";
 
@@ -134,22 +138,31 @@ export function applyEmsPolicy(settings: ShippingSettings): ShippingSettings {
     };
   }
   // Recalculate on every settings read/quote. Changing FX cannot leave stale USD rates.
+  const countryRates: NonNullable<ShippingSettings["countryRates"]> = Object.fromEntries(
+    Object.entries(next.countryRates ?? {}).map(([code, rate]) => [
+      code,
+      rate.krw == null
+        ? rate
+        : {
+            ...rate,
+            usd: Math.max(
+              rate.minimumUsd ?? 0,
+              shippingPrice(rate.krw, next.exchangeKrwPerUsd!, next.pricing!).usd,
+            ),
+          },
+    ]),
+  );
+  // The owner's Mexico price takes precedence over stale catalog settings,
+  // currency reserves and previous minimums. Keep the EMS cost for reference.
+  countryRates.MX = {
+    ...countryRates.MX,
+    krw: countryRates.MX?.krw ?? EMS_RATES_KRW.MX,
+    usd: MEXICO_SHIPPING_USD_PER_PAIR,
+    minimumUsd: undefined,
+  };
   return {
     ...next,
-    countryRates: Object.fromEntries(
-      Object.entries(next.countryRates ?? {}).map(([code, rate]) => [
-        code,
-        rate.krw == null
-          ? rate
-          : {
-              ...rate,
-              usd: Math.max(
-                rate.minimumUsd ?? 0,
-                shippingPrice(rate.krw, next.exchangeKrwPerUsd!, next.pricing!).usd,
-              ),
-            },
-      ]),
-    ),
+    countryRates,
   };
 }
 export const DEFAULT_SHIPPING = applyEmsPolicy(LEGACY_SHIPPING);
@@ -193,6 +206,7 @@ export type ShipQuote = {
   days: string;
   label: string;
   available: boolean;
+  reason?: "parcel_quote" | "country_quote" | "sales_unavailable";
 };
 
 export function quoteShipping(opts: {
@@ -201,17 +215,21 @@ export function quoteShipping(opts: {
   subtotalKrw: number;
   subtotalUsd: number;
   qty: number;
+  items?: ShippingItem[];
   settings?: ShippingSettings;
 }): ShipQuote {
   const s = applyEmsPolicy(opts.settings ?? DEFAULT_SHIPPING);
-  const zone = zoneForCountry(opts.country);
+  const country = opts.country.trim().toUpperCase();
+  const activeSales = isActiveSalesCountry(country);
+  const zone = zoneForCountry(country);
   const rate = s.zones[zone];
-  const pairs = Math.max(1, opts.qty);
+  const plan = opts.items ? parcelPlan(opts.items) : undefined;
+  const pairs = Math.max(1, plan?.shoePairs ?? opts.qty);
   const extraMul = 1 + Math.max(0, pairs - 1) * (s.extraPct / 100);
 
   let krw = (opts.method === "express" ? rate.expressKrw : rate.standardKrw) * extraMul;
   let usd = (opts.method === "express" ? rate.expressUsd : rate.standardUsd) * extraMul;
-  const countryRate = s.countryRates?.[opts.country.toUpperCase()];
+  const countryRate = s.countryRates?.[country];
   if (
     opts.method === "standard" &&
     countryRate &&
@@ -219,7 +237,8 @@ export function quoteShipping(opts: {
     countryRate.usd >= 0
   )
     usd = countryRate.usd * extraMul;
-  const available = zone === "kr" || Boolean(countryRate);
+  const needsParcelQuote = zone !== "kr" && Boolean(plan?.requiresQuote);
+  const available = activeSales && (zone === "kr" || (Boolean(countryRate) && !needsParcelQuote));
   if (zone !== "kr") {
     // One unchanged box per pair, not a fictitious combined-box discount.
     usd = countryRate ? countryRate.usd * pairs : 0;
@@ -241,10 +260,12 @@ export function quoteShipping(opts: {
     krw = 0;
     usd = 0;
   }
+  if (needsParcelQuote || !activeSales) { krw = 0; usd = 0; free = false; }
 
   return {
     zone,
     available,
+    reason: country && !activeSales ? "sales_unavailable" : needsParcelQuote ? "parcel_quote" : !available ? "country_quote" : undefined,
     method: opts.method,
     krw,
     usd,
@@ -257,11 +278,21 @@ export function quoteShipping(opts: {
 export function shipCopy(locale: string, country?: string) {
   const copy = checkoutCopy(locale);
   const ko = locale === "ko";
+  const chinese = locale === "zh" || locale === "zh-Hant";
+  const traditional = locale === "zh-Hant";
+  if (chinese) return {
+    standard: traditional ? "可追蹤快遞" : "可追踪快递", express: traditional ? "特快配送" : "特快配送",
+    days: traditional ? "運輸時間" : "运输时间", makeDays: `${productionCopy(locale).average} +`,
+    dutyTitle: traditional ? "關稅及進口稅" : "关税及进口税", dutyBody: country === "US" ? copy.usDuty : copy.duty,
+    freeIntl: copy.shipping, freeKr: traditional ? "韓國境內使用當地快遞配送。" : "韩国境内使用当地快递配送。",
+    extra: copy.shipping, production: copy.production,
+    autoShip: traditional ? "韓國境內使用當地快遞，國際訂單使用韓國郵政 EMS。" : "韩国境内使用当地快递，国际订单使用韩国邮政 EMS。",
+  };
   return {
     standard: ko ? "택배 (추적)" : "Tracked courier",
     express: ko ? "특급" : "Express",
     days: ko ? "배송" : "transit",
-    makeDays: ko ? "제작 평균 20~30일 +" : "Handmade typically 20–30 days +",
+    makeDays: `${productionCopy(locale).average} +`,
     dutyTitle: ko ? "관세·부가세" : "Duties & tax",
     dutyBody: country === "US" ? copy.usDuty : copy.duty,
     freeIntl: copy.shipping,

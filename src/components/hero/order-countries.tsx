@@ -1,5 +1,6 @@
+import { activeSalesCountries, isActiveSalesCountry } from "@/lib/active-sales-policy";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FLAG_MARKETS } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -23,8 +24,10 @@ function Flag({
       type="button"
       onClick={onSelect}
       title={name}
+      aria-label={name}
+      aria-pressed={active}
       className={cn(
-        "inline-flex size-[18px] shrink-0 items-center justify-center rounded-full transition sm:size-[20px]",
+        "inline-flex size-11 shrink-0 items-center justify-center rounded-full transition",
         active
           ? "scale-110 ring-2 ring-white/90 ring-offset-1 ring-offset-black/60"
           : "hover:scale-105",
@@ -45,40 +48,11 @@ function Flag({
 }
 
 export function OrderCountriesBar() {
-  const locale = useStore((s) => s.locale);
-  const applyMarket = useStore((s) => s.applyMarket);
-  const [picked, setPicked] = useState<string | null>(null);
+  const activeCode = useStore((s) => s.shippingCountry).toLowerCase();
+  const setShippingCountry = useStore((s) => s.setShippingCountry);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
-
-  const activeCode = useMemo(() => {
-    if (picked) return picked;
-    try {
-      const stored = sessionStorage
-        .getItem("jidokaan-ship-country")
-        ?.toLowerCase();
-      if (stored && FLAG_MARKETS.some((m) => m.code === stored)) return stored;
-    } catch {
-      /* ignore */
-    }
-    return FLAG_MARKETS.find((m) => m.locale === locale)?.code ?? "kr";
-  }, [picked, locale]);
-
-  useEffect(() => {
-    try {
-      const stored = sessionStorage
-        .getItem("jidokaan-ship-country")
-        ?.toLowerCase();
-      if (stored && FLAG_MARKETS.some((m) => m.code === stored)) {
-        setPicked(stored);
-        return;
-      }
-    } catch {
-      /* ignore */
-    }
-    setPicked(FLAG_MARKETS.find((m) => m.locale === locale)?.code ?? "kr");
-  }, [locale]);
 
   function updateArrows() {
     const el = scrollerRef.current;
@@ -111,13 +85,7 @@ export function OrderCountriesBar() {
   }
 
   function apply(market: (typeof FLAG_MARKETS)[number]) {
-    setPicked(market.code);
-    applyMarket(market.locale, market.currency, true);
-    try {
-      sessionStorage.setItem("jidokaan-ship-country", market.code.toUpperCase());
-    } catch {
-      /* ignore */
-    }
+    if (isActiveSalesCountry(market.code)) setShippingCountry(market.code);
   }
 
   return (
@@ -140,7 +108,7 @@ export function OrderCountriesBar() {
           ref={scrollerRef}
           className="flag-scroller flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto overflow-y-hidden scroll-smooth py-0.5 sm:gap-1.5"
         >
-          {FLAG_MARKETS.map((f) => (
+          {activeSalesCountries(FLAG_MARKETS).map((f) => (
             <Flag
               key={f.code}
               code={f.code}

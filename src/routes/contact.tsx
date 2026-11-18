@@ -7,8 +7,18 @@ import { SiteShell } from "@/components/store/site-shell";
 import { useStore } from "@/lib/store";
 import { inboxCopy } from "@/lib/inbox-copy";
 import type { InboxThread } from "@/lib/inbox-types";
+import { COUNTRIES, LOCALES, type Locale } from "@/lib/i18n";
+import { IS_REVIEW_PREVIEW } from "@/lib/review-preview";
+import { contactPreviewCopy } from "@/lib/contact-preview-copy";
 
 export const Route = createFileRoute("/contact")({
+  validateSearch: (search: Record<string, unknown>): { lang?: Locale; country?: string } => {
+    const lang = typeof search.lang === "string" && LOCALES.some(item => item.id === search.lang)
+      ? search.lang as Locale : undefined;
+    const candidate = typeof search.country === "string" ? search.country.toUpperCase() : "";
+    const country = COUNTRIES.some(item => item.code === candidate) ? candidate : undefined;
+    return { lang, country };
+  },
   component: ContactPage,
   head: () => ({
     meta: [
@@ -24,6 +34,7 @@ const field =
 async function request(
   body: Record<string, unknown>,
 ): Promise<InboxThread & { accessUrl?: string }> {
+  if (IS_REVIEW_PREVIEW) throw new Error("REVIEW_PREVIEW_NO_TRANSMISSION");
   const response = await fetch("/api/inbox", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -34,8 +45,20 @@ async function request(
   return data;
 }
 function ContactPage() {
-  const locale = useStore((s) => s.locale),
-    copy = inboxCopy(locale);
+  const search = Route.useSearch();
+  const storedLocale = useStore((s) => s.locale);
+  const storedCountry = useStore((s) => s.shippingCountry);
+  const locale = storedLocale;
+  const country = search.country || storedCountry;
+  const preview = contactPreviewCopy(locale);
+  const copy = inboxCopy(locale);
+  const [previewSubmitted, setPreviewSubmitted] = useState(false);
+  useEffect(() => {
+    if (IS_REVIEW_PREVIEW && search.lang) useStore.getState().setLocale(search.lang);
+  }, [search.lang]);
+  const destinationName = IS_REVIEW_PREVIEW && /^[A-Z]{2}$/.test(country)
+    ? new Intl.DisplayNames([locale === "tl" ? "fil" : locale], { type: "region" }).of(country) || country
+    : "—";
   const [credentials, setCredentials] = useState<{ id: string; key: string } | null>(null);
   const [thread, setThread] = useState<InboxThread | null>(null);
   const [saved, setSaved] = useState<Saved[]>([]);
@@ -48,6 +71,7 @@ function ContactPage() {
     followupId = useRef("");
   const generation = useRef(0);
   const remember = useCallback((url: string) => {
+    if (IS_REVIEW_PREVIEW) return;
     const parsed = new URL(url),
       params = new URLSearchParams(parsed.hash.slice(1));
     const id = params.get("thread");
@@ -63,6 +87,7 @@ function ContactPage() {
     });
   }, []);
   useEffect(() => {
+    if (IS_REVIEW_PREVIEW) return;
     try {
       const entries: Saved[] = JSON.parse(localStorage.getItem(STORAGE) || "[]");
       if (Array.isArray(entries))
@@ -96,7 +121,7 @@ function ContactPage() {
   const errorText = (code: string) =>
     code === "NOT_FOUND" ? copy.missing : code === "RATE_LIMIT" ? copy.rate : copy.error;
   const load = useCallback(async () => {
-    if (!credentials) return;
+    if (IS_REVIEW_PREVIEW || !credentials) return;
     const current = generation.current;
     setLoading(true);
     setError("");
@@ -118,6 +143,11 @@ function ContactPage() {
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
+    if (IS_REVIEW_PREVIEW) {
+      setError("");
+      setPreviewSubmitted(true);
+      return;
+    }
     const form = event.currentTarget,
       values = new FormData(form);
     submissionId.current ||= crypto.randomUUID();
@@ -146,7 +176,7 @@ function ContactPage() {
   }
   async function followup(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !credentials) return;
+    if (IS_REVIEW_PREVIEW || busy || !credentials) return;
     const form = event.currentTarget,
       values = new FormData(form);
     followupId.current ||= crypto.randomUUID();
@@ -181,6 +211,15 @@ function ContactPage() {
             )}
           </div>
           <p className="mt-4 text-sm leading-7 text-muted">{copy.intro}</p>
+          {IS_REVIEW_PREVIEW && (
+            <>
+            <p role="note" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">{preview.notice}</p>
+            <dl className="mt-5 flex flex-wrap gap-x-6 gap-y-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+              <div><dt className="font-medium">{preview.country}</dt><dd>{destinationName}</dd></div>
+              <div><dt className="font-medium">{preview.language}</dt><dd>{LOCALES.find(item => item.id === locale)?.native || locale}</dd></div>
+            </dl>
+            </>
+          )}
           {error && (
             <p
               role="alert"
@@ -189,7 +228,13 @@ function ContactPage() {
               {errorText(error)}
             </p>
           )}
-          {credentials ? (
+          {IS_REVIEW_PREVIEW && previewSubmitted ? (
+            <section role="status" aria-live="polite" className="mt-8 rounded-2xl border border-emerald-300 bg-emerald-50 p-6 text-emerald-950">
+              <h2 className="text-xl font-semibold">{preview.received}</h2>
+              <p className="mt-3 text-sm leading-relaxed">{preview.receivedHelp}</p>
+              <Button className="mt-5" type="button" variant="outline" onClick={() => setPreviewSubmitted(false)}>{preview.restart}</Button>
+            </section>
+          ) : credentials ? (
             <>
               <div className="mt-7 flex items-center justify-between gap-3">
                 <span className="break-all text-xs text-muted">{credentials.id}</span>
@@ -327,7 +372,7 @@ function ContactPage() {
                     className={field}
                   />
                 </div>
-                <p className="text-sm leading-7 text-muted">{copy.notice}</p>
+                {!IS_REVIEW_PREVIEW && <p className="text-sm leading-7 text-muted">{copy.notice}</p>}
                 <Button type="submit" disabled={busy}>
                   {busy ? "…" : copy.send}
                 </Button>

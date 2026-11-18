@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BrandLogo } from "@/components/brand-logo";
 import { SiteShell } from "@/components/store/site-shell";
-import { t } from "@/lib/i18n";
+import { brandPageCopy } from "@/lib/brand-page-copy";
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/brand")({
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/brand")({
 
 function BrandPage() {
   const locale = useStore((s) => s.locale);
-  const dict = t(locale === "ko" ? "ko" : "en");
+  const copy = brandPageCopy(locale);
 
   return (
     <SiteShell>
@@ -23,24 +23,24 @@ function BrandPage() {
             imgClassName="h-12 w-auto max-w-[220px]"
           />
           <h1 className="whitespace-pre-line text-3xl font-semibold tracking-tight sm:text-4xl">
-            {dict.about.title}
+            {copy.title}
           </h1>
           <p className="mt-5 whitespace-pre-line text-lg leading-relaxed text-muted">
-            {dict.about.body}
+            {copy.body}
           </p>
           <div className="mt-10 rounded-3xl border border-border bg-surface p-6 sm:p-8">
-            <h2 className="text-xl font-semibold">{dict.about.mission}</h2>
+            <h2 className="text-xl font-semibold">{copy.mission}</h2>
             <p className="mt-3 leading-relaxed text-muted">
-              {dict.about.missionBody}
+              {copy.missionBody}
             </p>
           </div>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl border border-border bg-bg p-5">
               <p className="text-xs font-medium tracking-wide text-subtle uppercase">
-                {dict.about.studio}
+                {copy.studio}
               </p>
               <p className="mt-2 text-sm leading-relaxed text-fg">
-                {dict.about.address}
+                {copy.address}
               </p>
             </div>
             <div className="rounded-2xl border border-border bg-bg p-5">

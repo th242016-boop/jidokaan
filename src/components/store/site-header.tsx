@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { Globe, Menu, ShoppingBag, X } from "lucide-react";
+import { Globe, LogOut, Menu, ShoppingBag, UserRound, X } from "lucide-react";
 import { useState } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 import { OrderCountriesBar } from "@/components/hero/order-countries";
 import { Button } from "@/components/ui/button";
-import { LOCALES, FLAG_MARKETS, t, type Locale } from "@/lib/i18n";
+import { LOCALES, t, type Locale } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { authEnabled, signOut } from "@/lib/auth/client";
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const locale = useStore((s) => s.locale);
-  const applyMarket = useStore((s) => s.applyMarket);
+  const setLocale = useStore((s) => s.setLocale);
   const setCartOpen = useStore((s) => s.setCartOpen);
   const cartCount = useStore((s) => s.cartCount());
   const dict = t(locale);
@@ -23,16 +23,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   function pickLocale(next: Locale) {
-    const market = FLAG_MARKETS.find((m) => m.locale === next);
-    applyMarket(next, next === "ko" ? "KRW" : "USD", true);
-    try {
-      sessionStorage.setItem(
-        "jidokaan-ship-country",
-        (next === "ko" ? "KR" : (market?.code ?? "us")).toUpperCase(),
-      );
-    } catch {
-      /* ignore */
-    }
+    setLocale(next);
   }
 
   const nav = [
@@ -53,19 +44,21 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     >
       <div
         className={cn(
-          "flex items-center gap-2 sm:gap-3",
+          "flex min-w-0 items-center gap-1 sm:gap-3",
           overlay
             ? "flex-wrap px-3 py-2 sm:h-[clamp(3.6rem,8vw,5.25rem)] sm:flex-nowrap sm:py-0 sm:px-5 lg:px-8"
-            : "container-page h-[5.25rem] sm:h-[6rem]",
+            : "container-page h-[4.5rem] sm:h-[6rem]",
         )}
       >
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex min-w-0 shrink-0 items-center gap-1 sm:gap-3">
           {!overlay ? (
             <button
               type="button"
-              className="inline-flex size-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] md:hidden"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] sm:size-11 lg:hidden"
               onClick={() => setMobileOpen((v) => !v)}
-              aria-label="Menu"
+              aria-label={mobileOpen ? dict.common.close : dict.nav.menu}
+              aria-expanded={mobileOpen}
+              aria-controls="store-mobile-menu"
             >
               {mobileOpen ? <X className="size-4" /> : <Menu className="size-4" />}
             </button>
@@ -78,12 +71,12 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
             className={
               overlay
                 ? "h-[clamp(2.1rem,4.8vw,3.75rem)]"
-                : "h-[54px] sm:h-[66px]"
+                : "h-10 w-16 sm:h-[66px] sm:w-auto"
             }
             imgClassName={
               overlay
                 ? "h-[clamp(2.1rem,4.8vw,3.75rem)] w-auto max-w-[min(42vw,240px)]"
-                : "h-[54px] w-auto sm:h-[66px] max-w-[234px] sm:max-w-[300px]"
+                : "h-10 w-16 sm:h-[66px] sm:w-auto sm:max-w-[300px]"
             }
           />
           {!overlay ? (
@@ -104,10 +97,10 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         {overlay ? null : <div className="flex-1" />}
 
         <div className={cn("flex shrink-0 items-center gap-1 sm:gap-1.5", overlay && "ml-auto sm:ml-0")}>
-          <label className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1.5 text-[11px] text-muted backdrop-blur-md sm:gap-1.5 sm:px-3 sm:py-2 sm:text-xs">
-            <Globe className="size-3.5" />
+          <label className="inline-flex min-h-9 w-[72px] min-w-0 items-center gap-1 rounded-full border border-white/10 bg-black/30 px-1 py-1.5 text-xs text-muted backdrop-blur-md sm:w-auto sm:gap-1.5 sm:px-3 sm:py-2">
+            <Globe className="hidden size-3.5 shrink-0 sm:block" />
             <select
-              className="max-w-[4.6rem] bg-transparent text-fg outline-none sm:max-w-[5.5rem]"
+              className="w-full min-w-0 bg-transparent text-fg outline-none sm:w-auto sm:max-w-[5.5rem]"
               value={locale}
               onChange={(e) => pickLocale(e.target.value as Locale)}
               aria-label={dict.common.language}
@@ -141,20 +134,25 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
             <Button
               variant="secondary"
               size="sm"
-              className="h-9 shrink-0 px-2.5 text-xs sm:h-10 sm:px-4 sm:text-sm"
+              className="h-9 w-9 shrink-0 px-0 text-xs sm:h-10 sm:w-auto sm:px-4 sm:text-sm"
               type="button"
               onClick={() => void signOut()}
+              aria-label={dict.nav.logOut}
             >
-              {locale === "ko" ? "로그아웃" : "Log out"}
+              <LogOut className="size-4 sm:hidden" aria-hidden="true" />
+              <span className="hidden sm:inline">{dict.nav.logOut}</span>
             </Button>
           ) : !user ? (
             <Button
               variant="secondary"
               size="sm"
-              className="h-9 shrink-0 px-2.5 text-xs sm:h-10 sm:px-4 sm:text-sm"
+              className="h-9 w-9 shrink-0 px-0 text-xs sm:h-10 sm:w-auto sm:px-4 sm:text-sm"
               asChild
             >
-              <Link to="/login">{dict.nav.signIn}</Link>
+              <Link to="/login" aria-label={dict.nav.signIn} title={dict.nav.signIn}>
+                <UserRound className="size-4 sm:hidden" aria-hidden="true" />
+                <span className="hidden sm:inline">{dict.nav.signIn}</span>
+              </Link>
             </Button>
           ) : null}
         </div>
@@ -190,7 +188,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
       ) : null}
 
       {!overlay && mobileOpen ? (
-        <div className="border-t border-white/[0.06] bg-black/95 px-4 py-4 lg:hidden">
+        <div id="store-mobile-menu" className="border-t border-white/[0.06] bg-black/95 px-4 py-4 lg:hidden">
           <nav className="flex flex-col gap-1">
             {nav.map((item) => (
               <Link
@@ -219,7 +217,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                   void signOut();
                 }}
               >
-                {locale === "ko" ? "로그아웃" : "Log out"}
+                {dict.nav.logOut}
               </button>
             ) : null}
           </nav>

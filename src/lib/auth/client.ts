@@ -1,3 +1,4 @@
+import { IS_REVIEW_PREVIEW } from "../review-preview";
 import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { GROK_PROVIDERS } from "./providers";
@@ -28,7 +29,7 @@ export const authClient = createAuthClient({
  * preview client, deployed apps via the injected per-app client); set
  * `VITE_AUTH_ENABLED=false` to force it off (dev user — see `use-current-user`).
  */
-export const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
+export const authEnabled = !IS_REVIEW_PREVIEW && import.meta.env.VITE_AUTH_ENABLED !== "false";
 
 /** The upstream providers to render sign-in buttons for. */
 export { GROK_PROVIDERS };
@@ -93,6 +94,7 @@ export async function signIn(
   providerId: string,
   opts: { callbackURL?: string; errorCallbackURL?: string } = {},
 ): Promise<void> {
+  if (IS_REVIEW_PREVIEW) throw new Error("Sign-in is disabled in this review preview.");
   const callbackURL = opts.callbackURL ?? "/";
   const errorCallbackURL = opts.errorCallbackURL ?? "/";
 
@@ -150,6 +152,7 @@ export async function signInSocial(
   provider: "google" | "kakao" | "naver",
   opts: { callbackURL?: string; errorCallbackURL?: string } = {},
 ): Promise<void> {
+  if (IS_REVIEW_PREVIEW) throw new Error("Sign-in is disabled in this review preview.");
   const callbackURL = opts.callbackURL ?? "/";
   const errorCallbackURL = opts.errorCallbackURL ?? "/login";
   try {

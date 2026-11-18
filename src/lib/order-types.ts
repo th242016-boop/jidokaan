@@ -19,6 +19,7 @@ export type OrderItem = {
   qty: number;
   size?: string;
   sizeFit?: string;
+  specialOrder?: boolean;
   optionKey?: string;
   optionLabel?: string;
   color?: string;
@@ -29,9 +30,19 @@ export type OrderItem = {
   partColors?: Record<string, string>;
   priceKrw: number;
   priceUsd: number;
+  /** Fixed JPY unit price, only on orders actually charged in Japanese yen. */
+  priceJpy?: number;
+};
+
+export type AdminShippingGuidance = {
+  title: string;
+  lines: string[];
+  reviewedAt: string;
 };
 
 export type StoreOrder = {
+  /** Added only to authenticated admin API responses, never customer projection. */
+  adminShippingGuidance?: AdminShippingGuidance;
   id: string;
   createdAt: string;
   email: string;
@@ -40,6 +51,7 @@ export type StoreOrder = {
   contactMethod?: "instagram" | "email";
   checkoutLocale?: string;
   termsVersion?: string;
+  importPolicyVersion?: string;
   termsAccepted?: boolean;
   termsAcceptedAt?: string;
   acknowledgedTerms?: {
@@ -48,6 +60,9 @@ export type StoreOrder = {
     design: string;
     production: string;
     agree: string;
+    destination?: string;
+    /** Policy accepted at purchase time; do not regenerate for historical orders. */
+    cancellationPolicy?: string;
   };
   name: string;
   address: string;
@@ -61,6 +76,10 @@ export type StoreOrder = {
   paypalGrossUsd?: number;
   paypalFeeUsd?: number;
   paypalNetUsd?: number;
+  paypalCurrency?: "USD" | "JPY";
+  paypalGrossAmount?: number;
+  paypalFeeAmount?: number;
+  paypalNetAmount?: number;
   paypalShipping?: {
     name?: string;
     addressLine1?: string;
@@ -78,6 +97,11 @@ export type StoreOrder = {
   shippingUsd: number;
   totalKrw: number;
   totalUsd: number;
+  /** Additive actual-payment fields: legacy USD/KRW order values are never reinterpreted. */
+  shippingJpy?: number;
+  totalJpy?: number;
+  discountJpy?: number;
+  priceVersion?: string;
   currency: string;
   status: OrderStatus;
   tracking?: string;
@@ -93,7 +117,19 @@ export type StoreOrder = {
   claimAdminNote?: string;
   fulfillment?: EmsFulfillment;
   deliveryCompletion?: EmsManualDeliveryConfirmation & { fingerprint?: string };
+  /** Customer-safe parcel projection. Never contains customs IDs or internal audit data. */
+  customerParcels?: CustomerParcel[];
   items: OrderItem[];
+};
+
+export type CustomerParcel = {
+  id: string;
+  state: "preparing" | "awaiting_dropoff" | "in_transit" | "delivered" | "customs_delay" | "delivery_failed" | "returned";
+  tracking?: string;
+  handedOverAt?: string;
+  deliveredAt?: string;
+  manuallyConfirmed?: boolean;
+  trackingUnavailable?: boolean;
 };
 
 export type InboxItem = {
@@ -180,7 +216,21 @@ export function isPendingClaim(order: StoreOrder, kind?: ClaimKind) {
 
 /** Public order projection; never expose merchant-only notes/settlement data. */
 export function customerOrder(order: StoreOrder): StoreOrder {
-  const { note, paypalFeeUsd, paypalNetUsd, fulfillment, deliveryCompletion, ...publicOrder } =
-    order;
-  return publicOrder;
+  const {
+    note, adminShippingGuidance, paypalFeeUsd, paypalNetUsd, paypalGrossUsd, paypalOrderId, paypalCaptureId,
+    paypalCurrency, paypalGrossAmount, paypalFeeAmount, paypalNetAmount,
+    paypalShipping, shippingBasis, claimAdminNote, fulfillment, deliveryCompletion,
+    customerParcels: _previousProjection, ...publicOrder
+  } = order;
+  const customerParcels = fulfillment?.packages.map((parcel): CustomerParcel => ({
+    id: parcel.id,
+    state: ["registration_unknown", "registration_failed"].includes(parcel.state)
+      ? "preparing" : parcel.state as CustomerParcel["state"],
+    tracking: parcel.tracking,
+    handedOverAt: parcel.handedOverAt,
+    deliveredAt: parcel.deliveredAt,
+    manuallyConfirmed: Boolean(parcel.manualDelivery),
+    trackingUnavailable: Boolean(parcel.trackingCheck && parcel.trackingCheck.outcome !== "ok"),
+  }));
+  return { ...publicOrder, ...(customerParcels ? { customerParcels } : {}) };
 }

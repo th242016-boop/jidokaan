@@ -1,0 +1,915 @@
+{
+  "source": "https://jidokaan.com/api/catalog",
+  "capturedAt": "2026-11-16",
+  "products": [
+    {
+      "id": "drone-custom",
+      "sku": "11962349323",
+      "name": {
+        "en": "JIDOKAAN DRONE Custom Boxing Shoes",
+        "ja": "JIDOKAAN DRONE カスタムボクシングシューズ",
+        "ko": "국내 수제제작 커스텀 시합용 복싱화 지도칸 드론"
+      },
+      "image": "/products/store/drone-main.png",
+      "plate": "#1a1a1e",
+      "shape": "drone",
+      "sizes": [
+        "225",
+        "230",
+        "235",
+        "240",
+        "245",
+        "250",
+        "255",
+        "260",
+        "265",
+        "270",
+        "275",
+        "280",
+        "285",
+        "290",
+        "295",
+        "300"
+      ],
+      "accent": "#dc2626",
+      "colors": [
+        "#f5f5f5",
+        "#111111",
+        "#d4af37"
+      ],
+      "images": [
+        "/products/store/drone-main.png",
+        "/products/store/shoe-drone.png",
+        "/products/store/shoe-drone-2.png",
+        "/products/store/shoe-drone-3.png"
+      ],
+      "rating": 4.9,
+      "weight": "약 380 g / side",
+      "inStock": true,
+      "majorId": "shoes",
+      "options": {
+        "skus": [],
+        "type": "combo",
+        "groups": [],
+        "enabled": false
+      },
+      "reviews": 186,
+      "tagline": {
+        "en": "Handmade fight boots from Seongsu, color by color",
+        "ja": "聖水工房で一足ずつ手作りする試合用カスタムシューズ",
+        "ko": "지도칸 복싱화"
+      },
+      "visible": true,
+      "category": "custom",
+      "featured": true,
+      "leadDays": 25,
+      "priceKrw": 288000,
+      "priceUsd": 25000,
+      "seoTitle": "국내 수제제작 커스텀 시합용 복싱화 지도칸 드론 | 지도칸 JIDOKAAN",
+      "createdAt": "2025-06-13T15:46:02.000Z",
+      "materials": {
+        "en": "Handmade upper, high-grip outsole",
+        "ja": "手製アッパー、高グリップアウトソール",
+        "ko": "수제 갑피, 고그립 아웃솔"
+      },
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "sortOrder": 1,
+      "description": {
+        "en": "JIDOKAAN DRONE is a fight-ready custom boxing boot, handmade one pair at a time in Seongsu, Seoul.\n\nPick colors and size in the simulator — tap the large Custom order button.\n\n• Panel-by-panel color custom\n• Gum outsole grip\n• Handmade build, repairable in Korea (outsole recraft ₩50,000)\n• Women’s 225–245, men’s 240–300. Men often size down one.\n• About 20–30 days to make. KR ₩288,000 / worldwide USD 250.",
+        "ja": "JIDOKAAN DRONEはソウル聖水で一足ずつ手作りする試合用カスタムボクシングシューズです。\n\nカラーとサイズはシミュレーターで選びます。大きな「カスタム注文」ボタンへ。\n\n・パネルごとにカラー指定\n・生ゴムアウトソール\n・韓国で修理可能（アウトソール交換₩50,000）\n・女性225–245 / 男性240–300。男性はワンサイズ下げ推奨。\n・製作約20–30日。韓国₩288,000 / 海外USD 230。",
+        "ko": "지도칸 DRONE은 대한민국 성수에서 한 켤레씩 손으로 만드는 시합용 커스텀 복싱화입니다.\n\n제품 시뮬레이션 후 캡쳐하여 저장해 두신 후\n네이버 스마트스토어에서 주문해주세요 (국내고객)\n\n■ 이런 분께\n· 부위별 컬러를 직접 조합하고 싶은 선수\n· 기성 복싱화 착화감이 아쉬웠던 분\n\n\n■ 특징\n· 부위별 컬러 커스텀 가능\n· 뛰어난 착화감\n· 생고무창 아웃솔의 좋은 접지력\n\n\n■ 사이즈 가이드\n여성 225–245 / 남성 240–300\n여성은 보통 정사이즈, 남성은 일반 운동화보다 약간 크다는 평가가 많아 한 치수 작게 권장합니다. \n발볼이 두꺼우면 정사이즈가 더 잘 맞을 수 있습니다.\n\n■ 제작 · 배송\n수제 제작 평균 20~30일 + 배송\n한국 288,000원 / 해외 USD 250"
+      },
+      "seoKeywords": "국내 수제제작 커스텀 시합용 복싱화 지도칸 드론, 지도칸, JIDOKAAN",
+      "compareAtKrw": 388000,
+      "compareAtUsd": 31000,
+      "customizable": true,
+      "detailImages": [
+        "/products/upload/mt18uqdv-5yt89x-1.jpg",
+        "/products/upload/mt18unlf-xd4waj-2.jpg",
+        "/products/upload/mt18upxr-2gt4s9-3.jpg",
+        "/products/upload/mt18uqih-y2i0ri-4.jpg",
+        "/products/upload/mt18uoxn-lt5ncb-5.jpg",
+        "/products/upload/mt18uqj6-7eta7q-6.jpg",
+        "/products/upload/mt18unn3-ji81jx-7.jpg",
+        "/products/upload/mt18uqg7-yu6n9j-8.jpg",
+        "/products/upload/mt18uqdx-9pg9dp-9.jpg",
+        "/products/upload/mt18uqez-d4dnxh-10.jpg",
+        "/products/upload/mt18uq0i-5e54kv-11.jpg",
+        "/products/upload/mt18uqgs-r73tgy-12.jpg"
+      ],
+      "detailVideos": [],
+      "smartstoreUrl": "https://mkt.shopping.naver.com/link/6867a83ec4457d34463af823",
+      "seoDescription": "성수 공방에서 한 켤레씩 손으로 만드는 시합용 커스텀 복싱화"
+    },
+    {
+      "id": "drone-mid",
+      "sku": "12349180497",
+      "name": {
+        "en": "JIDOKAAN DRONE Mid-Cut Custom Boxing Shoes",
+        "ja": "JIDOKAAN DRONE ミッドカット カスタム",
+        "ko": "국내 수제 커스텀 제작 선수용 복싱화 지도칸 드론 중목 미드컷"
+      },
+      "image": "/products/store/mid-main.png",
+      "plate": "#161618",
+      "shape": "classic",
+      "sizes": [
+        "225",
+        "230",
+        "235",
+        "240",
+        "245",
+        "250",
+        "255",
+        "260",
+        "265",
+        "270",
+        "275",
+        "280",
+        "285",
+        "290",
+        "295",
+        "300"
+      ],
+      "accent": "#d4af37",
+      "colors": [
+        "#111111",
+        "#d4af37"
+      ],
+      "images": [
+        "/products/store/mid-main.png",
+        "/products/store/shoe-mid.png",
+        "/products/store/shoe-mid-2.jpg",
+        "/products/store/shoe-mid-3.jpg"
+      ],
+      "rating": 4.8,
+      "weight": "약 400 g / side",
+      "inStock": true,
+      "majorId": "shoes",
+      "options": {
+        "skus": [],
+        "type": "combo",
+        "groups": [],
+        "enabled": false
+      },
+      "reviews": 64,
+      "tagline": {
+        "en": "Mid-cut height for extra ankle support",
+        "ja": "ミッドカット。足首サポート重視",
+        "ko": "지도칸 드론 복싱화 미드컷 버젼"
+      },
+      "visible": true,
+      "category": "custom",
+      "featured": true,
+      "leadDays": 25,
+      "priceKrw": 288000,
+      "priceUsd": 25000,
+      "seoTitle": "국내 수제 커스텀 제작 선수용 복싱화 지도칸 드론 중목 미드컷 | 지도칸 JIDOKAAN",
+      "createdAt": "2025-09-04T11:03:29.000Z",
+      "materials": {
+        "en": "Handmade upper, high-grip outsole",
+        "ja": "手製アッパー、高グリップアウトソール",
+        "ko": "수제 갑피, 고그립 아웃솔"
+      },
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "sortOrder": 2,
+      "description": {
+        "en": "DRONE mid-cut. Same handmade fight boot with a taller collar for extra ankle support.\n\nColors and size are chosen in the simulator via Custom order.\n\nWomen 225–245 / men 240–300. Men often size down one.\nAbout 20–30 days. KR ₩288,000 / worldwide USD 250.",
+        "ja": "DRONEミッドカット。同じ手製で、足首サポートのためカラーが高めです。\n\nカラーとサイズはシミュレーターで選択。\n製作約20–30日。韓国₩288,000 / 海外USD 230。",
+        "ko": "지도칸 DRONE은 대한민국 성수에서 한 켤레씩 손으로 만드는 시합용 커스텀 복싱화입니다.\n\n제품 시뮬레이션 후 캡쳐하여 저장해 두신 후\n네이버 스마트스토어에서 주문해주세요 (국내고객)\n\n■ 이런 분께\n· 부위별 컬러를 직접 조합하고 싶은 선수\n· 기성 복싱화 착화감이 아쉬웠던 분\n\n\n■ 특징\n· 부위별 컬러 커스텀 가능\n· 뛰어난 착화감\n· 생고무창 아웃솔의 좋은 접지력\n\n\n■ 사이즈 가이드\n여성 225–245 / 남성 240–300\n여성은 보통 정사이즈, 남성은 일반 운동화보다 약간 크다는 평가가 많아 한 치수 작게 권장합니다. \n발볼이 두꺼우면 정사이즈가 더 잘 맞을 수 있습니다.\n\n■ 제작 · 배송\n수제 제작 평균 20~30일 + 배송\n한국 288,000원 / 해외 USD 250"
+      },
+      "seoKeywords": "국내 수제 커스텀 제작 선수용 복싱화 지도칸 드론 중목 미드컷, 지도칸, JIDOKAAN",
+      "compareAtKrw": 388000,
+      "compareAtUsd": 31000,
+      "customizable": true,
+      "detailImages": [],
+      "detailVideos": [],
+      "smartstoreUrl": "https://mkt.shopping.naver.com/link/68b8f3e239ff2524a2978607",
+      "seoDescription": "중목 미드컷 — 발목 지지가 더 필요한 선수에게"
+    },
+    {
+      "id": "glove-strap",
+      "sku": "13709768555",
+      "name": {
+        "en": "Leather lace-up glove converter strap",
+        "ja": "本革コンバーター レースアップグローブストラップ",
+        "ko": "리얼 천연 소가죽 컨버터 레이스업 끈글러브 스트랩 9가지컬러"
+      },
+      "image": "/products/store/strap-main.png",
+      "plate": "#1a1412",
+      "shape": "kit",
+      "accent": "#7a1f1f",
+      "colors": [
+        "#7a1f1f",
+        "#111111",
+        "#d4af37"
+      ],
+      "images": [
+        "/products/store/strap-main.png"
+      ],
+      "rating": 4.8,
+      "weight": "80 g",
+      "inStock": true,
+      "majorId": "etc",
+      "options": {
+        "skus": [
+          {
+            "key": "블랙",
+            "stock": 2,
+            "values": [
+              "블랙"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "화이트",
+            "stock": 2,
+            "values": [
+              "화이트"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "골드",
+            "stock": 2,
+            "values": [
+              "골드"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "실버",
+            "stock": 2,
+            "values": [
+              "실버"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "민트",
+            "stock": 2,
+            "values": [
+              "민트"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "핑크라인",
+            "stock": 2,
+            "values": [
+              "핑크라인"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "레드파이톤",
+            "stock": 2,
+            "values": [
+              "레드파이톤"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "에메랄드메탈",
+            "stock": 2,
+            "values": [
+              "에메랄드메탈"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "오렌지펄",
+            "stock": 0,
+            "values": [
+              "오렌지펄"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          }
+        ],
+        "type": "single",
+        "groups": [
+          {
+            "name": "컬러",
+            "values": [
+              "블랙",
+              "화이트",
+              "골드",
+              "실버",
+              "민트",
+              "핑크라인",
+              "레드파이톤",
+              "에메랄드메탈",
+              "오렌지펄"
+            ]
+          }
+        ],
+        "enabled": true
+      },
+      "reviews": 22,
+      "tagline": {
+        "en": "Convert velcro gloves to lace-up — 9 colors",
+        "ja": "マジックテープをレースアップに。9色",
+        "ko": "글러브 컨버터 리얼 소가죽으로 제작된 수제 컨버터"
+      },
+      "visible": true,
+      "category": "gear",
+      "featured": false,
+      "leadDays": 1,
+      "priceKrw": 28900,
+      "priceUsd": 2300,
+      "seoTitle": "리얼 천연 소가죽 컨버터 레이스업 끈글러브 스트랩 9가지컬러 | 지도칸 JIDOKAAN",
+      "createdAt": "2026-08-08T18:29:59.000Z",
+      "materials": {
+        "en": "Full-grain cowhide",
+        "ja": "本革",
+        "ko": "천연 소가죽"
+      },
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "sortOrder": 3,
+      "description": {
+        "en": "Full-grain leather converter straps turn velcro gloves into a lace-up closure.\n\nNine colors. One set. Ships from Seoul in about 2–3 days.",
+        "ja": "本革コンバーター。マジックテープグローブをレースアップ仕様に。9色。ソウルから2–3日。",
+        "ko": "상품 주문시 국내 고객은 네이버스마트 스토어에서 주문해주세요"
+      },
+      "seoKeywords": "리얼 천연 소가죽 컨버터 레이스업 끈글러브 스트랩 9가지컬러, 지도칸, JIDOKAAN",
+      "compareAtKrw": 49000,
+      "compareAtUsd": 3900,
+      "detailImages": [
+        "/products/upload/mtchxtf7-iwarr1-29df3270-01e2-4228-8068-96f49e10ef63.jfif"
+      ],
+      "detailVideos": [],
+      "smartstoreUrl": "https://mkt.shopping.naver.com/link/6a78725756fe0028562cb748",
+      "seoDescription": "벨크로 글러브를 레이스업 글러브처럼 간편하게 착용가능하게 해주는 제품"
+    },
+    {
+      "id": "viper-band",
+      "sku": "10994229070",
+      "name": {
+        "en": "Viper towel headband",
+        "ja": "バイパー頭巾 タオルタイプ",
+        "ko": "복싱 두건 헤어밴드 겸용 스포츠 헬스 러닝 땀흡수 타올타입 바이퍼두건"
+      },
+      "image": "/products/store/viper-main.jpg",
+      "plate": "#141418",
+      "shape": "kit",
+      "accent": "#b91c1c",
+      "colors": [
+        "#111111",
+        "#1e3a5f",
+        "#f5f5f5",
+        "#b91c1c",
+        "#1d4ed8"
+      ],
+      "images": [
+        "/products/store/viper-main.jpg"
+      ],
+      "rating": 4.7,
+      "weight": "60 g",
+      "inStock": true,
+      "majorId": "apparel",
+      "options": {
+        "skus": [
+          {
+            "key": "블랙",
+            "stock": 47,
+            "values": [
+              "블랙"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "네이비",
+            "stock": 218,
+            "values": [
+              "네이비"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "화이트",
+            "stock": 19,
+            "values": [
+              "화이트"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "레드",
+            "stock": 37,
+            "values": [
+              "레드"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "블루",
+            "stock": 41,
+            "values": [
+              "블루"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          }
+        ],
+        "type": "single",
+        "groups": [
+          {
+            "name": "컬러",
+            "values": [
+              "블랙",
+              "네이비",
+              "화이트",
+              "레드",
+              "블루"
+            ]
+          }
+        ],
+        "enabled": true
+      },
+      "reviews": 48,
+      "tagline": {
+        "en": "Sweat-absorbing towel wrap for boxing and training",
+        "ja": "汗を吸うタオル頭巾。ボクシング・ジム・ラン",
+        "ko": "땀 흡수 타올 두건 — 복싱·헬스·러닝"
+      },
+      "visible": true,
+      "category": "gear",
+      "featured": true,
+      "leadDays": 3,
+      "priceKrw": 16900,
+      "priceUsd": 1300,
+      "seoTitle": "복싱 두건 헤어밴드 겸용 스포츠 헬스 러닝 땀흡수 타올타입 바이퍼두건 | 지도칸 JIDOKAAN",
+      "createdAt": "2024-10-13T14:20:32.000Z",
+      "materials": {
+        "en": "Towel cotton blend",
+        "ja": "タオル生地",
+        "ko": "타올 면 혼방"
+      },
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "sortOrder": 4,
+      "description": {
+        "en": "Best-selling towel-type Viper wrap. Absorbs sweat, worn as a headband for boxing, gym, and running. Registered design.\n\nColors: black, navy, white, red, blue.",
+        "ja": "ベストセラーのタオルタイプ頭巾。ボクシング・ジム・ラン用。ブラック/ネイビー/ホワイト/レッド/ブルー。",
+        "ko": "지도칸 베스트셀러, 타올 타입 바이퍼두건입니다.\n\n땀을 잘 흡수하고, 헤어밴드처럼 둘러 복싱·헬스·러닝에 씁니다. 디자인 등록이 완료된 제품입니다.\n\n■ 컬러\n블랙 / 네이비 / 화이트 / 레드 / 블루\n\n■ 소재\n타올 면 혼방. 세탁 후 그늘에서 건조하세요."
+      },
+      "seoKeywords": "복싱 두건 헤어밴드 겸용 스포츠 헬스 러닝 땀흡수 타올타입 바이퍼두건, 지도칸, JIDOKAAN, 운동두건,테니스두건, 헬스두건, 크로스핏두건,러닝두건",
+      "compareAtKrw": 25900,
+      "compareAtUsd": 2100,
+      "detailImages": [
+        "/products/upload/mtci0v7l-nzglsl-1.png",
+        "/products/upload/mtci0vw2-3e0wt8-2.png",
+        "/products/upload/mtci0w6m-dgq2zs-3.jpg",
+        "/products/upload/mtci0wga-bet111-4.jpg",
+        "/products/upload/mtci0wr1-fxvjij-5.5.jpg",
+        "/products/upload/mtci0x3u-etuo3m-5.png",
+        "/products/upload/mtci0xkn-d60p5z-6.png",
+        "/products/upload/mtci0xv6-1qb2d2-7.jpg",
+        "/products/upload/mtci0y55-httebm-8.jpg",
+        "/products/upload/mtci0yf6-ibet1m-9.jpg",
+        "/products/upload/mtci0yp9-407pct-10.jpg",
+        "/products/upload/mtci0yyy-t5nzvz-11.jpg"
+      ],
+      "detailVideos": [],
+      "smartstoreUrl": "https://mkt.shopping.naver.com/link/685ba1e2501108490cdccad1",
+      "seoDescription": "땀흡수에 좋고 땀흘림방지 효과가 탁월한 타올타입의 운동두건"
+    },
+    {
+      "id": "viper-band-ns",
+      "sku": "10978501877",
+      "name": {
+        "en": "Viper non-slip headband (cooling / towel)",
+        "ja": "バイパー頭巾 ノンスリップ（クーリング/タオル）",
+        "ko": "헤드기어 돌아감 방지 바이퍼두건 논슬립 버젼 (쿨링/타올) 2가지"
+      },
+      "image": "/products/store/band-ns-main.jpg",
+      "plate": "#12151a",
+      "shape": "kit",
+      "accent": "#2563eb",
+      "colors": [
+        "#111111",
+        "#1e3a5f"
+      ],
+      "images": [
+        "/products/store/band-ns-main.jpg"
+      ],
+      "rating": 4.7,
+      "weight": "55 g",
+      "inStock": true,
+      "majorId": "apparel",
+      "options": {
+        "skus": [
+          {
+            "key": "바이퍼두건 쿨링타입(나일론)",
+            "stock": 81,
+            "values": [
+              "바이퍼두건 쿨링타입(나일론)"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "바이퍼두건 타올타입(면)",
+            "stock": 0,
+            "values": [
+              "바이퍼두건 타올타입(면)"
+            ],
+            "enabled": false,
+            "extraKrw": 0,
+            "extraUsd": 0
+          }
+        ],
+        "type": "single",
+        "groups": [
+          {
+            "name": "종류",
+            "values": [
+              "바이퍼두건 쿨링타입(나일론)",
+              "바이퍼두건 타올타입(면)"
+            ]
+          }
+        ],
+        "enabled": true
+      },
+      "reviews": 31,
+      "tagline": {
+        "en": "Stops headgear from spinning — non-slip",
+        "ja": "ヘッドギアの回転を防ぐノンスリップ",
+        "ko": "헤드기어가 돌아가지 않게 — 논슬립버젼의 바이퍼두건"
+      },
+      "visible": true,
+      "category": "gear",
+      "featured": false,
+      "leadDays": 3,
+      "priceKrw": 18900,
+      "priceUsd": 1500,
+      "seoTitle": "헤드기어 돌아감 방지 바이퍼두건 논슬립 버젼 (쿨링/타올) 2가지 | 지도칸 JIDOKAAN",
+      "createdAt": "2024-10-09T23:01:36.000Z",
+      "materials": {
+        "en": "Cooling nylon / towel cotton",
+        "ja": "クーリングナイロン / タオル",
+        "ko": "나일론 쿨링 / 면 타올"
+      },
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "sortOrder": 5,
+      "description": {
+        "en": "Non-slip Viper wrap worn under headgear so it does not spin.\n\nCooling nylon (fast-dry) or towel cotton (absorbent).",
+        "ja": "ヘッドギアの回転を防ぐノンスリップ頭巾。クーリング（ナイロン）とタオル（綿）。",
+        "ko": "헤드기어가 돌아가는 것을 감소 시켜주는 논슬립 바이퍼두건입니다.\n\n헤드기어 안쪽에 착용합니다. 실리콘 논슬립 처리가 되어 있습니다.\n\n■ 종류\n· 쿨링타입 (나일론) — 가볍고 빨리 마름\n· 타올타입 (면) — 땀 흡수\n\n스파링 시 헤드기어 안에 착용하세요."
+      },
+      "seoKeywords": "헤드기어 돌아감 방지 바이퍼두건 논슬립 버젼 (쿨링/타올) 2가지, 지도칸, JIDOKAAN,  논슬립두건, 미끄럼방지두건",
+      "compareAtKrw": 35900,
+      "compareAtUsd": 2900,
+      "detailImages": [
+        "/products/upload/mtci2uav-jbv222-1.png",
+        "/products/upload/mtci2uso-e6s5n7-2.png",
+        "/products/upload/mtci2v5p-r7vnjj-3.png",
+        "/products/upload/mtci2w6r-xho2ef-4.png",
+        "/products/upload/mtci2wn7-qeo3uw-5.png",
+        "/products/upload/mtci2wzt-9pbdz3-6.png",
+        "/products/upload/mtci2xaa-0h744i-7.png"
+      ],
+      "detailVideos": [],
+      "smartstoreUrl": "https://mkt.shopping.naver.com/link/6867a92f1fd1ac410798a450",
+      "seoDescription": "헤드기어가 돌아가는 것을 감소시켜주는 역할을 하는 논슬립밴드가 적용된 운동용 두건- 바이퍼두건"
+    },
+    {
+      "id": "lace-b1",
+      "sku": "13452327906",
+      "name": {
+        "en": "Boxing shoe laces 220cm 8mm JDKL B1",
+        "ja": "ボクシングシューレース 220cm 8mm JDKL B1",
+        "ko": "복싱화끈 긴 운동화 신발 끈 길이 220cm 넓이 8mm JDKL B1"
+      },
+      "image": "/products/store/lace-b1-main.jpg",
+      "plate": "#18181b",
+      "shape": "laces",
+      "accent": "#a1a1aa",
+      "colors": [
+        "#111111"
+      ],
+      "images": [
+        "/products/store/lace-b1-main.jpg"
+      ],
+      "rating": 4.6,
+      "weight": "30 g",
+      "inStock": true,
+      "majorId": "etc",
+      "options": {
+        "skus": [
+          {
+            "key": "흰색",
+            "stock": 99,
+            "values": [
+              "흰색"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "검정",
+            "stock": 99,
+            "values": [
+              "검정"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "빨강",
+            "stock": 99,
+            "values": [
+              "빨강"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "파랑",
+            "stock": 99,
+            "values": [
+              "파랑"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          },
+          {
+            "key": "노랑",
+            "stock": 99,
+            "values": [
+              "노랑"
+            ],
+            "enabled": true,
+            "extraKrw": 0,
+            "extraUsd": 0
+          }
+        ],
+        "type": "combo",
+        "groups": [
+          {
+            "name": "색상",
+            "values": [
+              "흰색",
+              "검정",
+              "빨강",
+              "파랑",
+              "노랑"
+            ]
+          }
+        ],
+        "enabled": true
+      },
+      "reviews": 40,
+      "tagline": {
+        "en": "Long flat laces for boxing boots — 220cm",
+        "ja": "ボクシングシューズ用フラットレース 220cm",
+        "ko": "복싱화·운동화용 플랫 끈 220cm"
+      },
+      "visible": true,
+      "category": "care",
+      "featured": false,
+      "leadDays": 2,
+      "priceKrw": 8500,
+      "priceUsd": 700,
+      "seoTitle": "복싱화끈 긴 운동화 신발 끈 길이 220cm 넓이 8mm JDKL B1 | 지도칸 JIDOKAAN",
+      "createdAt": "2026-04-25T22:13:11.000Z",
+      "materials": {
+        "en": "Polyester flat lace",
+        "ja": "ポリエステルフラットレース",
+        "ko": "폴리에스터 플랫 레이스"
+      },
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "sortOrder": 6,
+      "description": {
+        "en": "Long flat laces for boxing boots and high-tops. 220cm × 8mm. Model JDKL B1.",
+        "ja": "ボクシングシューズ・ハイカット用フラットレース。220cm×8mm。JDKL B1。",
+        "ko": "복싱화·하이탑에 맞는 긴 플랫 신발끈입니다.\n\n길이 220cm, 넓이 8mm. 일반 운동화 끈보다 길어 복싱화 목까지 충분히 감습니다.\n\n■ 스펙\nJDKL B1 / 220cm × 8mm / 폴리에스터 플랫"
+      },
+      "seoKeywords": "복싱화끈 긴 운동화 신발 끈 길이 220cm 넓이 8mm JDKL B1, 지도칸, JIDOKAAN, 하이탑끈, 등산화끈,워커끈",
+      "compareAtKrw": 11900,
+      "compareAtUsd": 1000,
+      "detailImages": [
+        "/products/upload/mtci6cle-vyt51s-1.jpg",
+        "/products/upload/mtci6rfd-s0um78-20241030_181111.jpg",
+        "/products/upload/mtci6s02-yo2jud-20241030_181130.jpg",
+        "/products/upload/mtci6sam-mqq39x-fsd.jpg",
+        "/products/upload/mtci6tlz-8w0771-ghe1.png",
+        "/products/upload/mtci6u1l-yib85q-KakaoTalk_20260424_180909d278_02.jpg",
+        "/products/upload/mtci6ugx-yf06n7-KakaoTalk_20260424_180909278.jpg"
+      ],
+      "detailVideos": [],
+      "smartstoreUrl": "https://mkt.shopping.naver.com/link/6a431a44bb3426556b418f13",
+      "seoDescription": "길이가 매우 긴 신발끈으로 220cm 운동화, 워커, 등산화, 하이탑, 복싱화에 사용가능한 신발끈"
+    },
+    {
+      "id": "lace-a1",
+      "sku": "13137841097",
+      "name": {
+        "en": "Long round laces 5mm 200cm JDKL A1",
+        "ja": "ロングラウンドレース 5mm 200cm JDKL A1",
+        "ko": "길이가 긴 신발 끈 부츠 등산화용 5mm 200cm JDKL A1"
+      },
+      "image": "/products/store/lace-a1-main.png",
+      "plate": "#18181b",
+      "shape": "laces",
+      "accent": "#71717a",
+      "colors": [
+        "#111111"
+      ],
+      "images": [
+        "/products/store/lace-a1-main.png"
+      ],
+      "rating": 4.5,
+      "weight": "28 g",
+      "inStock": true,
+      "majorId": "etc",
+      "options": {
+        "skus": [],
+        "type": "combo",
+        "groups": [],
+        "enabled": false
+      },
+      "reviews": 18,
+      "tagline": {
+        "en": "Round 5mm laces for boots — 200cm",
+        "ja": "ブーツ・登山靴用ラウンドレース 200cm",
+        "ko": "부츠·등산화용 둥근 끈 200cm"
+      },
+      "visible": false,
+      "category": "care",
+      "featured": false,
+      "leadDays": 2,
+      "priceKrw": 8500,
+      "priceUsd": 700,
+      "seoTitle": "길이가 긴 신발 끈 부츠 등산화용 5mm 200cm JDKL A1 | 지도칸 JIDOKAAN",
+      "createdAt": "2026-02-19T20:17:44.000Z",
+      "materials": {
+        "en": "Polyester round lace",
+        "ja": "ポリエステルラウンドレース",
+        "ko": "폴리에스터 라운드 레이스"
+      },
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "sortOrder": 7,
+      "description": {
+        "en": "Round 5mm × 200cm laces for boots and hiking shoes. Model JDKL A1.",
+        "ja": "ブーツ・登山靴用ラウンドレース。5mm×200cm。JDKL A1。",
+        "ko": "부츠·등산화·하이탑용 둥근 신발끈입니다.\n\n두께 5mm, 길이 200cm. 잘 풀리지 않는 라운드 타입입니다.\n\n■ 스펙\nJDKL A1 / 200cm × 5mm / 폴리에스터 라운드"
+      },
+      "seoKeywords": "길이가 긴 신발 끈 부츠 등산화용 5mm 200cm JDKL A1, 지도칸, JIDOKAAN",
+      "compareAtKrw": 13500,
+      "compareAtUsd": 1100,
+      "seoDescription": "부츠·등산화용 둥근 끈 200cm"
+    },
+    {
+      "id": "lace-a2",
+      "sku": "13137780144",
+      "name": {
+        "en": "Headgear / glove rope 6mm 200cm JDKL A2",
+        "ja": "ヘッドギア・グローブ用ロープ 6mm 200cm JDKL A2",
+        "ko": "헤드기어 교체용 끈 글러브 다용도 둥근 로프타입 6mm 200cm JDKL A2"
+      },
+      "image": "/products/store/lace-a2-main.png",
+      "plate": "#18181b",
+      "shape": "laces",
+      "accent": "#52525b",
+      "colors": [
+        "#111111"
+      ],
+      "images": [
+        "/products/store/lace-a2-main.png"
+      ],
+      "rating": 4.5,
+      "weight": "32 g",
+      "inStock": true,
+      "majorId": "etc",
+      "options": {
+        "skus": [],
+        "type": "combo",
+        "groups": [],
+        "enabled": false
+      },
+      "reviews": 12,
+      "tagline": {
+        "en": "6mm rope for headgear and gloves",
+        "ja": "ヘッドギア・グローブ交換用 6mmロープ",
+        "ko": "헤드기어·글러브 교체용 6mm 로프"
+      },
+      "visible": false,
+      "category": "care",
+      "featured": false,
+      "leadDays": 2,
+      "priceKrw": 8500,
+      "priceUsd": 700,
+      "seoTitle": "헤드기어 교체용 끈 글러브 다용도 둥근 로프타입 6mm 200cm JDKL A2 | 지도칸 JIDOKAAN",
+      "createdAt": "2026-02-19T20:03:45.000Z",
+      "materials": {
+        "en": "Polyester rope",
+        "ja": "ポリエステルロープ",
+        "ko": "폴리에스터 로프"
+      },
+      "shipsFrom": {
+        "en": "Seongsu, Seoul, KR",
+        "ja": "ソウル聖水, KR",
+        "ko": "서울 성수, KR"
+      },
+      "sortOrder": 8,
+      "description": {
+        "en": "6mm × 200cm rope for headgear replacement or gloves. Model JDKL A2.",
+        "ja": "ヘッドギア交換・グローブ用ロープ。6mm×200cm。JDKL A2。",
+        "ko": "헤드기어 교체용, 글러브에도 쓰는 둥근 로프 끈입니다.\n\n두께 6mm, 길이 200cm. 일반 신발끈보다 굵어 헤드기어 버클에 맞습니다.\n\n■ 스펙\nJDKL A2 / 200cm × 6mm / 폴리에스터 로프"
+      },
+      "seoKeywords": "헤드기어 교체용 끈 글러브 다용도 둥근 로프타입 6mm 200cm JDKL A2, 지도칸, JIDOKAAN",
+      "compareAtKrw": 13500,
+      "compareAtUsd": 1100,
+      "seoDescription": "헤드기어·글러브 교체용 6mm 로프"
+    }
+  ],
+  "externalMedia": [
+    "/products/upload/mtchxtf7-iwarr1-29df3270-01e2-4228-8068-96f49e10ef63.jfif",
+    "/products/upload/mtci0v7l-nzglsl-1.png",
+    "/products/upload/mtci0vw2-3e0wt8-2.png",
+    "/products/upload/mtci0w6m-dgq2zs-3.jpg",
+    "/products/upload/mtci0wga-bet111-4.jpg",
+    "/products/upload/mtci0wr1-fxvjij-5.5.jpg",
+    "/products/upload/mtci0x3u-etuo3m-5.png",
+    "/products/upload/mtci0xkn-d60p5z-6.png",
+    "/products/upload/mtci0xv6-1qb2d2-7.jpg",
+    "/products/upload/mtci0y55-httebm-8.jpg",
+    "/products/upload/mtci0yf6-ibet1m-9.jpg",
+    "/products/upload/mtci0yp9-407pct-10.jpg",
+    "/products/upload/mtci0yyy-t5nzvz-11.jpg",
+    "/products/upload/mtci2uav-jbv222-1.png",
+    "/products/upload/mtci2uso-e6s5n7-2.png",
+    "/products/upload/mtci2v5p-r7vnjj-3.png",
+    "/products/upload/mtci2w6r-xho2ef-4.png",
+    "/products/upload/mtci2wn7-qeo3uw-5.png",
+    "/products/upload/mtci2wzt-9pbdz3-6.png",
+    "/products/upload/mtci2xaa-0h744i-7.png",
+    "/products/upload/mtci6cle-vyt51s-1.jpg",
+    "/products/upload/mtci6rfd-s0um78-20241030_181111.jpg",
+    "/products/upload/mtci6s02-yo2jud-20241030_181130.jpg",
+    "/products/upload/mtci6sam-mqq39x-fsd.jpg",
+    "/products/upload/mtci6tlz-8w0771-ghe1.png",
+    "/products/upload/mtci6u1l-yib85q-KakaoTalk_20260424_180909d278_02.jpg",
+    "/products/upload/mtci6ugx-yf06n7-KakaoTalk_20260424_180909278.jpg"
+  ],
+  "scope": "Public product catalog only. No customer records, orders, credentials, payment settings, coupons or blacklist."
+}

@@ -1,3 +1,5 @@
+import { orderPaymentMoney, orderItemUnitAmount } from "@/lib/order-money";
+import { AdminCountryNotice } from "./country-notice";
 import { modelLabel } from "@/lib/simulator-config";
 import { OrderDesign } from "./order-design";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -52,19 +54,18 @@ export function OrderDetail({
   const [note, setNote] = useState(o.note ?? "");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const krw = o.currency === "KRW";
-  const money = (n: number) =>
-    new Intl.NumberFormat(krw ? "ko-KR" : "en-US", {
-      style: "currency",
-      currency: krw ? "KRW" : "USD",
+  const { currency, shipping, discount, total } = orderPaymentMoney(o);
+  const money = (n: number, code = currency) =>
+    new Intl.NumberFormat("ko-KR", {
+      style: "currency", currency: code, currencyDisplay: "code",
+      minimumFractionDigits: code === "USD" ? 2 : 0,
+      maximumFractionDigits: code === "USD" ? 2 : 0,
     }).format(n);
-  const subtotal = o.items.reduce(
-    (sum, item) => sum + item.qty * (krw ? item.priceKrw : item.priceUsd),
-    0,
-  );
-  const shipping = krw ? o.shippingKrw : o.shippingUsd;
-  const discount = (krw ? o.discountKrw : o.discountUsd) ?? 0;
-  const total = krw ? o.totalKrw : o.totalUsd;
+  const subtotal = o.items.reduce((sum, item) => sum + item.qty * orderItemUnitAmount(o, item), 0);
+  const paypalCurrency = o.paypalCurrency || (o.currency === "USD" ? "USD" : undefined);
+  const paypalGross = o.paypalGrossAmount ?? (paypalCurrency === "USD" ? o.paypalGrossUsd : undefined);
+  const paypalFee = o.paypalFeeAmount ?? (paypalCurrency === "USD" ? o.paypalFeeUsd : undefined);
+  const paypalNet = o.paypalNetAmount ?? (paypalCurrency === "USD" ? o.paypalNetUsd : undefined);
   const mismatch = Math.abs(subtotal + shipping - discount - total) > 0.011;
   const missing = [
     ["수취인", o.name],
@@ -134,6 +135,7 @@ export function OrderDetail({
           <p className="my-4 rounded bg-[#f5f6f8] p-3">
             결제·디자인 확인 → 발송 준비 → EMS 사전접수 → 우체국 제출 대기 → 창구에 맡긴 뒤 발송
           </p>
+          <AdminCountryNotice notice={o.adminShippingGuidance} />
           <div className="grid gap-7 md:grid-cols-2">
             <section>
               <h3 className="mb-2 font-bold">수취인 / 전체 배송지</h3>
@@ -211,20 +213,20 @@ export function OrderDetail({
                     {field("주문 ID", o.paypalOrderId || "기존 주문에 저장되지 않음")}
                     {field("거래 ID", o.paypalCaptureId || "기존 주문에 저장되지 않음")}
                     {field(
-                      "결제액 (USD)",
-                      o.paypalGrossUsd == null ? "미저장" : `$${o.paypalGrossUsd.toFixed(2)}`,
+                      `결제액 (${paypalCurrency || "통화 확인"})`,
+                      paypalGross == null || !paypalCurrency ? "미저장" : money(paypalGross, paypalCurrency as typeof currency),
                     )}
                     {field(
-                      "수수료 (USD)",
-                      o.paypalFeeUsd == null
+                      `수수료 (${paypalCurrency || "통화 확인"})`,
+                      paypalFee == null || !paypalCurrency
                         ? "미저장 · PayPal에서 확인"
-                        : `$${o.paypalFeeUsd.toFixed(2)}`,
+                        : money(paypalFee, paypalCurrency as typeof currency),
                     )}
                     {field(
-                      "실수령 (USD)",
-                      o.paypalNetUsd == null
+                      `실수령 (${paypalCurrency || "통화 확인"})`,
+                      paypalNet == null || !paypalCurrency
                         ? "미저장 · PayPal에서 확인"
-                        : `$${o.paypalNetUsd.toFixed(2)}`,
+                        : money(paypalNet, paypalCurrency as typeof currency),
                     )}
                   </dl>
                   <p className="mt-2 text-xs text-[#666]">
@@ -261,7 +263,7 @@ export function OrderDetail({
                 <p className="my-2">
                   사이즈: {item.size || "미입력"}
                   {item.optionLabel ? ` · ${item.optionLabel}` : ""} · 단가{" "}
-                  {money(krw ? item.priceKrw : item.priceUsd)}
+                  {money(orderItemUnitAmount(o, item))}
                 </p>
                 {item.partNames ? <p>모델: {modelLabel(item.partNames)}</p> : null}
                 <OrderDesign item={item} orderId={o.id} index={index} />

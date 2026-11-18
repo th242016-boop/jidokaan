@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { z } from "zod";
 import { ProductCard } from "@/components/store/product-card";
 import { SiteShell } from "@/components/store/site-shell";
+import { productCategoryLabel } from "@/lib/storefront-detail-copy";
 import { t } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
@@ -72,6 +73,7 @@ function ShopPage() {
             <span className="hidden sm:inline">{dict.shop.sort}</span>
             <select
               className="bg-transparent text-fg outline-none"
+              aria-label={dict.shop.sort}
               value={sort}
               onChange={(e) =>
                 navigate({
@@ -100,7 +102,7 @@ function ShopPage() {
               active={major === c.id}
               onClick={() => setMajor(c.id)}
             >
-              {c.name}
+              {productCategoryLabel(c.id, c.name, locale)}
             </Chip>
           ))}
         </div>

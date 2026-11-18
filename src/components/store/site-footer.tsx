@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { BrandLogo } from "@/components/brand-logo";
 import { t, type Locale } from "@/lib/i18n";
+import { supportCopy } from "@/lib/customer-support-copy";
+import { legalPageCopy } from "@/lib/legal-page-copy";
 import { useStore } from "@/lib/store";
 import { useCatalog } from "@/lib/use-catalog";
 import type { InfoRow } from "@/lib/site-defaults";
@@ -46,143 +48,10 @@ function InfoLine({
   );
 }
 
-const COMPANY_LABELS: Record<
-  Locale,
-  { brand: string; ceo: string; address: string; phone: string; biz: string; mail: string }
-> = {
-  ko: {
-    brand: "상호명",
-    ceo: "대표자명",
-    address: "사업장 주소",
-    phone: "대표전화",
-    biz: "사업자 등록번호",
-    mail: "통신판매업 신고번호",
-  },
-  en: {
-    brand: "Brand",
-    ceo: "CEO",
-    address: "Address",
-    phone: "Phone",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  ja: {
-    brand: "商号",
-    ceo: "代表者",
-    address: "住所",
-    phone: "電話",
-    biz: "事業者登録番号",
-    mail: "通信販売業届出番号",
-  },
-  es: {
-    brand: "Marca",
-    ceo: "CEO",
-    address: "Dirección",
-    phone: "Teléfono",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  th: {
-    brand: "แบรนด์",
-    ceo: "CEO",
-    address: "ที่อยู่",
-    phone: "โทร",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  fr: {
-    brand: "Marque",
-    ceo: "CEO",
-    address: "Adresse",
-    phone: "Téléphone",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  de: {
-    brand: "Marke",
-    ceo: "CEO",
-    address: "Adresse",
-    phone: "Telefon",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  ar: {
-    brand: "العلامة",
-    ceo: "CEO",
-    address: "العنوان",
-    phone: "الهاتف",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  ru: {
-    brand: "Бренд",
-    ceo: "CEO",
-    address: "Адрес",
-    phone: "Телефон",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  it: {
-    brand: "Marchio",
-    ceo: "CEO",
-    address: "Indirizzo",
-    phone: "Telefono",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  pt: {
-    brand: "Marca",
-    ceo: "CEO",
-    address: "Endereço",
-    phone: "Telefone",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  tr: {
-    brand: "Marka",
-    ceo: "CEO",
-    address: "Adres",
-    phone: "Telefon",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  uz: {
-    brand: "Brend",
-    ceo: "CEO",
-    address: "Manzil",
-    phone: "Telefon",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  zh: {
-    brand: "品牌",
-    ceo: "代表人",
-    address: "地址",
-    phone: "电话",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  hi: {
-    brand: "ब्रांड",
-    ceo: "CEO",
-    address: "पता",
-    phone: "फ़ोन",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-  tl: {
-    brand: "Brand",
-    ceo: "CEO",
-    address: "Address",
-    phone: "Phone",
-    biz: "Business Reg. No.",
-    mail: "Mail-order report",
-  },
-};
-
 function companyLines(locale: Locale, rows: InfoRow[]): InfoRow[] {
   if (locale === "ko") return rows;
-  const L = COMPANY_LABELS[locale] ?? COMPANY_LABELS.en;
+  const labels = legalPageCopy(locale).labels;
+  const L = { brand: labels[0], ceo: labels[1], address: labels[2], phone: labels[3], biz: labels[4], mail: labels[5] };
   return [
     { label: L.brand, value: "JIDOKAAN" },
     { label: L.ceo, value: "Taehoon Choi (최태훈)" },
@@ -214,18 +83,33 @@ const SUPPORT = [
 
 function supportLines(locale: Locale, rows: InfoRow[]): InfoRow[] {
   if (locale === "ko") return rows;
+  const copy = supportCopy(locale);
   const labels: Record<string, string> = {
-    "상담 이메일": "Email",
-    "상담전화": "Phone",
-    "CS운영시간": "Hours",
-    "토요일 및 공휴일": "Weekends & holidays",
+    "상담 이메일": copy.email,
+    "상담전화": copy.phone,
+    "CS운영시간": copy.hours,
+    "CS 운영시간": copy.hours,
+    "토요일 및 공휴일": copy.closedLabel,
   };
-  return rows.map((row) => ({ ...row, label: labels[row.label] || row.label }));
+  return rows.map((row) => {
+    let value = row.value;
+    let href = row.href;
+    // Preserve merchant-edited values; translate only the known stored defaults.
+    if (value === "오전 10시~오후 5시 (월~금)") value = copy.hoursValue;
+    if (value === "상담불가") value = copy.closedValue;
+    if (href?.startsWith("tel:")) {
+      const digits = href.slice(4).replace(/[\s()-]/g, "");
+      if (/^0\d{8,10}$/.test(digits)) href = `tel:+82${digits.slice(1)}`;
+      if (href === "tel:+821034815598") value = "+82 10-3481-5598";
+    }
+    return { ...row, label: labels[row.label] || row.label, value, href };
+  });
 }
 
 export function SiteFooter() {
   const locale = useStore((s) => s.locale);
   const dict = t(locale);
+  const supportLabels = supportCopy(locale);
   const year = new Date().getFullYear();
   const { catalog } = useCatalog();
   const company = companyLines(
@@ -257,7 +141,7 @@ export function SiteFooter() {
         <div className="space-y-8 md:justify-self-end md:text-left">
           <div>
             <p className="mb-3 text-sm font-semibold tracking-wide">
-              {locale === "ko" ? "상담" : "Support"}
+              {supportLabels.title}
             </p>
             <ul className="space-y-2">
               {support.map((row) => (
@@ -266,7 +150,7 @@ export function SiteFooter() {
             </ul>
           </div>
           <div>
-            <p className="mb-4 text-sm font-semibold tracking-wide">SNS</p>
+            <p className="mb-4 text-sm font-semibold tracking-wide">{locale === "zh" ? "社交媒体" : locale === "zh-Hant" ? "社交媒體" : "SNS"}</p>
             <div className="flex items-center gap-3">
               <a
                 href="https://www.instagram.com/jidokaan"
@@ -293,7 +177,7 @@ export function SiteFooter() {
       <div className="border-t border-white/[0.05]">
         <div className="container-page flex flex-col items-center justify-between gap-3 py-5 sm:flex-row">
           <p className="text-xs text-subtle">
-            © {year} {dict.brandEn}. All rights reserved.
+            © {year} {dict.brandEn}. {locale === "zh" || locale === "zh-Hant" ? dict.footer.rights : "All rights reserved."}
           </p>
           <div className="flex items-center gap-4">
             <Link
@@ -306,7 +190,7 @@ export function SiteFooter() {
               to="/faq"
               className="text-[11px] text-subtle/70 hover:text-muted"
             >
-              FAQ
+              {locale === "zh" || locale === "zh-Hant" ? dict.footer.faq : "FAQ"}
             </Link>
             <Link
               to="/contact"
@@ -318,7 +202,7 @@ export function SiteFooter() {
               to="/admin"
               className="text-[11px] text-subtle/70 hover:text-muted"
             >
-              {locale === "ko" ? "관리자" : "Admin"}
+              {supportLabels.nav.admin}
             </Link>
             <BrandLogo
               variant="word"
