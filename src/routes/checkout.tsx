@@ -77,9 +77,11 @@ function CheckoutPage() {
   const { catalog } = useCatalog();
   const [placing, setPlacing] = useState(false);
   const [paymentInFlight, setPaymentInFlight] = useState(false);
-  const paymentInFlightRef = useRef(false);
-  function onPaymentActivity(active: boolean) {
-    paymentInFlightRef.current = active;
+  const paymentInFlightRef = useRef<symbol | null>(null);
+  function onPaymentActivity(owner: symbol, active: boolean) {
+    // A cancelled old SDK instance may release only its own payment lock.
+    if (!active && paymentInFlightRef.current !== owner) return;
+    paymentInFlightRef.current = active ? owner : null;
     setPaymentInFlight(active);
   }
   const [instagram, setInstagram] = useState("");
@@ -1323,7 +1325,7 @@ function PaypalButtons({
   getOrder: () => Record<string, unknown> | undefined;
   onPending: (payload: Record<string, unknown>) => void;
   onSaved: (order: StoreOrder) => void;
-  onActivity: (active: boolean) => void;
+  onActivity: (owner: symbol, active: boolean) => void;
 }) {
   const review = checkoutCopy(locale);
   const copyRef = useRef(review);
@@ -1333,7 +1335,6 @@ function PaypalButtons({
   paidRef.current = onPaid;
   const callbacks = useRef({ getOrder, onPending, onSaved, onActivity });
   callbacks.current = { getOrder, onPending, onSaved, onActivity };
-  const submitted = useRef<Record<string, unknown> | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [clientId, setClientId] = useState("");
   const [ready, setReady] = useState<{ clientId: string; locale: string; currency: "USD" | "JPY"; api: PaypalSdk } | null>(null);
@@ -1378,17 +1379,26 @@ function PaypalButtons({
     const mount = document.createElement("div");
     host.replaceChildren(mount);
     let active = true;
+    // Kept with this SDK instance so late callbacks never adopt a newer attempt.
+    const paymentOwner = Symbol("paypal-checkout");
+    let createPromise: Promise<string> | null = null;
+    const releasePayment = () => {
+      createPromise = null;
+      callbacks.current.onActivity(paymentOwner, false);
+    };
+    const submitted = { current: null as Record<string, unknown> | null };
     const buttons = ready.api.Buttons({
       style: { layout: "vertical", color: "gold", label: "paypal" },
       createOrder: async () => {
+        if (createPromise) return createPromise;
         if (!active) throw new Error("STALE_PAYMENT_UI");
         const form = host.closest("form");
         if (form && !form.reportValidity()) throw new Error("form");
         const order = callbacks.current.getOrder();
         if (!order) throw new Error(copyRef.current.confirmError);
         submitted.current = order;
-        callbacks.current.onActivity(true);
-        try {
+        callbacks.current.onActivity(paymentOwner, true);
+        const attemptPromise = (async () => {
           const res = await fetch("/api/paypal", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1400,12 +1410,17 @@ function PaypalButtons({
             throw new Error("create");
           }
           return data.id;
+        })();
+        // Duplicate SDK create callbacks reuse the same draft and request, not an error.
+        createPromise = attemptPromise;
+        try {
+          return await attemptPromise;
         } catch (error) {
-          callbacks.current.onActivity(false);
+          if (createPromise === attemptPromise) releasePayment();
           throw error;
         }
       },
-      onCancel: () => { if (active) callbacks.current.onActivity(false); },
+      onCancel: () => { releasePayment(); },
       onApprove: async (data: { orderID: string }) => {
         if (submitted.current)
           callbacks.current.onPending({ ...submitted.current, paypalOrderId: data.orderID });
@@ -1420,10 +1435,8 @@ function PaypalButtons({
         else await paidRef.current(data.orderID);
       },
       onError: () => {
-        if (active) {
-          callbacks.current.onActivity(false);
-          setErr((current) => current || copyRef.current.paymentError);
-        }
+        releasePayment();
+        if (active) setErr((current) => current || copyRef.current.paymentError);
       },
     });
     void buttons.render(mount).catch(() => { if (active) setErr(copyRef.current.paymentUnavailable); });

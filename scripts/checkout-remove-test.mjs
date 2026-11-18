@@ -69,32 +69,106 @@ try {
   await check('PayPal activity lock never feeds PaypalButtons disabled/unmount dependency', () => {
     assert.match(code,/onActivity=\{onPaymentActivity\}/);
     assert.match(code,/disabled=\{placing \|\| !canPay \|\| paymentValue <= 0\}/);
-    assert.match(code,/onCancel:.*onActivity\(false\)/);
-    assert.match(code,/callbacks.current.onActivity\(true\);/);
+    assert.match(code,/onCancel:.*releasePayment\(\)/);
+    assert.match(code,/callbacks.current.onActivity\(paymentOwner, true\);/);
     assert.match(code,/setTermsAccepted\(false\);[\s\S]{0,100}removeFromCart\(/);
     assert.match(code,/if \(cart.length === 0 && !pendingOrder\)/);
   });
-  await check('actual PayPal callbacks lock before create, preserve on success, unlock on cancel/error', async () => {
-    const start=code.indexOf('const buttons = ready.api.Buttons({');
-    const end=code.indexOf('    void buttons.render(mount)',start);
-    const source=code.slice(start,end).replace('const buttons = ready.api.Buttons(', 'const buttons = (');
-    // This options object has no TypeScript except its callback parameter/assertions.
-    const { stripTypeScriptTypes } = await import('node:module');
-    const js=stripTypeScriptTypes(source,{mode:'strip'})+'; return buttons;';
-    const signals=[];
-    const callbacks={current:{getOrder:()=>({items:[{qty:1}]}),onActivity:value=>signals.push(value),onPending:()=>signals.push('pending'),onSaved:()=>{}}};
-    const factory=new Function('active','host','callbacks','submitted','fetch','value','currency','copyRef','setErr','paidRef',js);
-    let succeed=true;
-    const opts=factory(true,{closest:()=>({reportValidity:()=>true})},callbacks,{current:null},async()=>{
-      assert.equal(signals.at(-1),true);
-      return {ok:succeed,json:async()=>succeed?{id:'FAKE-PAYPAL-ID'}:{error:'create-failure'}};
-    },'335.00','USD',{current:{confirmError:'invalid',refresh:'refresh',paymentError:'error'}},()=>{}, {current:async()=>{}});
-    assert.equal(await opts.createOrder(),'FAKE-PAYPAL-ID');
-    assert.deepEqual(signals,[true]);
-    opts.onCancel(); assert.equal(signals.at(-1),false);
+  const { stripTypeScriptTypes } = await import('node:module');
+  const parentStart=code.indexOf('  function onPaymentActivity(');
+  const parentEnd=code.indexOf('  const [instagram',parentStart);
+  const parentJs=stripTypeScriptTypes(code.slice(parentStart,parentEnd),{mode:'strip'});
+  const lock={current:null};
+  let locked=false;
+  const activity=new Function('paymentInFlightRef','setPaymentInFlight',parentJs+'; return onPaymentActivity;')(lock,value=>{locked=value;});
+  const start=code.indexOf('const paymentOwner = Symbol("paypal-checkout")');
+  const end=code.indexOf('    void buttons.render(mount)',start);
+  const source=code.slice(start,end).replace('const buttons = ready.api.Buttons(', 'const buttons = (');
+  const js=stripTypeScriptTypes(source,{mode:'strip'})+'; return {buttons,deactivate:()=>{active=false;}};';
+  let pending=false;
+  let succeed=true;
+  let errors=0;
+  let orderPayload={items:[{qty:1}]};
+  let pendingPayload;
+  const callbacks={current:{getOrder:()=>orderPayload,onActivity:activity,onPending:value=>{pending=true;pendingPayload=value;},onSaved:()=>{}}};
+  const factory=new Function('active','host','callbacks','fetch','value','currency','copyRef','setErr','paidRef',js);
+  const instance=()=>factory(true,{closest:()=>({reportValidity:()=>true})},callbacks,async(_url,request)=>{
+    if (JSON.parse(request.body).action==='capture') throw Error('SIMULATED_CAPTURE_PENDING');
+    assert.equal(locked,true);
+    return {ok:succeed,json:async()=>succeed?{id:'FAKE-PAYPAL-ID'}:{error:'create-failure'}};
+  },'335.00','USD',{current:{confirmError:'invalid',refresh:'refresh',paymentError:'error'}},()=>{errors++;}, {current:async()=>{}});
+  await check('actual callbacks lock before create and unlock on create failure', async () => {
+    const a=instance();
+    assert.equal(await a.buttons.createOrder(),'FAKE-PAYPAL-ID');
+    assert.equal(locked,true);
+    assert.equal(await a.buttons.createOrder(),'FAKE-PAYPAL-ID');
+    assert.equal(locked,true);
+    a.buttons.onCancel(); assert.equal(locked,false);
     succeed=false;
-    await assert.rejects(()=>opts.createOrder()); assert.equal(signals.at(-1),false);
-    opts.onError(); assert.equal(signals.at(-1),false);
+    await assert.rejects(()=>a.buttons.createOrder()); assert.equal(locked,false);
+    succeed=true;
+  });
+  await check('duplicate SDK create calls share one request/id without triggering onError unlock', async () => {
+    let complete;
+    let requests=0;
+    let sentPayload;
+    const waiting=new Promise(resolve=>{complete=resolve;});
+    const a=factory(true,{closest:()=>({reportValidity:()=>true})},callbacks,async(_url,request)=>{
+      requests++; sentPayload=JSON.parse(request.body).order;
+      await waiting;
+      return {ok:true,json:async()=>({id:'ONE-PAYPAL-ID'})};
+    },'335.00','USD',{current:{}},()=>{errors++;},{current:async()=>{}});
+    orderPayload={items:[{design:'first'}]};
+    const sdkCreate=()=>a.buttons.createOrder().catch(error=>{a.buttons.onError(error);throw error;});
+    const first=sdkCreate();
+    orderPayload={items:[{design:'later'}]};
+    const duplicate=sdkCreate();
+    assert.equal(requests,1); assert.equal(locked,true);
+    complete();
+    assert.deepEqual(await Promise.all([first,duplicate]),['ONE-PAYPAL-ID','ONE-PAYPAL-ID']);
+    assert.deepEqual(sentPayload.items,[{design:'first'}]);
+    assert.equal(locked,true);
+    assert.equal(await sdkCreate(),'ONE-PAYPAL-ID'); assert.equal(requests,1);
+    a.buttons.onCancel(); assert.equal(locked,false);
+    assert.equal(await sdkCreate(),'ONE-PAYPAL-ID'); assert.equal(requests,2);
+    a.buttons.onError(); assert.equal(locked,false);
+  });
+  await check('cleanup alone keeps lock; old cancelled/error callbacks release their own lock', async () => {
+    for (const callback of ['onCancel','onError']) {
+      const old=instance();
+      await old.buttons.createOrder(); old.deactivate();
+      assert.equal(locked,true);
+      const before=errors;
+      old.buttons[callback]();
+      assert.equal(locked,false);
+      assert.equal(errors,before,'stale UI errors must not replace current error');
+    }
+  });
+  await check('late old cancel/error cannot release a newer payment owner', async () => {
+    const old=instance(); await old.buttons.createOrder(); old.deactivate();
+    const fresh=instance(); await fresh.buttons.createOrder();
+    const owner=lock.current;
+    old.buttons.onCancel(); old.buttons.onError();
+    assert.equal(lock.current,owner); assert.equal(locked,true);
+    fresh.buttons.onCancel(); assert.equal(locked,false);
+  });
+  await check('late approval keeps the payload of its own SDK instance', async () => {
+    orderPayload={items:[{design:'old'}]};
+    const old=instance(); await old.buttons.createOrder(); old.deactivate();
+    orderPayload={items:[{design:'new'}]};
+    const fresh=instance(); await fresh.buttons.createOrder();
+    await assert.rejects(()=>old.buttons.onApprove({orderID:'OLD-ID'}));
+    assert.deepEqual(pendingPayload.items,[{design:'old'}]);
+    assert.equal(pendingPayload.paypalOrderId,'OLD-ID');
+    fresh.buttons.onCancel();
+  });
+  await check('approval keeps pending recovery protection even if activity releases later', async () => {
+    const a=instance(); await a.buttons.createOrder();
+    await assert.rejects(()=>a.buttons.onApprove({orderID:'FAKE-PAYPAL-ID'}));
+    assert.equal(pending,true);
+    a.deactivate(); a.buttons.onError();
+    assert.equal(pending || locked,true);
+    assert.match(code,/disabled=\{placing \|\| Boolean\(pendingOrder\) \|\| paymentInFlight\}/);
   });
   console.log(`${checks} checkout removal checks passed; no network or payment.`);
 } finally { await server.close(); }
