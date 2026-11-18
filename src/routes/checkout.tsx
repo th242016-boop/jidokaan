@@ -62,6 +62,7 @@ function CheckoutPage() {
   const setCountry = useStore((s) => s.setShippingCountry);
   const cart = useStore((s) => s.cart);
   const clearCart = useStore((s) => s.clearCart);
+  const removeFromCart = useStore((s) => s.removeFromCart);
   const setCartOpen = useStore((s) => s.setCartOpen);
   const subtotalUsd = useStore((s) => s.cartSubtotalUsdCents());
   const subtotalKrw = useStore((s) => s.cartSubtotalKrw());
@@ -75,6 +76,12 @@ function CheckoutPage() {
   const { user, isPending } = useCurrentUserState();
   const { catalog } = useCatalog();
   const [placing, setPlacing] = useState(false);
+  const [paymentInFlight, setPaymentInFlight] = useState(false);
+  const paymentInFlightRef = useRef(false);
+  function onPaymentActivity(active: boolean) {
+    paymentInFlightRef.current = active;
+    setPaymentInFlight(active);
+  }
   const [instagram, setInstagram] = useState("");
   const [contactMethod, setContactMethod] = useState<"instagram" | "email">("instagram");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -857,9 +864,26 @@ function CheckoutPage() {
                         {item.optionLabel ? ` · ${customerOptionLabel(item.optionLabel, locale)}` : ""}
                       </p>
                     </div>
-                    <p className="price-num shrink-0 text-sm font-medium">
-                      {yen ? formatYen(yen.unitPricesJpy[index] * item.qty, locale) : lineTotal({...product,priceKrw:product.priceKrw+(item.extraKrw??0),priceUsd:product.priceUsd+(item.extraUsd??0)}, item.qty, currency)}
-                    </p>
+                    <div className="shrink-0 text-right">
+                      <p className="price-num text-sm font-medium">
+                        {yen ? formatYen(yen.unitPricesJpy[index] * item.qty, locale) : lineTotal({...product,priceKrw:product.priceKrw+(item.extraKrw??0),priceUsd:product.priceUsd+(item.extraUsd??0)}, item.qty, currency)}
+                      </p>
+                      <button
+                        type="button"
+                        className="min-h-11 min-w-11 text-sm text-muted underline underline-offset-4 hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={placing || Boolean(pendingOrder) || paymentInFlight}
+                        aria-label={`${dict.cart.remove}: ${productDisplayName(product, locale)} · ${formatCartSize(item, locale)}`}
+                        onClick={() => {
+                          if (placing || pendingOrder || paymentInFlightRef.current) return;
+                          // Only the local, unpaid cart line changes. Never mutate a saved order.
+                          setTermsAccepted(false);
+                          setOrderError("");
+                          removeFromCart(item.productId, item.size, item.optionKey, item.sizeFit, item.partNames, item.specialOrder);
+                        }}
+                      >
+                        {dict.cart.remove}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -1150,6 +1174,7 @@ function CheckoutPage() {
                   onPaid={(orderID) => placeStoreOrder(orderID)}
                   getOrder={() => buildOrderPayload()}
                   onPending={markPending}
+                  onActivity={onPaymentActivity}
                   onSaved={finishOrder}
                 />
               </div>
@@ -1288,6 +1313,7 @@ function PaypalButtons({
   getOrder,
   onPending,
   onSaved,
+  onActivity,
 }: {
   locale: string;
   value: string;
@@ -1297,6 +1323,7 @@ function PaypalButtons({
   getOrder: () => Record<string, unknown> | undefined;
   onPending: (payload: Record<string, unknown>) => void;
   onSaved: (order: StoreOrder) => void;
+  onActivity: (active: boolean) => void;
 }) {
   const review = checkoutCopy(locale);
   const copyRef = useRef(review);
@@ -1304,8 +1331,8 @@ function PaypalButtons({
   const slot = useRef<HTMLDivElement>(null);
   const paidRef = useRef(onPaid);
   paidRef.current = onPaid;
-  const callbacks = useRef({ getOrder, onPending, onSaved });
-  callbacks.current = { getOrder, onPending, onSaved };
+  const callbacks = useRef({ getOrder, onPending, onSaved, onActivity });
+  callbacks.current = { getOrder, onPending, onSaved, onActivity };
   const submitted = useRef<Record<string, unknown> | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [clientId, setClientId] = useState("");
@@ -1360,18 +1387,25 @@ function PaypalButtons({
         const order = callbacks.current.getOrder();
         if (!order) throw new Error(copyRef.current.confirmError);
         submitted.current = order;
-        const res = await fetch("/api/paypal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "create", value, currency, order }),
-        });
-        const data = (await res.json()) as { id?: string; error?: string };
-        if (!res.ok || !data.id) {
-          setErr(copyRef.current.refresh);
-          throw new Error("create");
+        callbacks.current.onActivity(true);
+        try {
+          const res = await fetch("/api/paypal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "create", value, currency, order }),
+          });
+          const data = (await res.json()) as { id?: string; error?: string };
+          if (!res.ok || !data.id) {
+            setErr(copyRef.current.refresh);
+            throw new Error("create");
+          }
+          return data.id;
+        } catch (error) {
+          callbacks.current.onActivity(false);
+          throw error;
         }
-        return data.id;
       },
+      onCancel: () => { if (active) callbacks.current.onActivity(false); },
       onApprove: async (data: { orderID: string }) => {
         if (submitted.current)
           callbacks.current.onPending({ ...submitted.current, paypalOrderId: data.orderID });
@@ -1385,7 +1419,12 @@ function PaypalButtons({
         if (result.order?.id) callbacks.current.onSaved(result.order);
         else await paidRef.current(data.orderID);
       },
-      onError: () => { if (active) setErr((current) => current || copyRef.current.paymentError); },
+      onError: () => {
+        if (active) {
+          callbacks.current.onActivity(false);
+          setErr((current) => current || copyRef.current.paymentError);
+        }
+      },
     });
     void buttons.render(mount).catch(() => { if (active) setErr(copyRef.current.paymentUnavailable); });
     return () => {
