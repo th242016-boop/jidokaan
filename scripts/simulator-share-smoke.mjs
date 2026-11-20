@@ -11,6 +11,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const temp = await mkdtemp(resolve(tmpdir(), "jidokaan-share-test-"));
 const oldCwd = process.cwd();
 process.env.DATABASE_URL = "";
+process.env.ADMIN_BOOTSTRAP_PIN = crypto.randomUUID();
 process.chdir(temp);
 globalThis.fetch = async () => { throw new Error("OUTBOUND_NETWORK_BLOCKED"); };
 const shareToken = randomBytes(32).toString("hex");
@@ -83,7 +84,7 @@ try {
     await assert.rejects(catalog.assertAdmin(shareToken), /AUTH/);
     await assert.rejects(auth.issueRecoveryCode(shareToken), /AUTH/);
   });
-  const adminToken = await auth.createSession();
+  const adminToken = await auth.unlockAdmin(process.env.ADMIN_BOOTSTRAP_PIN);
   await check("only verified admin can retrieve the fixed canonical URL", async () => {
     const res = await call({ token: adminToken, action: "share-link", host: "evil.example" });
     assert.equal(res.status, 200);

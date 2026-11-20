@@ -1,4 +1,6 @@
+import { checkoutBodyLimit, guardResponse, limitRequests, readBoundedJson } from "@/lib/request-guard.server";
 import { adminOrderWithGuidance } from "@/lib/admin-shipping-guidance.server";
+import { reportSecurityEvent } from "@/lib/security-events.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { AUTH_HEADERS, assertSession } from "@/lib/admin-auth.server";
 import {
@@ -15,11 +17,10 @@ import {
   type OrderStatus,
   type StoreOrder,
 } from "@/lib/orders.server";
-import { proxyToLive, shouldProxyToLive } from "@/lib/live-proxy.server";
 import { readCatalog } from "@/lib/catalog.server";
 import { couponRejectReason, findCoupon } from "@/lib/coupon";
 import { customerOrder, type ClaimKind } from "@/lib/order-types";
-import { completePaypalCheckout } from "@/lib/paypal-checkout.server";
+import { finishBrowserCheckout } from "@/lib/paypal-checkout.server";
 import { quoteCheckout } from "@/lib/checkout-quote.server";
 import { recoverLegacyPaypalOrder } from "@/lib/legacy-paypal-recovery.server";
 
@@ -31,8 +32,8 @@ export const Route = createFileRoute("/api/orders")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/orders");
         try {
+          limitRequests(request, "orders");
           const url = new URL(request.url);
           const id = url.searchParams.get("id") ?? "";
           const email = url.searchParams.get("email") ?? "";
@@ -41,21 +42,21 @@ export const Route = createFileRoute("/api/orders")({
             if (!order) return json({ error: "NOT_FOUND" }, 404);
             return json({ order: customerOrder(order) });
           }
-          const token = request.headers.get("Authorization")?.replace(/^Bearer /, "") || url.searchParams.get("token") || "";
+          const token = request.headers.get("Authorization")?.replace(/^Bearer /, "") || "";
           if (id) {
             await assertSession(token);
             const order = await findOrderById(id);
             return order ? json({ order: adminOrderWithGuidance(order) }) : json({ error: "NOT_FOUND" }, 404);
           }
           return json({ orders: (await listOrders(token)).map(adminOrderWithGuidance) });
-        } catch {
-          return json({ error: "AUTH" }, 401);
+        } catch (error) {
+          return guardResponse(error) ?? json({ error: "AUTH" }, 401);
         }
       },
       POST: async ({ request }) => {
-        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/orders");
         try {
-          const body = (await request.json()) as {
+          limitRequests(request, "orders");
+          const body = (await readBoundedJson(request, checkoutBodyLimit)) as {
             action?: string;
             token?: string;
             id?: string;
@@ -69,6 +70,7 @@ export const Route = createFileRoute("/api/orders")({
             decision?: "accept" | "reject" | "cancel";
             kind?: ClaimKind;
           } & Partial<StoreOrder>;
+          if (!body.action && body.pay !== "paypal") limitRequests(request, "createOrder");
           if (body.action === "checkCoupon") {
             const catalog = await readCatalog();
             const coupon = findCoupon(
@@ -131,20 +133,25 @@ export const Route = createFileRoute("/api/orders")({
           }
           if (body.action) return json({ error: "BAD_ACTION" }, 400);
           if (body.pay === "paypal" && body.paypalOrderId) {
-            const completed = await completePaypalCheckout(body.paypalOrderId, false);
-            if (completed) return json({ order: customerOrder(completed) });
-            const previous = await recoverLegacyPaypalOrder(body);
-            if (previous) return json({ order: customerOrder(previous) });
+            const email = String(body.email ?? "").trim();
+            const completed = await finishBrowserCheckout(request, body.paypalOrderId, false, email, String(body.phone ?? ""))
+              ?? await recoverLegacyPaypalOrder(body);
+            // Older open checkout tabs need their own submitted email echoed to
+            // open the receipt. No stored customer or payment fields are returned.
+            if (completed) return json({ order: { id: completed.id, email } });
           }
-          if (body.pay !== "paypal")
-            return json({
-              order: customerOrder(await placeOrder(await quoteCheckout(body), true)),
-            });
+          if (body.pay !== "paypal") {
+            const order = await placeOrder(await quoteCheckout(body), true);
+            reportSecurityEvent("ordersOpened");
+            return json({ order: customerOrder(order) });
+          }
           // A legacy retry without a saved draft or order has no authoritative
           // production specification. Current prices/terms and client amounts
           // cannot reconstruct what was paid; leave reconciliation to support.
           throw new Error("PAYPAL_ORDER_REVIEW_REQUIRED");
         } catch (err) {
+          const limited = guardResponse(err);
+          if (limited) return limited;
           const message = err instanceof Error ? err.message : "fail";
           return json({ error: message }, message === "AUTH" ? 401 : 400);
         }

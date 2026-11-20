@@ -1,3 +1,5 @@
+import { guardResponse, limitRequests, readBoundedJson } from "@/lib/request-guard.server";
+import { reportSecurityEvent } from "@/lib/security-events.server";
 import { createFileRoute } from "@tanstack/react-router";
 import type { Product } from "@/lib/products";
 import type { InfoRow } from "@/lib/site-defaults";
@@ -12,11 +14,13 @@ import {
   issueRecoveryCode,
   resetWithRecovery,
   unlockAdmin,
+  enableAdminTotp,
+  adminTotpEnabled,
 } from "@/lib/admin-auth.server";
 import type { Coupon } from "@/lib/order-types";
 import type { BlackCustomer, FaqItem } from "@/lib/store-extras";
 import type { PaySettings } from "@/lib/pay-settings";
-import { proxyToLive, shouldProxyToLive } from "@/lib/live-proxy.server";
+import { publicCatalog } from "@/lib/public-catalog";
 import {
   bulkProducts,
   deleteProduct,
@@ -42,22 +46,28 @@ export const Route = createFileRoute("/api/catalog")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/catalog");
         try {
-          const data = await readCatalog();
-          return json(data);
+          const authorization = request.headers.get("authorization");
+          if (authorization !== null) {
+            const token = /^Bearer (.+)$/i.exec(authorization)?.[1] ?? "";
+            await assertSession(token);
+            return json(await readCatalog());
+          }
+          return json(publicCatalog(await readCatalog()));
         } catch (err) {
           const message = err instanceof Error ? err.message : "load_failed";
-          return json({ error: message }, 500);
+          return message === "AUTH" ? json({ error: "AUTH" }, 401) : json({ error: "load_failed" }, 500);
         }
       },
       POST: async ({ request }) => {
-        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/catalog");
         try {
-          const body = (await request.json()) as {
+          limitRequests(request, "catalogWrite");
+          const body = (await readBoundedJson(request, 4 * 1024 * 1024)) as {
             action?: string;
             pin?: string;
             nextPin?: string;
+            otp?: string;
+            totpSecret?: string;
             currentPin?: string;
             recoveryCode?: string;
             token?: string;
@@ -78,9 +88,12 @@ export const Route = createFileRoute("/api/catalog")({
             faqs?: FaqItem[];
             blacklist?: BlackCustomer[];
           };
-          const token = body.token ?? "";
+          if (["unlock", "resetWithRecovery", "enableTotp", "disableTotp"].includes(body.action ?? "")) {
+            limitRequests(request, "adminLogin");
+          }
+          const token = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1] ?? body.token ?? "";
           if (body.action === "unlock") {
-            const session = await unlockAdmin(body.pin ?? "", body.nextPin);
+            const session = await unlockAdmin(body.pin ?? "", body.otp ?? "");
             return json({ ok: true, token: session, ...(await readCatalog()) });
           }
           if (body.action === "ping") {
@@ -92,11 +105,15 @@ export const Route = createFileRoute("/api/catalog")({
             return json({ ok: true });
           }
           if (body.action === "changePin") {
-            await changeAdminPin(token, body.currentPin ?? "", body.nextPin ?? "");
-            return json({ ok: true, ...(await readCatalog()) });
+            const session = await changeAdminPin(token, body.currentPin ?? "", body.nextPin ?? "");
+            return json({ ok: true, token: session, ...(await readCatalog()) });
+          }
+          if (body.action === "totpStatus") return json({ enabled: await adminTotpEnabled(token) });
+          if (body.action === "enableTotp") {
+            return json(await enableAdminTotp(token, body.currentPin ?? "", body.totpSecret ?? "", body.otp ?? ""));
           }
           if (body.action === "issueRecovery") {
-            const recoveryCode = await issueRecoveryCode(token);
+            const recoveryCode = await issueRecoveryCode(token, body.currentPin);
             return json({ ok: true, recoveryCode });
           }
           if (body.action === "resetWithRecovery") {
@@ -163,7 +180,10 @@ export const Route = createFileRoute("/api/catalog")({
           }
           return json({ error: "bad_action" }, 400);
         } catch (err) {
+          const limited = guardResponse(err);
+          if (limited) return limited;
           const message = err instanceof Error ? err.message : "save_failed";
+          if (message.startsWith("LOCKED") || message.startsWith("PIN_BAD") || message === "RECOVERY_BAD" || message === "TOTP_BAD") reportSecurityEvent("adminLogin");
           if (message.startsWith("LOCKED")) {
             return json({ error: message }, 429);
           }

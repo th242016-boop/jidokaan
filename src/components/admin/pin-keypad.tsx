@@ -4,18 +4,21 @@ import { Label } from "@/components/ui/label";
 
 export function AdminGate({
   hasPin,
+  needsOtp,
   busy,
   error,
   onSubmitPin,
   onRecover,
 }: {
   hasPin: boolean;
+  needsOtp: boolean;
   busy: boolean;
   error: string | null;
-  onSubmitPin: (pin: string, nextPin?: string) => void;
+  onSubmitPin: (pin: string, nextPin?: string, otp?: string) => void;
   onRecover?: () => void;
 }) {
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [confirm, setConfirm] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -42,7 +45,7 @@ export function AdminGate({
       onSubmitPin(value, value);
       return;
     }
-    onSubmitPin(value);
+    onSubmitPin(value, undefined, otp);
   }
 
   return (
@@ -53,11 +56,11 @@ export function AdminGate({
     >
       <p className="text-sm leading-relaxed text-[#333]">
         {!hasPin
-          ? "관리자 비밀번호를 새로 만드세요. 영문·숫자 모두 가능하고, 8자 이상이어야 합니다."
+          ? "서버에 설정한 초기 관리자 비밀번호를 입력해 주세요."
           : "관리자 비밀번호를 입력하세요. 영문·숫자 모두 입력됩니다."}
       </p>
       <div className="space-y-1.5">
-        <Label htmlFor="admin-password">{hasPin ? "비밀번호" : "새 비밀번호"}</Label>
+        <Label htmlFor="admin-password">{hasPin ? "비밀번호" : "초기 비밀번호"}</Label>
         <Input
           id="admin-password"
           type="password"
@@ -84,6 +87,7 @@ export function AdminGate({
           />
         </div>
       ) : null}
+      {needsOtp && <label className="block text-sm">인증 앱 6자리 코드<Input required inputMode="numeric" pattern="[0-9]{6}" autoComplete="one-time-code" value={otp} onChange={e => setOtp(e.target.value)} /></label>}
       {localError || error ? (
         <p className="text-sm text-danger">{localError || error}</p>
       ) : null}
@@ -93,7 +97,7 @@ export function AdminGate({
         disabled={busy}
         className="flex h-12 w-full items-center justify-center rounded-full bg-black text-sm font-medium text-white disabled:opacity-50"
       >
-        {busy ? "들어가는 중…" : hasPin ? "들어가기" : "비밀번호 만들고 들어가기"}
+        {busy ? "들어가는 중…" : hasPin ? "들어가기" : "초기 비밀번호로 들어가기"}
       </button>
       {hasPin && onRecover ? (
         <button

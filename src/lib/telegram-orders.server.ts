@@ -225,6 +225,13 @@ export async function sendConnectedTelegram(chatId: string, botId: string, text:
   return sendText(chatId, text, url);
 }
 
+export async function notifySecurityAlert(message: string) {
+  if (!botToken()) return;
+  const recipient = await settings();
+  if (!recipient.enabled || !recipient.chat_id || !recipient.bot_id) return;
+  await sendConnectedTelegram(recipient.chat_id, recipient.bot_id, `지도칸 보안 알림\n${message}`, ORDER_ADMIN_URL);
+}
+
 /** Durable discovery: orders remain the source of truth, including across restarts.
  * No Telegram call or notification-table write runs inside checkout/payment.
  */

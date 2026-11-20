@@ -9,6 +9,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const temp = await mkdtemp(resolve(tmpdir(), "jidokaan-special-test-"));
 const oldCwd = process.cwd();
 process.env.DATABASE_URL = "";
+process.env.ADMIN_BOOTSTRAP_PIN = crypto.randomUUID();
 process.chdir(temp);
 globalThis.fetch = async () => { throw new Error("OUTBOUND_NETWORK_BLOCKED"); };
 const server = await createServer({ configFile: false, root,
@@ -46,7 +47,7 @@ try {
     }
     assert.equal((await api.handleSpecialRequest(new Request("http://localhost/api/simulator-special"))).status, 401);
   });
-  const token = await auth.createSession();
+  const token = await auth.unlockAdmin(process.env.ADMIN_BOOTSTRAP_PIN);
   await check("real session enables mode; no client flag grants access", async () => {
     assert.equal((await call({ token, action: "ping" })).status, 200);
     assert.equal((await call({ token, audience: "public", action: "ping" })).status, 200, "Authenticated subset requests remain compatible");
@@ -358,7 +359,7 @@ try {
     }
   });
   await check("expired session cannot fetch materials", async () => {
-    const expired = await auth.createSession();
+    const expired = await auth.unlockAdmin(process.env.ADMIN_BOOTSTRAP_PIN);
     const sql = await db.getSql();
     await sql.query("update admin_sessions set expires_at = now() - interval '1 second'");
     for (const audience of [undefined, "public", "admin"]) {

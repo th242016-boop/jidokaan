@@ -10,6 +10,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const temporary = await mkdtemp(resolve(tmpdir(), "jidokaan-ems-regression-"));
 const previousCwd = process.cwd();
 process.env.DATABASE_URL = "";
+process.env.ADMIN_BOOTSTRAP_PIN = crypto.randomUUID();
 process.env.JIDOKAAN_LOCAL_ONLY = "1";
 process.env.TELEGRAM_BOT_TOKEN = "";
 process.env.RESEND_API_KEY = "";
@@ -111,7 +112,7 @@ try {
   const workflow = await server.ssrLoadModule("/src/lib/ems-workflow.ts");
   const orderTypes = await server.ssrLoadModule("/src/lib/order-types.ts");
   await catalog.seedIfEmpty();
-  const token = await auth.createSession();
+  const token = await auth.unlockAdmin(process.env.ADMIN_BOOTSTRAP_PIN);
   const sql = await db.getSql();
   const fresh = async (patch = {}) =>
     orders.placeOrder({

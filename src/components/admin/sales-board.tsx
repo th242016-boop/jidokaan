@@ -4,7 +4,7 @@ import type { StoreOrder } from "@/lib/order-types";
 export function SalesBoard({ token }: { token: string }) {
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   useEffect(() => {
-    void fetch(`/api/orders?token=${encodeURIComponent(token)}`)
+    void fetch("/api/orders", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => setOrders(d.orders ?? []));
   }, [token]);

@@ -9,6 +9,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const temp = await mkdtemp(resolve(tmpdir(), "jidokaan-orders-test-"));
 const previousCwd = process.cwd();
 process.env.DATABASE_URL = "";
+process.env.ADMIN_BOOTSTRAP_PIN = crypto.randomUUID();
 process.env.PAYPAL_CLIENT_ID = "test-only";
 process.env.PAYPAL_CLIENT_SECRET = "test-only";
 process.env.PAYPAL_MODE = "sandbox";
@@ -46,7 +47,7 @@ try {
   const orderTypes = await server.ssrLoadModule("/src/lib/order-types.ts");
   const contact = await server.ssrLoadModule("/src/lib/order-contact.ts");
   await catalog.seedIfEmpty();
-  const token = await auth.createSession(); // only this disposable test DB
+  const token = await auth.unlockAdmin(process.env.ADMIN_BOOTSTRAP_PIN); // only this disposable test DB
   const input = {
     email: "qa@example.invalid",
     name: "TEST ONLY",

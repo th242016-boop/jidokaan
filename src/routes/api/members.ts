@@ -1,17 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AUTH_HEADERS } from "@/lib/admin-auth.server";
-import { proxyToLive, shouldProxyToLive } from "@/lib/live-proxy.server";
 import { listMembers } from "@/lib/members.server";
 
 export const Route = createFileRoute("/api/members")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/members");
         try {
           const query = new URL(request.url).searchParams;
           const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
-          const token = bearer ?? query.get("token") ?? "";
+          const token = bearer ?? "";
           return Response.json(
             await listMembers(token, {
               page: query.get("page") ?? undefined,

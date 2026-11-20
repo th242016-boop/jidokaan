@@ -1,5 +1,6 @@
+import { publicCatalog } from "./public-catalog";
 import { IS_REVIEW_PREVIEW } from "./review-preview";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { setCatalogCache } from "./catalog-cache";
 import { PRODUCTS } from "./products";
 import { reviewCatalogProducts } from "./review-catalog";
@@ -52,29 +53,36 @@ let memory: CatalogPayload | null = null;
 const listeners = new Set<(c: CatalogPayload) => void>();
 
 function publish(next: CatalogPayload) {
-  memory = next;
-  setCatalogCache(next.products);
-  listeners.forEach((fn) => fn(next));
+  const storefront = { ...publicCatalog(next), coupons: [], blacklist: [] };
+  memory = storefront;
+  setCatalogCache(storefront.products);
+  listeners.forEach((fn) => fn(storefront));
 }
 
-export async function fetchCatalog(): Promise<CatalogPayload> {
-  if (IS_REVIEW_PREVIEW) return fallback;
-  const res = await fetch("/api/catalog", { cache: "no-store" });
-  if (!res.ok) throw new Error("catalog");
-  const data = (await res.json()) as CatalogPayload;
+export function normalizeCatalog(data: CatalogPayload): CatalogPayload {
   return {
     ...fallback,
-    ...data,
+    ...publicCatalog(data),
     products: (data.products ?? []).map(normalizeProduct),
     categories: data.categories?.length ? data.categories : DEFAULT_CATEGORIES,
     seo: data.seo ?? DEFAULT_SEO,
     shipping: data.shipping ?? DEFAULT_SHIPPING,
     notice: data.notice ?? DEFAULT_NOTICE,
     coupons: data.coupons ?? [],
-    pay: data.pay ?? DEFAULT_PAY,
     faqs: data.faqs ?? [],
     blacklist: data.blacklist ?? [],
   };
+}
+
+export async function fetchCatalog(token = "", signal?: AbortSignal): Promise<CatalogPayload> {
+  if (IS_REVIEW_PREVIEW) return fallback;
+  const res = await fetch("/api/catalog", {
+    cache: "no-store",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    signal,
+  });
+  if (!res.ok) throw new Error(res.status === 401 ? "AUTH" : "catalog");
+  return normalizeCatalog(await res.json());
 }
 
 export function useCatalog() {
@@ -104,21 +112,5 @@ export function useCatalog() {
     };
   }, []);
 
-  const replace = useCallback((next: CatalogPayload) => {
-    publish({
-      ...fallback,
-      ...next,
-      products: (next.products ?? []).map(normalizeProduct),
-      categories: next.categories?.length ? next.categories : DEFAULT_CATEGORIES,
-      seo: next.seo ?? DEFAULT_SEO,
-      shipping: next.shipping ?? DEFAULT_SHIPPING,
-      notice: next.notice ?? DEFAULT_NOTICE,
-      coupons: next.coupons ?? [],
-      pay: next.pay ?? DEFAULT_PAY,
-      faqs: next.faqs ?? [],
-      blacklist: next.blacklist ?? [],
-    });
-  }, []);
-
-  return { catalog, ready, replace };
+  return { catalog, ready, replace: publish };
 }

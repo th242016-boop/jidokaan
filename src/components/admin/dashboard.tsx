@@ -21,9 +21,9 @@ export function Dashboard({
 
   async function load() {
     const [o, i, r] = await Promise.all([
-      fetch(`/api/orders?token=${encodeURIComponent(token)}`).then((x) => x.json()),
-      fetch(`/api/inbox?token=${encodeURIComponent(token)}`).then((x) => x.json()),
-      fetch(`/api/reviews?token=${encodeURIComponent(token)}`).then((x) => x.json()),
+      fetch("/api/orders", { headers: { Authorization: `Bearer ${token}` } }).then((x) => x.json()),
+      fetch("/api/inbox", { headers: { Authorization: `Bearer ${token}` } }).then((x) => x.json()),
+      fetch("/api/reviews", { headers: { Authorization: `Bearer ${token}` } }).then((x) => x.json()),
     ]);
     setOrders(o.orders ?? []);
     setInbox(i.items ?? []);

@@ -1,9 +1,9 @@
+import { guardResponse, limitRequests, readBoundedBody } from "@/lib/request-guard.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { assertSession, AUTH_HEADERS } from "@/lib/admin-auth.server";
 import { saveMediaFile } from "@/lib/media.server";
-import { proxyToLive, shouldProxyToLive } from "@/lib/live-proxy.server";
 import { uploadRoots } from "@/lib/upload-dir.server";
 
 function json(data: unknown, status = 200) {
@@ -85,15 +85,15 @@ export const Route = createFileRoute("/api/media")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/media");
         try {
+          limitRequests(request, "media");
+          const token = request.headers.get("authorization")?.match(/^Bearer ([^ ]+)$/i)?.[1] ?? "";
+          await assertSession(token);
           const type = request.headers.get("content-type") || "";
           if (!type.includes("multipart/form-data")) {
             return json({ error: "no_file" }, 400);
           }
-          const form = await request.formData();
-          const token = String(form.get("token") ?? "");
-          await assertSession(token);
+          const form = await readBoundedBody(request, 80 * 1024 * 1024 + 65536, (body) => body.formData());
           const file = form.get("file");
           if (!isUpload(file) || file.size < 1) {
             return json({ error: "no_file" }, 400);
@@ -124,6 +124,8 @@ export const Route = createFileRoute("/api/media")({
           await saveMediaFile(name, mime, buf);
           return json({ url: `/products/${folder}/${name}`, bytes: buf.length });
         } catch (err) {
+          const limited = guardResponse(err);
+          if (limited) return limited;
           const message = err instanceof Error ? err.message : "upload_failed";
           const status = message === "AUTH" ? 401 : 500;
           return json({ error: message }, status);

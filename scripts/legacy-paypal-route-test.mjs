@@ -11,9 +11,11 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 globalThis.fetch = async () => { throw Error("OUTBOUND_NETWORK_BLOCKED"); };
 const modules = new Map();
 let draft, existing, providerError, transferQuote;
+let browserFlow = false;
 let calls;
 const unexpected = async () => { throw Error("UNEXPECTED_DEPENDENCY_CALL"); };
-const sql = { query: async (query) => {
+const sql = { query: async (query, args) => {
+  if (query.startsWith("insert into paypal_checkout_drafts")) { draft = JSON.parse(args[1]); return []; }
   if (query.startsWith("create table if not exists paypal_checkout_drafts")) return [];
   if (query.startsWith("select payload")) return draft ? [{ payload: structuredClone(draft) }] : [];
   if (query.startsWith("update paypal_checkout_drafts")) { calls.draftUpdates++; return []; }
@@ -23,7 +25,7 @@ const stubs = {
   "@tanstack/react-router": { createFileRoute: () => options => options },
   "admin-shipping-guidance.server": { adminOrderWithGuidance: unexpected },
   "admin-auth.server": { AUTH_HEADERS: {}, assertSession: unexpected },
-  "live-proxy.server": { shouldProxyToLive: () => false, proxyToLive: unexpected },
+  "request-guard.server": { guardResponse: () => null, limitRequests: () => {}, checkoutBodyLimit: 1024, readBoundedJson: request => request.json() },
   "catalog.server": { readCatalog: unexpected },
   coupon: { couponRejectReason: unexpected, findCoupon: unexpected },
   db: { getSql: async () => sql },
@@ -39,17 +41,20 @@ const stubs = {
     placeOrder: async (payload, preserve) => {
       calls.place++;
       assert.equal(preserve, true);
+    assert.equal(payload.checkoutOwnerDigest, undefined);
       return { ...structuredClone(payload), id: "TEST-SAVED", status: payload.pay === "transfer" ? "wait" : "paid" };
     },
   },
   "checkout-quote.server": { quoteCheckout: async body => {
     calls.quote++;
+    if (browserFlow && body.pay === "paypal") return structuredClone(historical);
     if (body.pay === "paypal") throw Error("LEGACY_PAYMENT_MUST_NOT_BE_REQUOTED");
     return transferQuote;
   } },
   "paypal.server": {
-    createPaypalOrder: async () => { calls.create++; throw Error("CREATE_FORBIDDEN"); },
-    capturePaypalOrder: async () => { calls.capture++; throw Error("CAPTURE_FORBIDDEN"); },
+    paypalPublic: () => ({}),
+    createPaypalOrder: async () => { calls.create++; if (browserFlow) return legacy.paypalOrderId; throw Error("CREATE_FORBIDDEN"); },
+    capturePaypalOrder: async () => { calls.capture++; if (browserFlow) return; throw Error("CAPTURE_FORBIDDEN"); },
     verifyPaypalPayment: async (id, total, currency) => {
       calls.verify.push({ id, total, currency });
       if (providerError) throw Error(providerError);
@@ -70,16 +75,25 @@ async function load(path) {
   return module;
 }
 const routeModule = await load(resolve(root, "src/routes/api/orders.ts"));
-await routeModule.link((specifier, referrer) => {
+const link = (specifier, referrer) => {
   if (specifier.startsWith("@/")) return load(resolve(root, "src", `${specifier.slice(2)}.ts`));
   if (specifier.startsWith(".")) return load(resolve(dirname(referrer.identifier), `${specifier}.ts`));
   assert.ok(specifier === "@tanstack/react-router" || specifier === "node:crypto", "Unexpected package");
   return load(specifier);
-});
+};
+await routeModule.link(link);
 await routeModule.evaluate();
-const post = async body => {
+const paypalModule = await load(resolve(root, "src/routes/api/paypal.ts"));
+await paypalModule.link(link);
+await paypalModule.evaluate();
+const paymentRequest = async (body, cookie = "") => paypalModule.namespace.Route.server.handlers.POST({
+  request: new Request("https://example.invalid/api/paypal", {
+    method: "POST", headers: { "Content-Type": "application/json", cookie }, body: JSON.stringify(body),
+  }),
+});
+const post = async (body, cookie = "") => {
   const response = await routeModule.namespace.Route.server.handlers.POST({ request: new Request("https://example.invalid/api/orders", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    method: "POST", headers: { "Content-Type": "application/json", cookie }, body: JSON.stringify(body),
   }) });
   return { status: response.status, body: await response.json() };
 };
@@ -94,12 +108,12 @@ const historical = { ...legacy, id: "TEST-HISTORICAL", country: "JP", totalUsd: 
   items: [{ productId: "old-model", qty: 1, priceUsd: 230, priceKrw: 0 }],
 };
 let count = 0;
-async function check(label, fn) {
+async function check(label, fn, { creates = 0, captures = 0 } = {}) {
   draft = existing = providerError = transferQuote = null;
   calls = { lookup: 0, quote: 0, place: 0, create: 0, capture: 0, draftUpdates: 0, verify: [] };
   await fn();
-  assert.equal(calls.create, 0);
-  assert.equal(calls.capture, 0);
+  assert.equal(calls.create, creates);
+  assert.equal(calls.capture, captures);
   count++;
   console.log(`PASS ${label}`);
 }
@@ -127,10 +141,7 @@ await check("saved Japanese USD order preserves its historical amount and comple
   const response = await post(legacy);
   assert.equal(response.status, 200);
   assert.equal(response.body.order.id, historical.id);
-  assert.equal(response.body.order.totalUsd, 268);
-  assert.equal(response.body.order.currency, "USD");
-  assert.equal(response.body.order.status, "done");
-  assert.deepEqual(response.body.order.items, historical.items);
+  assert.deepEqual(response.body.order, { id: historical.id, email: legacy.email });
   assert.equal(response.body.order.paypalCaptureId, undefined);
   assert.deepEqual(existing, historical);
   assert.deepEqual(calls.verify, [{ id: legacy.paypalOrderId, total: 268, currency: "USD" }]);
@@ -154,11 +165,7 @@ await check("saved historical USD and JPY drafts recover from their original fac
     };
     const response = await post(legacy);
     assert.equal(response.status, 200);
-    assert.equal(response.body.order.currency, currency);
-    assert.equal(response.body.order.priceVersion, "HISTORICAL");
-    assert.deepEqual(response.body.order.items, draft.items);
-    assert.equal(response.body.order.totalUsd, 268);
-    if (currency === "JPY") assert.equal(response.body.order.totalJpy, 47000);
+    assert.deepEqual(response.body.order, { id: "TEST-SAVED", email: legacy.email });
   }
   assert.deepEqual(calls.verify, [
     { id: legacy.paypalOrderId, total: 268, currency: "USD" },
@@ -169,6 +176,51 @@ await check("saved historical USD and JPY drafts recover from their original fac
   assert.equal(calls.place, 2);
   assert.equal(calls.draftUpdates, 2);
 });
+await check("a browser-bound draft only returns a receipt to the browser that opened it", async () => {
+  const { createHash } = await import("node:crypto");
+  const proof = "a".repeat(64);
+  draft = { ...historical, checkoutOwnerDigest: createHash("sha256").update(proof).digest("hex") };
+  const cookie = `__Host-jk-pay-${legacy.paypalOrderId}=${proof}`;
+  for (const unavailable of ["", `__Host-jk-pay-OTHER=${proof}`, `__Host-jk-pay-${legacy.paypalOrderId}=confirm`]) {
+    assert.equal((await post(legacy, unavailable)).body.error, "CHECKOUT_OWNER_REQUIRED");
+  }
+  assert.deepEqual(calls.verify, []);
+  assert.equal(calls.place, 0);
+  assert.equal(calls.lookup, 0);
+  const response = await post(legacy, `other=abc; ${cookie}; __Host-jk-pay-SECOND=else`);
+  assert.deepEqual(response.body.order, { id: "TEST-SAVED", email: legacy.email });
+});
+await check("pre-upgrade draft retry still checks the original checkout email", async () => {
+  draft = { ...historical };
+  assert.equal((await post({ ...legacy, email: "elsewhere@example.invalid" })).body.error, "CHECKOUT_OWNER_REQUIRED");
+  assert.deepEqual(calls.verify, []);
+  assert.equal(calls.place, 0);
+});
+await check("new SDK creation, approval and receipt work with an HttpOnly cookie", async () => {
+  browserFlow = true;
+  const opened = await paymentRequest({ action: "create", order: legacy, value: "268" });
+  assert.deepEqual(await opened.json(), { id: legacy.paypalOrderId });
+  const issued = opened.headers.get("set-cookie");
+  assert.match(issued, /; Secure; HttpOnly; SameSite=Lax/);
+  const cookie = issued.split(";")[0];
+  const approve = { action: "capture", orderID: legacy.paypalOrderId, receiptOnly: true };
+  assert.equal((await paymentRequest(approve)).status, 400);
+  assert.deepEqual(await (await paymentRequest(approve, cookie)).json(), { order: { id: "TEST-SAVED" }, status: "COMPLETED" });
+  assert.deepEqual((await post(legacy, cookie)).body.order, { id: "TEST-SAVED", email: legacy.email });
+  browserFlow = false;
+}, { creates: 1, captures: 1 });
+await check("already-open old SDK can complete its own in-flight approval across deployment", async () => {
+  browserFlow = true;
+  draft = structuredClone(historical);
+  const confirm = await paymentRequest({ action: "capture", orderID: legacy.paypalOrderId });
+  const cookie = confirm.headers.get("set-cookie").split(";")[0];
+  assert.deepEqual(await confirm.json(), { status: "CONFIRM_CHECKOUT" });
+  assert.equal(calls.capture, 0);
+  assert.equal((await post({ ...legacy, phone: "" }, cookie)).body.error, "CHECKOUT_OWNER_REQUIRED");
+  assert.equal(calls.capture, 0);
+  assert.deepEqual((await post(legacy, cookie)).body.order, { id: "TEST-SAVED", email: legacy.email });
+  browserFlow = false;
+}, { captures: 1 });
 await check("new transfer orders still use the authoritative quote path", async () => {
   transferQuote = { ...legacy, pay: "transfer", totalUsd: 335, paypalOrderId: undefined };
   const response = await post({ ...legacy, pay: "transfer" });

@@ -10,6 +10,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const temp = await mkdtemp(resolve(tmpdir(), "jidokaan-members-test-"));
 const previous = process.cwd();
 process.env.DATABASE_URL = "";
+process.env.ADMIN_BOOTSTRAP_PIN = crypto.randomUUID();
 process.env.JIDOKAAN_LOCAL_ONLY = "1";
 process.env.LIVE_ORIGIN = "http://127.0.0.1:9";
 for (const key of ["TELEGRAM_BOT_TOKEN", "RESEND_API_KEY", "INQUIRY_EMAIL_FROM"])
@@ -42,7 +43,7 @@ try {
   const handlers = (await server.ssrLoadModule("/src/routes/api/members.ts")).Route.options.server
     .handlers;
   const sql = await db.getSql();
-  const token = await auth.createSession();
+  const token = await auth.unlockAdmin(process.env.ADMIN_BOOTSTRAP_PIN);
   const now = new Date().toISOString();
   const addUser = async (id, name, email, provider, created = now) => {
     await sql.query(

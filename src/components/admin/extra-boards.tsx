@@ -93,7 +93,7 @@ function ClaimActions({
 export function ClaimsBoard({ token }: { token: string }) {
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   async function load() {
-    const res = await fetch(`/api/orders?token=${encodeURIComponent(token)}`);
+    const res = await fetch("/api/orders", { headers: { Authorization: `Bearer ${token}` } });
     const data = (await res.json()) as { orders?: StoreOrder[] };
     setOrders(data.orders ?? []);
   }
@@ -117,7 +117,7 @@ export function ShipStatusBoard({ token }: { token: string }) {
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [filter, setFilter] = useState<"all" | "claim" | "shipped" | "ready">("all");
   async function load() {
-    const res = await fetch(`/api/orders?token=${encodeURIComponent(token)}`);
+    const res = await fetch("/api/orders", { headers: { Authorization: `Bearer ${token}` } });
     const data = (await res.json()) as { orders?: StoreOrder[] };
     setOrders(data.orders ?? []);
   }
@@ -298,7 +298,7 @@ function ClaimTable({
 export function DelayBoard({ token }: { token: string }) {
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   useEffect(() => {
-    void fetch(`/api/orders?token=${encodeURIComponent(token)}`)
+    void fetch("/api/orders", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => setOrders(d.orders ?? []));
   }, [token]);
@@ -312,7 +312,7 @@ export function DelayBoard({ token }: { token: string }) {
 export function SettleBoard({ token }: { token: string }) {
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   useEffect(() => {
-    void fetch(`/api/orders?token=${encodeURIComponent(token)}`)
+    void fetch("/api/orders", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => setOrders(d.orders ?? []));
   }, [token]);
@@ -351,7 +351,7 @@ export function SettleBoard({ token }: { token: string }) {
 export function ReviewBoard({ token }: { token: string }) {
   const [items, setItems] = useState<StoreReview[]>([]);
   async function load() {
-    const res = await fetch(`/api/reviews?token=${encodeURIComponent(token)}`);
+    const res = await fetch("/api/reviews", { headers: { Authorization: `Bearer ${token}` } });
     const data = (await res.json()) as { items?: StoreReview[] };
     setItems(data.items ?? []);
   }

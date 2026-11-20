@@ -1,7 +1,7 @@
 import { internationalOrderPolicy } from "@/lib/international-order-policy";
 import { specialOrderCopy } from "@/lib/special-order-copy";
 import { SpecialOrderNotice } from "@/components/store/special-order-notice";
-import { japanYenQuote, orderPaymentMoney } from "@/lib/order-money";
+import { japanYenQuote } from "@/lib/order-money";
 import { formatYen, paymentCurrencyNotice } from "@/lib/storefront-money";
 import { activeSalesCountries, isActiveSalesCountry } from "@/lib/active-sales-policy";
 import { designSpecLine } from "@/lib/simulator-config";
@@ -458,25 +458,11 @@ function CheckoutPage() {
     await saveOrderPayload(payload);
   }
 
-  function finishOrder(order: StoreOrder) {
-    const paidMoney = orderPaymentMoney(order);
+  function finishOrder(order: { id: string; email?: string }, checkoutEmail = order.email) {
     draftFinished.current = true;
     try {
       clearCheckoutDraft(sessionStorage);
-      sessionStorage.setItem(
-        "jidokaan-last-order",
-        JSON.stringify({
-          orderId: order.id,
-          email: order.email,
-          country: order.country,
-          pay: order.pay,
-          depositor: order.depositor,
-          currency: order.currency,
-          shipMethod: order.shipMethod,
-          shipping: paidMoney.currency === "USD" ? paidMoney.shipping * 100 : paidMoney.shipping,
-          total: paidMoney.currency === "USD" ? paidMoney.total * 100 : paidMoney.total,
-        }),
-      );
+      sessionStorage.setItem("jidokaan-last-order", JSON.stringify({ orderId: order.id, email: checkoutEmail }));
       sessionStorage.removeItem("jidokaan-pending-paid-order");
     } catch {
       /* server order is already saved */
@@ -493,7 +479,7 @@ function CheckoutPage() {
     setOrderError("");
     try {
       const order = await submitOrder(payload);
-      finishOrder(order);
+      finishOrder(order, String(payload.email ?? order.email));
     } catch {
       setOrderError(payload.paypalOrderId ? review.paymentError : review.saveError);
     } finally {
@@ -1324,7 +1310,7 @@ function PaypalButtons({
   onPaid: (orderID: string) => Promise<void>;
   getOrder: () => Record<string, unknown> | undefined;
   onPending: (payload: Record<string, unknown>) => void;
-  onSaved: (order: StoreOrder) => void;
+  onSaved: (order: { id: string }, email: string) => void;
   onActivity: (owner: symbol, active: boolean) => void;
 }) {
   const review = checkoutCopy(locale);
@@ -1427,11 +1413,11 @@ function PaypalButtons({
         const res = await fetch("/api/paypal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "capture", orderID: data.orderID }),
+          body: JSON.stringify({ action: "capture", orderID: data.orderID, receiptOnly: true }),
         });
         if (!res.ok) throw new Error("capture");
         const result = (await res.json()) as { order?: StoreOrder };
-        if (result.order?.id) callbacks.current.onSaved(result.order);
+        if (result.order?.id) callbacks.current.onSaved(result.order, String(submitted.current?.email ?? ""));
         else await paidRef.current(data.orderID);
       },
       onError: () => {

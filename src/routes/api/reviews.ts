@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/reviews")({
       GET: async ({ request }) => {
         try {
           const url = new URL(request.url);
-          const token = url.searchParams.get("token") ?? "";
+          const token = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1] ?? "";
           const productId = url.searchParams.get("productId") ?? "";
           return json({ items: await listReviews(token || undefined, productId || undefined) });
         } catch {

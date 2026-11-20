@@ -10,6 +10,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const temp = await mkdtemp(resolve(tmpdir(), "jidokaan-inbox-test-"));
 const previous = process.cwd();
 process.env.DATABASE_URL = "";
+process.env.ADMIN_BOOTSTRAP_PIN = crypto.randomUUID();
 process.env.LIVE_ORIGIN = "http://127.0.0.1:9";
 for (const key of [
   "TELEGRAM_BOT_TOKEN",
@@ -72,7 +73,7 @@ try {
   const api = (await server.ssrLoadModule("/src/routes/api/inbox.ts")).Route.options.server
     .handlers;
   const sql = await db.getSql(),
-    token = await auth.createSession();
+    token = await auth.unlockAdmin(process.env.ADMIN_BOOTSTRAP_PIN);
   const post = (body, admin = "") =>
     api.POST({
       request: new Request("https://jidokaan.com/api/inbox", {

@@ -13,7 +13,6 @@ import {
 } from "@/lib/ems.server";
 import { emsIssues } from "@/lib/ems-workflow";
 import type { EmsAction } from "@/lib/ems-types";
-import { proxyToLive, shouldProxyToLive } from "@/lib/live-proxy.server";
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status, headers: AUTH_HEADERS });
 const tokenFor = (request: Request, body?: Record<string, unknown>) =>
@@ -35,7 +34,6 @@ export const Route = createFileRoute("/api/ems")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/ems");
         try {
           const token = tokenFor(request);
           await assertSession(token);
@@ -48,7 +46,6 @@ export const Route = createFileRoute("/api/ems")({
         }
       },
       POST: async ({ request }) => {
-        if (shouldProxyToLive(request)) return proxyToLive(request, "/api/ems");
         try {
           const body = (await request.json()) as Record<string, unknown>,
             token = tokenFor(request, body);

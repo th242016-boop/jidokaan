@@ -11,11 +11,13 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const temp = await mkdtemp(resolve(tmpdir(), "jidokaan-inbox-browser-"));
 const output = resolve(root, "screenshots/inbox");
 await mkdir(output, { recursive: true });
+const bootstrapPin = crypto.randomUUID();
 const child = spawn(process.execPath, [resolve(root, ".output/server/index.mjs")], {
   cwd: temp,
   env: {
     ...process.env,
     DATABASE_URL: "",
+    ADMIN_BOOTSTRAP_PIN: bootstrapPin,
     TELEGRAM_BOT_TOKEN: "",
     RESEND_API_KEY: "",
     INQUIRY_EMAIL_FROM: "",
@@ -79,8 +81,8 @@ try {
   assert.ok(ready, `Local server did not start: ${logs}`);
   const login = await api("/api/catalog", {
     action: "unlock",
-    pin: "ONLY-LOCAL-TEST-99123",
-    nextPin: "ONLY-LOCAL-TEST-99123",
+    pin: bootstrapPin,
+    nextPin: bootstrapPin,
   });
   assert.ok(login.token);
   // Preserve actual local routing while disabling the existing production proxy by Host.

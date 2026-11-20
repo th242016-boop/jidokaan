@@ -1,6 +1,6 @@
 import { readAdminToken as readToken, writeAdminToken as writeToken } from "@/lib/admin-session";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import {
   AdminShell,
@@ -19,11 +19,12 @@ import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useCatalog, type CatalogPayload } from "@/lib/use-catalog";
+import { fetchCatalog, normalizeCatalog, useCatalog, type CatalogPayload } from "@/lib/use-catalog";
 import type { Product } from "@/lib/products";
 import type { InfoRow, StoreNotice } from "@/lib/site-defaults";
 import type { ShopCategory, SiteSeo } from "@/lib/shop-taxonomy";
 import { PayForm } from "@/components/admin/pay-form";
+import { AdminSecondFactor } from "@/components/admin/second-factor";
 import { PinForm } from "@/components/admin/pin-form";
 import { AdminGate } from "@/components/admin/pin-keypad";
 import type { PaySettings } from "@/lib/pay-settings";
@@ -72,12 +73,22 @@ async function postCatalog(body: Record<string, unknown>): Promise<CatalogPayloa
 }
 
 function AdminPage() {
-  const { catalog, ready, replace } = useCatalog();
+  const { catalog: storefront, ready, replace: updateStorefront } = useCatalog();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const page: AdminPageId =
     search.p && isAdminPage(search.p) ? search.p : "home";
   const [token, setToken] = useState(readToken);
+  const [adminCatalog, setAdminCatalog] = useState<CatalogPayload | null>(null);
+  const revision = useRef(0);
+  const catalog = (token && adminCatalog) || storefront;
+  const replace = useCallback((next: CatalogPayload) => {
+    revision.current += 1;
+    const normalized = normalizeCatalog(next);
+    setAdminCatalog(normalized);
+    updateStorefront(normalized);
+  }, [updateStorefront]);
+  const [needsOtp, setNeedsOtp] = useState(false);
   const [gateBusy, setGateBusy] = useState(false);
   const [gateError, setGateError] = useState<string | null>(null);
   const [freshRecovery, setFreshRecovery] = useState<string | null>(null);
@@ -116,13 +127,31 @@ function AdminPage() {
   const unlocked = Boolean(token);
 
   useEffect(() => {
-    const existing = readToken();
-    if (!existing) return;
-    void postCatalog({ action: "ping", token: existing }).catch(() => {
-      writeToken("");
-      setToken("");
-    });
-  }, []);
+    if (!token) {
+      setAdminCatalog(null);
+      return;
+    }
+    const controller = new AbortController();
+    async function refresh() {
+      const version = revision.current;
+      try {
+        const data = await fetchCatalog(token, controller.signal);
+        if (!controller.signal.aborted && readToken() === token && version === revision.current) replace(data);
+      } catch {
+        if (!controller.signal.aborted && readToken() === token && version === revision.current) {
+          writeToken("");
+          setToken("");
+        }
+      }
+    }
+    void refresh();
+    const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      controller.abort();
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [token, replace]);
 
   async function recover() {
     setGateError(null);
@@ -141,6 +170,7 @@ function AdminPage() {
         nextPin: recoveryPin,
       });
       const session = (next as CatalogPayload & { token?: string }).token ?? "";
+      setNeedsOtp(false);
       writeToken(session);
       setToken(session);
       replace(next);
@@ -156,17 +186,19 @@ function AdminPage() {
     }
   }
 
-  async function unlockWith(used: string, nextPin?: string) {
+  async function unlockWith(used: string, nextPin?: string, otp?: string) {
     setGateBusy(true);
     setGateError(null);
     try {
       const next = await postCatalog({
         action: "unlock",
         pin: used,
+        otp,
         nextPin,
       });
       const session = (next as CatalogPayload & { token?: string }).token ?? "";
       if (!session) throw new Error("AUTH");
+      setNeedsOtp(false);
       writeToken(session);
       setToken(session);
       replace(next);
@@ -174,6 +206,7 @@ function AdminPage() {
         try {
           const rec = (await postCatalog({
             action: "issueRecovery",
+            currentPin: used,
             token: session,
           })) as CatalogPayload & { recoveryCode?: string };
           if (rec.recoveryCode) setFreshRecovery(rec.recoveryCode);
@@ -183,7 +216,10 @@ function AdminPage() {
       }
     } catch (err) {
       const raw = err instanceof Error ? err.message : "";
-      if (raw.startsWith("LOCKED")) {
+      if (raw === "TOTP_REQUIRED" || raw === "TOTP_USED") {
+        setNeedsOtp(true);
+        setGateError(raw === "TOTP_USED" ? "인증 앱에 새 코드가 표시되면 입력해 주세요." : null);
+      } else if (raw.startsWith("LOCKED")) {
         setGateError("비밀번호를 여러 번 틀려 잠시 잠겼습니다. 잠시 후 다시 입력해 주세요.");
       } else if (raw.startsWith("PIN_BAD")) {
         const left = raw.split(":")[1];
@@ -225,7 +261,7 @@ function AdminPage() {
     if (ok) go("list");
   }
 
-  if (!ready) {
+  if (!ready || (token && !adminCatalog)) {
     return (
       <div className="admin-ui grid min-h-dvh place-items-center px-4">
         <p className="text-sm text-[#555]">관리자를 불러오는 중…</p>
@@ -243,7 +279,8 @@ function AdminPage() {
             hasPin={catalog.hasPin}
             busy={gateBusy}
             error={gateError}
-            onSubmitPin={(used, nextPin) => void unlockWith(used, nextPin)}
+            needsOtp={needsOtp}
+            onSubmitPin={(used, nextPin, otp) => void unlockWith(used, nextPin, otp)}
             onRecover={() => {
               setRecoverOpen((v) => !v);
               setGateError(null);
@@ -459,11 +496,15 @@ function AdminPage() {
       ) : null}
 
       {!editing && page === "password" ? (
+        <div className="max-w-md space-y-6">
+        <AdminSecondFactor token={token} onEnroll={(session, code) => { writeToken(session); setToken(session); setFreshRecovery(code); }} />
         <PinForm
           busy={busy}
           onSave={async (current, next) => {
             try {
-              await postCatalog({ action: "changePin", token, currentPin: current, nextPin: next });
+              const result = await postCatalog({ action: "changePin", token, currentPin: current, nextPin: next }) as CatalogPayload & { token: string };
+              writeToken(result.token);
+              setToken(result.token);
               setMsg("비밀번호를 변경했습니다.");
               return true;
             } catch {
@@ -471,17 +512,18 @@ function AdminPage() {
               return false;
             }
           }}
-          onIssueRecovery={async () => {
+          onIssueRecovery={async (currentPin) => {
             const res = await fetch("/api/catalog", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "issueRecovery", token }),
+              body: JSON.stringify({ action: "issueRecovery", token, currentPin }),
             });
             const data = (await res.json()) as { recoveryCode?: string; error?: string };
             if (!res.ok || !data.recoveryCode) throw new Error(data.error || "fail");
             return data.recoveryCode;
           }}
         />
+        </div>
       ) : null}
 
       {!editing && page === "notice" ? (

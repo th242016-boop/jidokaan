@@ -10,13 +10,14 @@ export function PinForm({
 }: {
   busy: boolean;
   onSave: (current: string, next: string) => Promise<boolean>;
-  onIssueRecovery: () => Promise<string>;
+  onIssueRecovery: (currentPin: string) => Promise<string>;
 }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [again, setAgain] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
+  const [recoveryPin, setRecoveryPin] = useState("");
   const [recovery, setRecovery] = useState<string | null>(null);
   const [issuing, setIssuing] = useState(false);
 
@@ -97,6 +98,7 @@ export function PinForm({
         비밀번호 자체를 잊으면 아래 복구 코드로 새 비밀번호를 만듭니다.
         코드는 지금 한 번만 보여 드리니 메모장이나 사진으로 따로 보관하세요.
       </p>
+      <label className="block text-sm">현재 비밀번호<Input type="password" autoComplete="current-password" value={recoveryPin} onChange={e => setRecoveryPin(e.target.value)} /></label>
       <Button
         type="button"
         variant="secondary"
@@ -104,7 +106,8 @@ export function PinForm({
         onClick={async () => {
           setIssuing(true);
           try {
-            const code = await onIssueRecovery();
+            const code = await onIssueRecovery(recoveryPin);
+            setRecoveryPin("");
             setRecovery(code);
           } catch {
             setRecovery(null);

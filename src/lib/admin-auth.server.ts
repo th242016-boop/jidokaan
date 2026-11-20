@@ -1,5 +1,7 @@
-import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
+
+import { matchTotp, openTotp, sealTotp } from "./admin-totp.server";
 
 const scryptAsync = promisify(scrypt);
 const MAX_FAILS = 5;
@@ -34,6 +36,10 @@ export function isHashed(value: string) {
   return value.startsWith("scrypt$");
 }
 
+function totpEnvelope(stored: string) {
+  return isHashed(stored) ? stored.split("$")[3] : undefined;
+}
+
 async function setting(key: string) {
   const sql = await db();
   const rows = await sql<{ value: string }>`
@@ -55,7 +61,8 @@ async function putSetting(key: string, value: string) {
 export async function migratePlainPin() {
   const saved = await setting("admin_pin");
   if (saved && !isHashed(saved)) {
-    await putSetting("admin_pin", await hashSecret(saved));
+    const sql = await db();
+    await sql`update site_settings set value=${await hashSecret(saved)} where key='admin_pin' and value=${saved}`;
   }
   const reset = await setting("lock_reset_v2");
   if (!reset) {
@@ -86,92 +93,156 @@ export async function lockStatus() {
 }
 
 async function recordFail() {
-  const n = Number(await setting("admin_fails") || "0") + 1;
-  await putSetting("admin_fails", String(n));
+  const sql = await db();
+  const [failure] = await sql<{ value: string }>`
+    insert into site_settings (key, value) values ('admin_fails','1')
+    on conflict (key) do update set value = (site_settings.value::int + 1)::text returning value
+  `;
+  const n = Number(failure.value);
   if (n >= MAX_FAILS) {
     await putSetting("admin_locked_until", new Date(Date.now() + LOCK_MS).toISOString());
   }
   return n;
 }
 
-export async function createSession() {
+function digest(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+async function createSession(credential: string) {
   const token = randomBytes(32).toString("hex");
   const sql = await db();
-  await sql.query(`
-    create table if not exists admin_sessions (
-      token_hash text primary key,
-      expires_at timestamptz not null
-    )
-  `);
-  await sql.query(
-    "insert into admin_sessions (token_hash, expires_at) values ($1, $2)",
-    [await hashSecret(token), new Date(Date.now() + SESSION_MS).toISOString()],
-  );
+  await sql`delete from admin_sessions where expires_at <= now()`;
+  const rows = await sql`
+    insert into admin_sessions (token_hash, expires_at, credential_tag)
+    select ${digest(token)}, ${new Date(Date.now() + SESSION_MS).toISOString()}::timestamptz, md5(value)
+    from site_settings where key='admin_pin' and value=${credential}
+    returning token_hash
+  `;
+  if (!rows.length) throw new Error("AUTH");
   return token;
 }
 
 export async function assertSession(token: string) {
-  if (!token || token.length < 20) throw new Error("AUTH");
+  if (!/^[a-f0-9]{64}$/.test(token)) throw new Error("AUTH");
   const sql = await db();
-  await sql.query(`
-    create table if not exists admin_sessions (
-      token_hash text primary key,
-      expires_at timestamptz not null
-    )
-  `);
-  await sql.query("delete from admin_sessions where expires_at < now()");
-  const rows = await sql.query<{ token_hash: string }>(
-    "select token_hash from admin_sessions",
-  );
-  for (const row of rows) {
-    if (await verifySecret(token, row.token_hash)) return;
-  }
-  throw new Error("AUTH");
+  const rows = await sql`
+    select 1 from admin_sessions s join site_settings p on p.key='admin_pin'
+    where s.token_hash=${digest(token)} and s.expires_at > now() and s.credential_tag=md5(p.value)
+  `;
+  if (!rows.length) throw new Error("AUTH");
 }
 
 export async function destroySession(token: string) {
-  try {
-    const sql = await db();
-    const rows = await sql.query<{ token_hash: string }>(
-      "select token_hash from admin_sessions",
-    );
-    for (const row of rows) {
-      if (await verifySecret(token, row.token_hash)) {
-        await sql`delete from admin_sessions where token_hash = ${row.token_hash}`;
-      }
-    }
-  } catch {
-    /* ignore */
-  }
+  if (!/^[a-f0-9]{64}$/.test(token)) return;
+  const sql = await db();
+  await sql`delete from admin_sessions where token_hash=${digest(token)}`;
 }
 
-export async function unlockAdmin(pin: string, nextPin?: string) {
+async function badLogin(): Promise<never> {
+  const fails = await recordFail();
+  if (fails >= MAX_FAILS) throw new Error("LOCKED:15");
+  throw new Error(`PIN_BAD:${MAX_FAILS - fails}`);
+}
+
+async function consumeTotp(secret: string, otp: string) {
+  const step = matchTotp(secret, otp);
+  if (step === null) throw new Error("TOTP_BAD");
+  const sql = await db();
+  await sql`delete from admin_totp_uses where time_step < ${Math.floor(Date.now() / 30000) - 2}`;
+  const used = await sql`
+    insert into admin_totp_uses (credential_tag,time_step) values (${digest(secret)},${step})
+    on conflict do nothing returning time_step
+  `;
+  if (!used.length) throw new Error("TOTP_USED");
+}
+
+export async function unlockAdmin(pin: string, otp = "") {
   const lock = await lockStatus();
   if (lock.locked) throw new Error(`LOCKED:${lock.remainMin}`);
-
-  const saved = await setting("admin_pin");
+  const sql = await db();
+  let saved = await setting("admin_pin");
   if (!saved) {
-    const next = (nextPin ?? pin).trim();
-    if (next.length < 8) throw new Error("PIN_SHORT");
-    await putSetting("admin_pin", await hashSecret(next));
-    await putSetting("admin_fails", "0");
-    return createSession();
+    // The first password is supplied by the operator, never chosen by a visitor.
+    const initial = process.env.ADMIN_BOOTSTRAP_PIN?.trim();
+    if (
+      !initial ||
+      initial.length < 8 ||
+      !timingSafeEqual(Buffer.from(digest(pin)), Buffer.from(digest(initial)))
+    ) {
+      throw new Error("AUTH");
+    }
+    const seeded = await hashSecret(initial);
+    await sql`insert into site_settings (key,value) values ('admin_pin',${seeded})
+      on conflict (key) do update set value=excluded.value where site_settings.value=''`;
+    saved = await setting("admin_pin");
   }
-
-  const ok = await verifySecret(pin, saved);
-  if (!ok) {
-    const fails = await recordFail();
-    const left = MAX_FAILS - fails;
-    if (left <= 0) throw new Error("LOCKED:15");
-    throw new Error(`PIN_BAD:${left}`);
+  if (!(await verifySecret(pin, saved))) return badLogin();
+  const factor = totpEnvelope(saved);
+  if (factor) {
+    if (!otp) throw new Error("TOTP_REQUIRED");
+    try {
+      await consumeTotp(await openTotp(factor, pin), otp);
+    } catch (error) {
+      if (error instanceof Error && error.message === "TOTP_BAD") return badLogin();
+      throw error;
+    }
   }
-
   if (!isHashed(saved)) {
-    await putSetting("admin_pin", await hashSecret(pin));
+    const upgraded = await hashSecret(pin);
+    const updated =
+      await sql`update site_settings set value=${upgraded} where key='admin_pin' and value=${saved} returning key`;
+    if (!updated.length) throw new Error("AUTH");
+    saved = upgraded;
   }
   await putSetting("admin_fails", "0");
   await putSetting("admin_locked_until", "");
-  return createSession();
+  return createSession(saved);
+}
+
+async function rotateCredential(
+  previous: string,
+  next: string,
+  recovery: string | null,
+  consumeRecovery?: string,
+) {
+  const sql = await db();
+  // Check the old credential under the row lock and update recovery in the same statement.
+  const rows = await sql.query(
+    `
+    with changed as (
+      update site_settings set value=$2 where key='admin_pin' and value=$1
+      and ($4::text is null or exists(select 1 from site_settings where key='admin_recovery' and value=$4))
+      returning key
+    ), replacement as (
+      insert into site_settings (key,value) select 'admin_recovery',$3::text from changed where $3::text is not null
+      on conflict(key) do update set value=excluded.value
+    ) select key from changed
+  `,
+    [previous, next, recovery, consumeRecovery ?? null],
+  );
+  if (!rows.length) throw new Error("AUTH");
+  return createSession(next);
+}
+
+export async function adminTotpEnabled(token: string) {
+  await assertSession(token);
+  return Boolean(totpEnvelope(await setting("admin_pin")));
+}
+
+export async function enableAdminTotp(token: string, pin: string, secret: string, otp: string) {
+  await assertSession(token);
+  const saved = await setting("admin_pin");
+  if (totpEnvelope(saved) || !(await verifySecret(pin, saved))) throw new Error("AUTH");
+  await consumeTotp(secret, otp);
+  const next = (await hashSecret(pin)) + "$" + (await sealTotp(secret, pin));
+  const recoveryCode = generateRecoveryCode();
+  const session = await rotateCredential(
+    saved,
+    next,
+    await hashSecret(normalizeRecovery(recoveryCode)),
+  );
+  return { token: session, recoveryCode };
 }
 
 export async function changeAdminPin(token: string, current: string, next: string) {
@@ -189,9 +260,13 @@ export async function changeAdminPin(token: string, current: string, next: strin
   }
   const trimmed = next.trim();
   if (trimmed.length < 8) throw new Error("PIN_SHORT");
-  await putSetting("admin_pin", await hashSecret(trimmed));
+  const factor = totpEnvelope(saved);
+  let nextCredential = await hashSecret(trimmed);
+  if (factor) nextCredential += "$" + (await sealTotp(await openTotp(factor, current), trimmed));
+  const session = await rotateCredential(saved, nextCredential, null);
   await putSetting("admin_fails", "0");
   await putSetting("admin_locked_until", "");
+  return session;
 }
 
 const RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -210,10 +285,19 @@ function normalizeRecovery(code: string) {
   return code.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-export async function issueRecoveryCode(token: string) {
+export async function issueRecoveryCode(token: string, pin = "") {
   await assertSession(token);
+  const saved = await setting("admin_pin");
+  if (!(await verifySecret(pin, saved))) throw new Error("AUTH");
   const raw = generateRecoveryCode();
-  await putSetting("admin_recovery", await hashSecret(normalizeRecovery(raw)));
+  const sql = await db();
+  const rows = await sql`
+    insert into site_settings (key, value)
+    select 'admin_recovery', ${await hashSecret(normalizeRecovery(raw))} from site_settings
+    where key='admin_pin' and value=${saved} for share
+    on conflict(key) do update set value=excluded.value returning key
+  `;
+  if (!rows.length) throw new Error("AUTH");
   return raw;
 }
 
@@ -224,11 +308,11 @@ export async function resetWithRecovery(code: string, nextPin: string) {
   if (!ok) throw new Error("RECOVERY_BAD");
   const trimmed = nextPin.trim();
   if (trimmed.length < 8) throw new Error("PIN_SHORT");
-  await putSetting("admin_pin", await hashSecret(trimmed));
-  await putSetting("admin_recovery", "");
+  const saved = await setting("admin_pin");
+  const session = await rotateCredential(saved, await hashSecret(trimmed), "", stored);
   await putSetting("admin_fails", "0");
   await putSetting("admin_locked_until", "");
-  return createSession();
+  return session;
 }
 
 export const AUTH_HEADERS = {

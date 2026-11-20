@@ -389,9 +389,8 @@ export function ProductForm({
               setUploading(true);
               try {
                 const fd = new FormData();
-                fd.set("token", token);
                 fd.set("file", file);
-                const res = await fetch("/api/media", { method: "POST", body: fd });
+                const res = await fetch("/api/media", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
                 const data = (await res.json()) as { url?: string; error?: string };
                 if (!res.ok || !data.url) throw new Error(data.error || "fail");
                 setP((cur) => ({
@@ -729,9 +728,8 @@ function uploadFailMessage(err: unknown, video = false) {
 function uploadOriginal(file: File, token?: string): Promise<string> {
   if (!token) return Promise.reject(new Error("AUTH"));
   const fd = new FormData();
-  fd.set("token", token);
   fd.set("file", file, file.name);
-  return fetch("/api/media", { method: "POST", body: fd }).then(async (res) => {
+  return fetch("/api/media", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd }).then(async (res) => {
     let data: { url?: string; error?: string } = {};
     try {
       data = (await res.json()) as { url?: string; error?: string };

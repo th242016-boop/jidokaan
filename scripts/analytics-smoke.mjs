@@ -9,6 +9,7 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const temp = await mkdtemp(resolve(tmpdir(), 'jidokaan-analytics-test-'));
 const previous = process.cwd();
 process.env.DATABASE_URL = '';
+process.env.ADMIN_BOOTSTRAP_PIN = crypto.randomUUID();
 process.env.JIDOKAAN_LOCAL_ONLY = '1';
 process.env.LIVE_ORIGIN = 'http://127.0.0.1:9';
 for (const key of ['TELEGRAM_BOT_TOKEN', 'RESEND_API_KEY', 'INQUIRY_EMAIL_FROM']) delete process.env[key];
@@ -24,7 +25,7 @@ try {
   const analytics = await server.ssrLoadModule('/src/lib/analytics.server.ts');
   const helpers = await server.ssrLoadModule('/src/lib/analytics-summary.ts');
   const api = (await server.ssrLoadModule('/src/routes/api/analytics.ts')).Route.options.server.handlers;
-  const sql = await db.getSql(), token = await auth.createSession();
+  const sql = await db.getSql(), token = await auth.unlockAdmin(process.env.ADMIN_BOOTSTRAP_PIN);
   await sql.query(`create table if not exists store_analytics (id text primary key,data jsonb not null,created_at timestamptz not null default now())`);
   await sql.query(`insert into catalog_products(id,data,sort) values ('drone-custom', $1::jsonb,0) on conflict(id) do update set data=excluded.data`, [JSON.stringify({id:'drone-custom',name:{ko:'테스트 커스텀 복싱화'},image:'/products/store/drone-main.png'})]);
   const hit = async (id, data, at = '2026-11-09T03:00:00Z') => sql.query('insert into store_analytics(id,data,created_at) values($1,$2::jsonb,$3::timestamptz)', [id, JSON.stringify({id,type:'page',path:'/',source:'direct',keyword:'',campaign:'', ...data}), at]);
@@ -73,8 +74,9 @@ try {
     const response = await get('?view=summary&from=2026-11-09&to=2026-11-09',token);
     assert.equal(response.status,200); assert.ok((await response.json()).summary);
   });
-  await check('legacy feed compatible and bounded', async () => {
-    const result = await (await get(`?token=${encodeURIComponent(token)}`)).json();
+  await check('bounded admin feed requires bearer even with a token in the URL', async () => {
+    assert.equal((await get(`?token=${encodeURIComponent(token)}`)).status,401);
+    const result = await (await get('',token)).json();
     assert.equal(result.hits.length,500);
   });
   await check('malformed and oversized tracking payloads rejected', async () => {

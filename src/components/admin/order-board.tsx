@@ -61,7 +61,7 @@ export function OrderBoard({ token, initialOrderId }: { token: string; initialOr
       setOrders(data.orders);
       setPendingError("");
       try {
-        const res = await fetch(`/api/paypal?token=${encodeURIComponent(token)}`);
+        const res = await fetch("/api/paypal", { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error("PAYMENT_QUEUE");
         setPending((await res.json()).pending ?? []);
       } catch {

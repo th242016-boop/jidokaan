@@ -10,6 +10,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const temp = await mkdtemp(resolve(tmpdir(), "jidokaan-telegram-test-"));
 const previousCwd = process.cwd();
 process.env.DATABASE_URL = "";
+process.env.ADMIN_BOOTSTRAP_PIN = crypto.randomUUID();
 process.env.LIVE_ORIGIN = "http://127.0.0.1:9";
 delete process.env.TELEGRAM_BOT_TOKEN;
 process.chdir(temp);
@@ -62,7 +63,7 @@ try {
   const alerts = await server.ssrLoadModule("/src/lib/telegram-orders.server.ts");
   const formatting = await server.ssrLoadModule("/src/lib/order-notification.ts");
   const sql = await db.getSql();
-  const token = await auth.createSession();
+  const token = await auth.unlockAdmin(process.env.ADMIN_BOOTSTRAP_PIN);
   await orders.ensureOrderTables();
   const orderInput = {
     email: "test@example.invalid",
