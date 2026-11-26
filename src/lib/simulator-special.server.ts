@@ -9,6 +9,7 @@ import { isLizardPattern } from "./lizard-materials";
 import { camouflageMaterialFor } from "./camouflage-materials";
 import { isPublicSpecialPattern, type SimulatorAudience } from "./simulator-catalog";
 import { compactPatternAssets } from "./pattern-asset-wire";
+import { photoHideFor } from "./photo-hide-materials";
 import { SILVER_SNAKE_CROP } from "./silver-snake-material";
 import { MINT_GOLD_PEARL_CROP } from "./mint-gold-pearl-material";
 import { WINE_CROCODILE_CROP } from "./wine-crocodile-material";
@@ -42,15 +43,24 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
   const referenceKey = "SIMULATOR_REFERENCE_MATERIALS_20261021_KEY";
   const blackLizardKey = "SIMULATOR_BLACK_LIZARD_20261023_KEY";
   const blackLizardPlatesKey = "SIMULATOR_BLACK_LIZARD_PLATES_KEY";
-  const pair = (file: string, key: string) => {
+  const pair = (file: string, key: string, mime = "image/jpeg") => {
     const id = `${key}:${file}`;
     if (!decoded.has(id)) decoded.set(id, {
-      texture: image(`material-${file}`, key, "image/jpeg"),
-      swatch: image(`material-${file}-swatch`, key, "image/jpeg"),
+      texture: image(`material-${file}`, key, mime),
+      swatch: image(`material-${file}-swatch`, key, mime),
     });
     return decoded.get(id)!;
   };
   for (const { name } of visiblePatterns) {
+    const hide = photoHideFor(name);
+    if (hide) {
+      const key = "SIMULATOR_PHOTO_HIDES_KEY";
+      if (audience !== "public" && process.env[key]) {
+        try { patterns[name] = pair(hide.file, key, "image/webp"); }
+        catch { console.error(`Private photograph unavailable: ${name}`); }
+      }
+      continue;
+    }
     if (name === "BLUE LEOPARD") {
       if (audience !== "public" && process.env.SIMULATOR_BLUE_LEOPARD_KEY) {
         try { patterns[name] = pair("blue-leopard", "SIMULATOR_BLUE_LEOPARD_KEY"); }

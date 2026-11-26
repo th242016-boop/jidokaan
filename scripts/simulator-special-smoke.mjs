@@ -72,6 +72,7 @@ try {
             (!patterns.isMetallicPattern(pattern.name) || process.env.SIMULATOR_SPECIAL_METALLIC_KEY)
             && (pattern.name !== "FLOWER D" || process.env.SIMULATOR_FLOWER_D_KEY)
             && (pattern.name !== "BLUE LEOPARD" || process.env.SIMULATOR_BLUE_LEOPARD_KEY)
+            && (!["NAVY CRACK", "REAL CROCODILE"].includes(pattern.name) || process.env.SIMULATOR_PHOTO_HIDES_KEY)
             && (!["IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE"].includes(pattern.name) || process.env.SIMULATOR_IVORY_ORNAMENT_KEY));
           assert.deepEqual(Object.keys(body.patterns).sort(), expectedPatterns.map(pattern => pattern.name).sort());
           for (const pattern of expectedPatterns) {
@@ -247,14 +248,16 @@ try {
     assert.deepEqual(snakes.SNAKE_MATERIALS.map(snake => snake.name), requestedSnakes);
     const requestedLizards = ["RED", "ORANGE", "YELLOW", "GREEN", "BLUE", "NAVY", "PURPLE"].map(color => `${color} LIZARD`);
     const requestedCamouflage = ["GRAY CAMO", "WOODLAND CAMO"];
-    assert.equal(patterns.SPECIAL_PATTERNS.length, 54);
+    assert.equal(patterns.SPECIAL_PATTERNS.length, 56);
     assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "BLUE LEOPARD")?.label, "블루레오파드");
+    assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "NAVY CRACK")?.label, "네이비 크랙");
+    assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "REAL CROCODILE")?.label, "리얼 크로커다일");
     assert.deepEqual(patterns.SPECIAL_PATTERNS.filter(pattern => pattern.name.startsWith("FLOWER ")).map(pattern => pattern.name), ["FLOWER B", "FLOWER C", "FLOWER D"], "the new flower follows the existing sequence");
     assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "GRAY LIZARD")?.label, "그레이 도마뱀");
     assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "SILVER SNAKE")?.label, "실버 스네이크");
     assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "MINT GOLD PEARL")?.label, "민트골드 펄");
     assert.equal(patterns.SPECIAL_PATTERNS.find(pattern => pattern.name === "WINE CROCODILE")?.label, "와인 크로커다일");
-    assert.deepEqual(new Set(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name)), new Set(["FLOWER B", "FLOWER C", "FLOWER D", "BLACK SNAKE", "WHITE SNAKE", ...requestedLizards, ...requestedSnakes, "SILVER WEAVE", "MICRO HOUNDSTOOTH", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE", "BLUE LEOPARD", "BRONZE", "PINK GOLD", ...requestedFinishes, ...requestedCamouflage]));
+    assert.deepEqual(new Set(patterns.SPECIAL_PATTERNS.map(pattern => pattern.name)), new Set(["FLOWER B", "FLOWER C", "FLOWER D", "BLACK SNAKE", "WHITE SNAKE", ...requestedLizards, ...requestedSnakes, "SILVER WEAVE", "MICRO HOUNDSTOOTH", "IVORY ORNAMENT", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL", "WINE CROCODILE", "BLUE LEOPARD", "NAVY CRACK", "REAL CROCODILE", "BRONZE", "PINK GOLD", ...requestedFinishes, ...requestedCamouflage]));
     for (const model of ["high", "mid"]) {
       const initial = { names: { ...sim.defaultPartNames(), model }, flowers: {} };
       const original = structuredClone(initial);
