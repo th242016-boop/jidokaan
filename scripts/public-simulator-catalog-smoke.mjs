@@ -10,8 +10,8 @@ import ts from "typescript";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const nativeRequire = createRequire(import.meta.url);
-const keyNames = ["SIMULATOR_SPECIAL_ASSET_KEY", "SIMULATOR_SPECIAL_PATTERN_KEY", "SIMULATOR_SPECIAL_METALLIC_KEY", "SIMULATOR_REFERENCE_MATERIALS_20261021_KEY", "SIMULATOR_SILVER_WEAVE_PHOTO_KEY", "SIMULATOR_BLACK_LIZARD_20261023_KEY", "SIMULATOR_BLACK_LIZARD_PLATES_KEY", "SIMULATOR_IVORY_ORNAMENT_KEY", "SIMULATOR_FLOWER_D_KEY", "SIMULATOR_BLUE_LEOPARD_KEY", "SIMULATOR_PHOTO_HIDES_KEY"];
-const photoHides = { "NAVY CRACK": "navy-crack", "REAL CROCODILE": "real-crocodile" };
+const keyNames = ["SIMULATOR_SPECIAL_ASSET_KEY", "SIMULATOR_SPECIAL_PATTERN_KEY", "SIMULATOR_SPECIAL_METALLIC_KEY", "SIMULATOR_REFERENCE_MATERIALS_20261021_KEY", "SIMULATOR_SILVER_WEAVE_PHOTO_KEY", "SIMULATOR_BLACK_LIZARD_20261023_KEY", "SIMULATOR_BLACK_LIZARD_PLATES_KEY", "SIMULATOR_IVORY_ORNAMENT_KEY", "SIMULATOR_FLOWER_D_KEY", "SIMULATOR_BLUE_LEOPARD_KEY", "SIMULATOR_PHOTO_HIDES_KEY", "SIMULATOR_WHITE_PYTHON_KEY"];
+const photoHides = { "NAVY CRACK": "navy-crack", "REAL CROCODILE": "real-crocodile", "WHITE PYTHON": "white-python" };
 const hideNames = Object.keys(photoHides);
 for (const name of keyNames) assert.equal(process.env[name], undefined, "Run in isolation without live keys");
 assert.equal(process.env.SIMULATOR_SPECIAL_SHARE_TOKEN, undefined, "Run in isolation without a live share token");
@@ -34,7 +34,8 @@ for (const name of ["reference-lizard", "reference-silver-weave", "gray-camo", "
   for (const suffix of ["", "-swatch"]) filenames.add(`material-${name}${suffix}.enc`);
 for (const filename of filenames) {
   if (!filename.endsWith(".enc")) continue;
-  const keyIndex = /^material-(navy-crack|real-crocodile)(-swatch)?\.enc$/.test(filename) ? 10
+  const keyIndex = /^material-white-python(-swatch)?\.enc$/.test(filename) ? 11
+    : /^material-(navy-crack|real-crocodile)(-swatch)?\.enc$/.test(filename) ? 10
     : /^material-blue-leopard(-swatch)?\.enc$/.test(filename) ? 9 : filename === "material-flower-d-photo.enc" ? 8
     : filename === "material-wine-crocodile-atlas.enc" ? 7 : /^material-(ivory-ornament|gray-lizard|silver-snake|mint-gold-pearl|wine-crocodile)-photo\.enc$/.test(filename) ? 7
     : /^material-black-lizard-plates(-swatch)?\.enc$/.test(filename) ? 6
@@ -101,10 +102,10 @@ try {
     assert.ok(JSON.stringify(compact).length < JSON.stringify(released).length);
     assert.deepEqual(codec.expandPatternAssets(released), released.patterns, "new client accepts legacy response");
     assert.deepEqual((await payload({ audience: "public", model, compact: "true" })).patterns, released.patterns, "only a boolean opt-in changes the wire format");
-    for (const asset of compact.patternSources) assert.doesNotMatch(Buffer.from(asset.texture.split(",")[1], "base64").toString(), /gray-camo|woodland-camo|ivory-ornament|gray-lizard|silver-snake|mint-gold-pearl|wine-crocodile|flower-d|blue-leopard|navy-crack|real-crocodile|fixture:swatch/);
+    for (const asset of compact.patternSources) assert.doesNotMatch(Buffer.from(asset.texture.split(",")[1], "base64").toString(), /gray-camo|woodland-camo|ivory-ornament|gray-lizard|silver-snake|mint-gold-pearl|wine-crocodile|flower-d|blue-leopard|navy-crack|real-crocodile|white-python|fixture:swatch/);
     const admin = await payload({ audience: "admin", token: "fixture-admin", model });
     assert.equal(admin.audience, "admin"); assert.ok(admin.swatch); assert.ok(Object.keys(admin.layers).length);
-    assert.equal(Object.keys(admin.patterns).length, 56);
+    assert.equal(Object.keys(admin.patterns).length, 57);
     const blueLeopard = admin.patterns["BLUE LEOPARD"];
     assert.ok(blueLeopard, `${model}: BLUE LEOPARD must be available to administrators`);
     assert.match(blueLeopard.texture, /^data:image\/jpeg;base64,/);
@@ -120,6 +121,8 @@ try {
       }
       assertPublic(await payload({ audience: "public", model, material: name }));
     }
+    for (const existing of ["WHITE SNAKE", "SILVER SNAKE", "NATURAL SNAKE"])
+      assert.notDeepEqual(admin.patterns["WHITE PYTHON"], admin.patterns[existing], "white python uses a separate photograph");
     const flowerD = admin.patterns["FLOWER D"];
     assert.ok(flowerD, `${model}: FLOWER D must be available to administrators`);
     assert.equal(Buffer.from(flowerD.texture.split(",")[1], "base64").toString(), "fixture:material-flower-d-photo.enc");
@@ -177,8 +180,8 @@ try {
     for (const name of ["NATURAL SNAKE", "BLACK SNAKE", "GRAY LIZARD", "SILVER SNAKE", "MINT GOLD PEARL"])
       assert.notDeepEqual(wineCrocodile, admin.patterns[name], "wine crocodile must retain its independent mixed-shape scale topology");
     const compactAdmin = await payload({ audience: "admin", token: "fixture-admin", model, compact: true });
-    assert.equal(compactAdmin.patternSources.length, 21, "each private hide uses its own source; existing dye families still share theirs");
-    assert.equal(Object.keys(compactAdmin.patternRefs).length, 56);
+    assert.equal(compactAdmin.patternSources.length, 22, "each private hide uses its own source; existing dye families still share theirs");
+    assert.equal(Object.keys(compactAdmin.patternRefs).length, 57);
     assert.deepEqual(codec.expandPatternAssets(compactAdmin), admin.patterns);
     assert.deepEqual(compactAdmin.layers, admin.layers); assert.equal(compactAdmin.swatch, admin.swatch);
     const expanded = codec.expandPatternAssets(compactAdmin);
@@ -236,12 +239,18 @@ try {
   assert.deepEqual((await payload({ audience: "admin" })).patterns, withPrivatePhotos.patterns);
   console.log("PASS BLUE LEOPARD admin/shared availability, public exclusion and isolated key/pair failures on both models");
   // Damage in one texture/swatch must not substitute or disable the other hide.
-  for (const value of [undefined, "invalid", randomBytes(32).toString("base64")]) {
-    if (value === undefined) delete process.env.SIMULATOR_PHOTO_HIDES_KEY;
-    else process.env.SIMULATOR_PHOTO_HIDES_KEY = value;
-    await expectOnlyPhotosUnavailable(hideNames);
+  for (const [keyName, unavailable] of [
+    ["SIMULATOR_PHOTO_HIDES_KEY", ["NAVY CRACK", "REAL CROCODILE"]],
+    ["SIMULATOR_WHITE_PYTHON_KEY", ["WHITE PYTHON"]],
+  ]) {
+    const valid = process.env[keyName];
+    for (const value of [undefined, "invalid", randomBytes(32).toString("base64")]) {
+      if (value === undefined) delete process.env[keyName];
+      else process.env[keyName] = value;
+      await expectOnlyPhotosUnavailable(unavailable);
+    }
+    process.env[keyName] = valid;
   }
-  process.env.SIMULATOR_PHOTO_HIDES_KEY = keys[10].toString("base64");
   for (const [name, slug] of Object.entries(photoHides)) {
     for (const suffix of ["", "-swatch"]) {
       const path = `./special-assets/material-${slug}${suffix}.enc`;

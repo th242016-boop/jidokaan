@@ -184,7 +184,7 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
   // The weave must repeat without inventing diamonds. Lizards use a wider atlas
   // cut once per panel, so no scale is split or mirrored at a repetition seam.
   const repeat = (value: number, size: number) => ((value % size) + size) % size;
-  const sample = name === "NAVY CRACK" || name === "BLUE LEOPARD" || name === "FLOWER D" || name === "SILVER WEAVE" || name === "SILVER SNAKE" || name === "MINT GOLD PEARL" || name === "WINE CROCODILE" ? repeat : mirror;
+  const sample = name === "WHITE PYTHON" || name === "NAVY CRACK" || name === "BLUE LEOPARD" || name === "FLOWER D" || name === "SILVER WEAVE" || name === "SILVER SNAKE" || name === "MINT GOLD PEARL" || name === "WINE CROCODILE" ? repeat : mirror;
   let lizardCut: { x: number; y: number; span: number } | undefined;
   let wineCut: { x: number; y: number; span: number; regionX: number; regionY: number; regionWidth: number; regionHeight: number } | undefined;
   if (lizard || name === "GRAY LIZARD" || name === "WINE CROCODILE") {
@@ -304,10 +304,10 @@ export function renderPatternPixels(source: ImageData, material: ImageData, name
       let reflected = lightProfile.sheen * light ** 2 * relief;
       if (hide) {
         // Do not lift the dark grooves with the same shine as scale faces.
-        // The source retains its navy/graphite dye and fine photographed relief;
+        // The source retains its own dye and fine photographed relief;
         // broad reflections come from the curvature of this shoe panel.
         const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-        const face = Math.max(0, Math.min(1, hide.name === "NAVY CRACK" ? (luma - 31) / 67 : (luma - 46) / 84));
+        const face = Math.max(0, Math.min(1, (luma - hide.face.floor) / hide.face.span));
         reflected = lightProfile.sheen * light ** 1.8 * face * face * (3 - 2 * face);
       }
       if (lizard) {

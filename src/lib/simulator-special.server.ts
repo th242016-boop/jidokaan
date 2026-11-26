@@ -54,7 +54,7 @@ function patternAssets(audience: SimulatorAudience): SpecialPatternAssets {
   for (const { name } of visiblePatterns) {
     const hide = photoHideFor(name);
     if (hide) {
-      const key = "SIMULATOR_PHOTO_HIDES_KEY";
+      const key = hide.name === "WHITE PYTHON" ? "SIMULATOR_WHITE_PYTHON_KEY" : "SIMULATOR_PHOTO_HIDES_KEY";
       if (audience !== "public" && process.env[key]) {
         try { patterns[name] = pair(hide.file, key, "image/webp"); }
         catch { console.error(`Private photograph unavailable: ${name}`); }
